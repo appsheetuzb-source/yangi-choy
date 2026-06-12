@@ -2,6 +2,24 @@ import { google } from "googleapis";
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
 
+// ── In-memory cache (5 daqiqa TTL) ────────────────────
+const _cache: Record<string, { data: unknown; ts: number }> = {};
+const CACHE_TTL = 5 * 60_000; // 5 minutes
+
+function cacheGet(key: string) {
+  const entry = _cache[key];
+  if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
+  return null;
+}
+function cacheSet(key: string, data: unknown) {
+  _cache[key] = { data, ts: Date.now() };
+}
+export function invalidateCache(sheetName?: string) {
+  if (sheetName) { delete _cache[sheetName]; }
+  else { for (const k of Object.keys(_cache)) delete _cache[k]; }
+}
+// ─────────────────────────────────────────────────────
+
 function getAuthClient(scopes?: string[]) {
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
   return new google.auth.GoogleAuth({
@@ -23,30 +41,48 @@ function getSheetsClient() {
 // ── READ ──────────────────────────────────────────────
 
 export async function getSheetData(range?: string) {
-  const sheets = getSheetsClient();
   const sheetName = process.env.GOOGLE_SHEET_NAME || "Sheet1";
   const fullRange = range || sheetName;
 
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: fullRange,
-    valueRenderOption: "UNFORMATTED_VALUE",
-    dateTimeRenderOption: "FORMATTED_STRING",
-  });
+  const cached = cacheGet(fullRange);
+  if (cached) return cached as { headers: string[]; data: Record<string, string>[] };
+
+  const sheets = getSheetsClient();
+  let response;
+  try {
+    response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: fullRange,
+      valueRenderOption: "UNFORMATTED_VALUE",
+      dateTimeRenderOption: "FORMATTED_STRING",
+    });
+  } catch {
+    return { headers: [], data: [] };
+  }
 
   const rows = response.data.values;
   if (!rows || rows.length === 0) return { headers: [], data: [] };
 
-  const headers = rows[0] as string[];
+  const rawHeaders = rows[0] as unknown[];
+  const validCols = rawHeaders
+    .map((h, i) => ({ h: String(h), i }))
+    .filter(({ h }) => h && h !== "false" && h !== "null");
+
+  const headers = validCols.map(({ h }) => h);
   const data = rows.slice(1).map((row) => {
     const obj: Record<string, string> = {};
-    headers.forEach((header, i) => {
-      obj[header] = row[i] || "";
+    validCols.forEach(({ h, i }) => {
+      const val = row[i];
+      if (val === true)  obj[h] = "TRUE";
+      else if (val === false) obj[h] = "FALSE";
+      else obj[h] = val === null || val === undefined ? "" : String(val);
     });
     return obj;
   });
 
-  return { headers, data };
+  const result = { headers, data };
+  if (headers.length > 0) cacheSet(fullRange, result);
+  return result;
 }
 
 export async function getSheetNames() {
@@ -57,20 +93,63 @@ export async function getSheetNames() {
 
 // ── WRITE ─────────────────────────────────────────────
 
-export async function appendRow(sheetName: string, row: Record<string, string>) {
+async function ensureSheetExists(sheetName: string, headers: string[]) {
+  const sheets = getSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const exists = meta.data.sheets?.some(s => s.properties?.title === sheetName);
+  if (!exists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { requests: [{ addSheet: { properties: { title: sheetName } } }] },
+    });
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${sheetName}!A1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [headers] },
+    });
+  }
+}
+
+export async function appendRow(sheetName: string, row: Record<string, string | number>) {
+  invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
-  // Headerlarni olish
-  const headersRes = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
-    range: `${sheetName}!1:1`,
-  });
-  const headers = headersRes.data.values?.[0] as string[] || [];
-  const values = headers.map((h) => row[h] ?? "");
+  let res;
+  try {
+    res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: sheetName,
+      valueRenderOption: "UNFORMATTED_VALUE",
+    });
+  } catch {
+    // Sheet mavjud emas — yaratib, qayta urinib ko'ramiz
+    await ensureSheetExists(sheetName, Object.keys(row));
+    res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: sheetName,
+      valueRenderOption: "UNFORMATTED_VALUE",
+    });
+  }
 
-  await sheets.spreadsheets.values.append({
+  const rows = res.data.values ?? [];
+  const rawHeaders = (rows[0] ?? []) as unknown[];
+
+  const validCols = rawHeaders
+    .map((h, i) => ({ h: String(h), i }))
+    .filter(({ h }) => h && h !== "false" && h !== "null" && h !== "true");
+
+  const values = validCols.map(({ h }) => {
+    const v = row[h];
+    if (v === undefined || v === null || v === "") return "";
+    return v;
+  });
+  const nextRow = rows.length + 1;
+  const endColLetter = colToLetter(validCols.length - 1);
+
+  await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
-    range: sheetName,
+    range: `${sheetName}!A${nextRow}:${endColLetter}${nextRow}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [values] },
   });
@@ -83,6 +162,7 @@ export async function updateCell(
   targetColumn: string,
   newValue: string
 ) {
+  invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
   const res = await sheets.spreadsheets.values.get({
@@ -128,6 +208,7 @@ export async function updateRow(
   idValue: string,
   updatedRow: Record<string, string>
 ) {
+  invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
   // Barcha qatorlarni olish
@@ -167,15 +248,16 @@ export async function deleteRow(
   idColumn: string,
   idValue: string
 ) {
+  invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
   // Sheet ID ni topish
   const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
   const sheet = spreadsheet.data.sheets?.find(
-    (s) => s.properties?.title === sheetName
+    (s) => s.properties?.title?.toLowerCase() === sheetName.toLowerCase()
   );
-  if (!sheet?.properties?.sheetId === undefined) throw new Error("Sheet topilmadi");
-  const sheetId = sheet!.properties!.sheetId!;
+  if (!sheet?.properties?.sheetId) throw new Error("Sheet topilmadi: " + sheetName);
+  const sheetId = sheet.properties.sheetId;
 
   // Qator indeksini topish
   const res = await sheets.spreadsheets.values.get({
@@ -236,4 +318,25 @@ export async function getDriveImage(
     stream: fileRes.data as unknown as NodeJS.ReadableStream,
     mimeType: file.mimeType || "image/jpeg",
   };
+}
+
+export async function uploadDriveImage(
+  fileName: string,
+  buffer: Buffer,
+  mimeType: string
+): Promise<string> {
+  const auth = getAuthClient([
+    "https://www.googleapis.com/auth/drive.file",
+    "https://www.googleapis.com/auth/drive",
+  ]);
+  const drive = google.drive({ version: "v3", auth });
+  const { Readable } = await import("stream");
+
+  await drive.files.create({
+    requestBody: { name: fileName, mimeType },
+    media: { mimeType, body: Readable.from(buffer) },
+    fields: "id",
+  });
+
+  return `Mahsulot_Images/${fileName}`;
 }

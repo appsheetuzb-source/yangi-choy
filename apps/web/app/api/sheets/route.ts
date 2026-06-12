@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSheetData, getSheetNames, appendRow, updateRow, deleteRow } from "@/lib/sheets";
 
+export const dynamic = "force-dynamic";
+
+// Server-side in-memory cache (5 daqiqa)
+const cache: Record<string, { data: unknown; ts: number }> = {};
+const TTL = 5 * 60_000;
+
+function getCached(key: string): unknown | null {
+  const e = cache[key];
+  if (!e) return null;
+  if (Date.now() - e.ts > TTL) { delete cache[key]; return null; }
+  return e.data;
+}
+function setCached(key: string, data: unknown) { cache[key] = { data, ts: Date.now() }; }
+function invalidate(sheet: string) { delete cache[sheet]; }
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -12,21 +27,31 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ sheets: sheetNames });
     }
 
+    const key = range || "__all__";
+    const cached = getCached(key);
+    if (cached) {
+      return NextResponse.json(cached, {
+        headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
+      });
+    }
+
     const result = await getSheetData(range);
-    return NextResponse.json(result);
+    if (result.headers.length > 0) setCached(key, result);
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
+    });
   } catch (error) {
     console.error("Sheets GET xatosi:", error);
     return NextResponse.json({ error: "Ma'lumotlarni yuklashda xatolik" }, { status: 500 });
   }
 }
 
-// Yangi qator qo'shish
 export async function POST(request: NextRequest) {
   try {
     const { sheet, row } = await request.json();
     if (!sheet || !row) return NextResponse.json({ error: "sheet va row kerak" }, { status: 400 });
-
     await appendRow(sheet, row);
+    invalidate(sheet);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Sheets POST xatosi:", error);
@@ -34,15 +59,14 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Mavjud qatorni tahrirlash
 export async function PUT(request: NextRequest) {
   try {
-    const { sheet, idColumn, idValue, row } = await request.json();
-    if (!sheet || !idColumn || !idValue || !row) {
-      return NextResponse.json({ error: "sheet, idColumn, idValue, row kerak" }, { status: 400 });
+    const { sheet, idColumn, idValue, row, updates } = await request.json();
+    if (!sheet || !idColumn || !idValue) {
+      return NextResponse.json({ error: "sheet, idColumn, idValue kerak" }, { status: 400 });
     }
-
-    await updateRow(sheet, idColumn, idValue, row);
+    await updateRow(sheet, idColumn, idValue, row || updates);
+    invalidate(sheet);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Sheets PUT xatosi:", error);
@@ -50,15 +74,14 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// Qatorni o'chirish
 export async function DELETE(request: NextRequest) {
   try {
     const { sheet, idColumn, idValue } = await request.json();
     if (!sheet || !idColumn || !idValue) {
       return NextResponse.json({ error: "sheet, idColumn, idValue kerak" }, { status: 400 });
     }
-
     await deleteRow(sheet, idColumn, idValue);
+    invalidate(sheet);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Sheets DELETE xatosi:", error);

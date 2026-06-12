@@ -1,6 +1,8 @@
-"use client";
+﻿"use client";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 interface Mahsulot {
   Mahsulot_ID: string;
@@ -16,8 +18,11 @@ interface Mahsulot {
   Check: string;
 }
 
-type ViewType = "grid" | "list";
-type CurrencyType = "som" | "dollar";
+interface Ombor {
+  Ombor_ID: string;
+  Nomi: string;
+}
+
 
 const EMPTY: Mahsulot = {
   Mahsulot_ID: "", Ombor_ID: "", Nomi: "", Rasm: "",
@@ -29,13 +34,19 @@ function uid() { return Math.random().toString(36).slice(2, 10); }
 
 export default function MahsulotPage() {
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [search, setSearch]     = useState("");
-  const [view, setView]         = useState<ViewType>("list");
-  const [currency, setCurrency] = useState<CurrencyType>("som");
+  const [omborlar, setOmborlar]       = useState<Ombor[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState<string | null>(null);
+  const [search, setSearch]           = useState("");
+  const [jamiSotuvSom, setJamiSotuvSom]         = useState(0);
+  const [jamiSotuvDollar, setJamiSotuvDollar]   = useState(0);
+  const [balansMap, setBalansMap]               = useState<Record<string, number>>({});
+  const [sortCol, setSortCol]   = useState<string | null>(null);
+  const [sortDir, setSortDir]   = useState<"asc" | "desc">("asc");
 
-  const [modalOpen, setModalOpen]     = useState(false);
+  const [currency, setCurrency]       = useState<"barchasi" | "som" | "dollar">("barchasi");
+  const [view, setView]               = useState<"grid" | "list">("grid");
+  const [drawerOpen, setDrawerOpen]   = useState(false);
   const [editTarget, setEditTarget]   = useState<Mahsulot | null>(null);
   const [formData, setFormData]       = useState<Mahsulot>(EMPTY);
   const [formSom, setFormSom]         = useState(true);
@@ -43,45 +54,125 @@ export default function MahsulotPage() {
   const [saving, setSaving]           = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
+  const [imgPreview, setImgPreview]   = useState<string | null>(null);
+  const [uploading, setUploading]     = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const loadData = useCallback(() => {
+  const loadData = useCallback((delay = 0) => {
     setLoading(true);
-    fetch("/api/sheets?range=Mahsulot")
-      .then(r => r.json())
-      .then(json => {
-        if (json.error) throw new Error(json.error);
-        setMahsulotlar(json.data as Mahsulot[]);
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+    setTimeout(() => {
+      fetchSheet("Mahsulot")
+        .then(json => {
+          if ((json as {error?:string}).error) throw new Error((json as {error:string}).error);
+          setMahsulotlar(json.data as Mahsulot[]);
+        })
+        .catch(e => setError(e.message))
+        .finally(() => setLoading(false));
+    }, delay);
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    loadData();
+    fetchSheet("Ombor")
+      .then(j => { if (!(j as {error?:string}).error) setOmborlar(j.data as Ombor[]); });
+    Promise.all([
+      fetchSheet("Sotuv_Savat"),
+      fetchSheet("Sotuv_Savat_Dollar"),
+      fetchSheet("Xarid_Savat"),
+    ]).then(([ssRes, ssdRes, xsRes]) => {
+      const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
+      const som    = (ssRes.data  as Record<string, string>[]).reduce((s, r) => s + n(r.Summa_som), 0);
+      const dollar = (ssdRes.data as Record<string, string>[]).reduce((s, r) => s + n(r.Summa),     0);
+      setJamiSotuvSom(som);
+      setJamiSotuvDollar(dollar);
+
+      // Har mahsulot uchun balans: kirim (xarid) - chiqim (sotuv)
+      const map: Record<string, number> = {};
+      (xsRes.data as Record<string, string>[]).forEach(r => {
+        if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) + n(r.Soni);
+      });
+      (ssRes.data as Record<string, string>[]).forEach(r => {
+        if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) - n(r.Soni);
+      });
+      (ssdRes.data as Record<string, string>[]).forEach(r => {
+        if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) - n(r.Soni);
+      });
+      setBalansMap(map);
+    });
+  }, [loadData]);
 
   const filtered = mahsulotlar.filter(m =>
-    m.Nomi.toLowerCase().includes(search.toLowerCase())
+    String(m.Nomi || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  function toggleSort(col: string) {
+    if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortCol(col); setSortDir("asc"); }
+  }
+
+  const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
+
+  const sorted = sortCol ? [...filtered].sort((a, b) => {
+    let av = 0, bv = 0;
+    let as = "", bs = "";
+    if (sortCol === "nomi")    { as = a.Nomi || ""; bs = b.Nomi || ""; return sortDir === "asc" ? as.localeCompare(bs, "uz") : bs.localeCompare(as, "uz"); }
+    if (sortCol === "sotuv_som")   { av = n(a.Sotuv_som);    bv = n(b.Sotuv_som);    }
+    if (sortCol === "sotuv_usd")   { av = n(a.Sotuv_dollar); bv = n(b.Sotuv_dollar); }
+    if (sortCol === "tan_som")     { av = n(a.Tan_som);      bv = n(b.Tan_som);      }
+    if (sortCol === "tan_usd")     { av = n(a.Tan_dollar);   bv = n(b.Tan_dollar);   }
+    if (sortCol === "hozirda_bor") { av = balansMap[a.Mahsulot_ID] ?? 0; bv = balansMap[b.Mahsulot_ID] ?? 0; }
+    return sortDir === "asc" ? av - bv : bv - av;
+  }) : filtered;
 
   function openAdd() {
     setEditTarget(null);
-    setFormData({ ...EMPTY, Mahsulot_ID: uid(), Qoshilgan_sana: new Date().toLocaleDateString("ru-RU") });
+    setFormData({ ...EMPTY, Mahsulot_ID: uid(), Ombor_ID: omborlar[0]?.Ombor_ID || "" });
     setFormSom(true);
     setFormDollar(false);
-    setModalOpen(true);
+    setImgPreview(null);
+    setDrawerOpen(true);
   }
 
   function openEdit(m: Mahsulot) {
     setEditTarget(m);
     setFormData({ ...m });
-    const hasSom = m.Sotuv_som && String(m.Sotuv_som).trim() !== "" && String(m.Sotuv_som).trim() !== "0";
+    const hasSom    = m.Sotuv_som    && String(m.Sotuv_som).trim()    !== "" && String(m.Sotuv_som).trim()    !== "0";
     const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
     setFormSom(hasSom || (!hasSom && !hasDollar));
-    setFormDollar(hasDollar);
-    setModalOpen(true);
+    setFormDollar(!!hasDollar);
+    setImgPreview(null);
+    setDrawerOpen(true);
+  }
+
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImgPreview(URL.createObjectURL(file));
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("mahsulotId", formData.Mahsulot_ID || uid());
+      const res  = await fetch("/api/image", { method: "POST", body: fd });
+      const json = await res.json();
+      if (json.path) setFormData(p => ({ ...p, Rasm: json.path }));
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  function isValid() {
+    if (!formData.Nomi.trim()) return false;
+    if (!formData.Sotuv_som.trim() || !formData.Sotuv_dollar.trim()) return false;
+    if (!formSom && !formDollar) return false;
+    if (formSom && !formData.Tan_som.trim()) return false;
+    if (formDollar && !formData.Tan_dollar.trim()) return false;
+    return true;
   }
 
   async function handleSave() {
-    if (!formData.Nomi.trim() || (!formSom && !formDollar)) return;
+    if (!isValid()) return;
     setSaving(true);
     try {
       if (editTarget) {
@@ -91,8 +182,8 @@ export default function MahsulotPage() {
         await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Mahsulot", row: formData }) });
       }
-      setModalOpen(false);
-      loadData();
+      setDrawerOpen(false);
+      afterWrite("Mahsulot"); loadData(800);
     } finally { setSaving(false); }
   }
 
@@ -103,29 +194,12 @@ export default function MahsulotPage() {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Mahsulot", idColumn: "Mahsulot_ID", idValue: deleteTarget.Mahsulot_ID }) });
       setDeleteTarget(null);
-      loadData();
+      afterWrite("Mahsulot"); loadData(800);
     } finally { setDeleting(false); }
   }
 
-  function fmt(val: string | number, cur: CurrencyType): string {
-    const v = val === "" || val === undefined || val === null ? null : val;
-    if (v === null) return cur === "som" ? "0 so'm" : "$0";
-    return cur === "som" ? `${v} so'm` : `$${v}`;
-  }
-
-  const sotuvOf = (m: Mahsulot) => currency === "som"
-    ? fmt(m.Sotuv_som, "som") : fmt(m.Sotuv_dollar, "dollar");
-  const tanOf = (m: Mahsulot) => currency === "som"
-    ? fmt(m.Tan_som, "som") : fmt(m.Tan_dollar, "dollar");
-
-  function valyuta(m: Mahsulot): string {
-    const hasSom    = m.Sotuv_som    && String(m.Sotuv_som).trim()    !== "" && String(m.Sotuv_som).trim()    !== "0";
-    const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
-    if (hasSom && hasDollar) return "So'm / $";
-    if (hasSom)    return "So'm";
-    if (hasDollar) return "$";
-    return "—";
-  }
+  const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
+  const nameEntered = formData.Nomi.trim().length > 0;
 
   return (
     <>
@@ -150,6 +224,19 @@ export default function MahsulotPage() {
             )}
           </div>
           <div className="header__spacer" />
+          {/* Currency toggle */}
+          <div style={{ display: "flex", gap: 3, background: "var(--bg)", borderRadius: 10, padding: 3, border: "1px solid var(--border)" }}>
+            {([["barchasi", "Barchasi"], ["som", "So'm"], ["dollar", "Dollar"]] as [string, string][]).map(([val, label]) => (
+              <button key={val} onClick={() => setCurrency(val as "barchasi" | "som" | "dollar")} style={{
+                padding: "5px 14px", borderRadius: 7, border: "none", cursor: "pointer",
+                fontSize: 12, fontWeight: 700,
+                background: currency === val ? "var(--white)" : "transparent",
+                color: currency === val ? "var(--primary)" : "var(--text-3)",
+                boxShadow: currency === val ? "0 1px 4px rgba(0,0,0,.08)" : "none",
+                transition: "all .15s",
+              }}>{label}</button>
+            ))}
+          </div>
           <button className="btn btn--primary" onClick={openAdd}>
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
@@ -162,13 +249,7 @@ export default function MahsulotPage() {
       {/* Toolbar */}
       <div className="toolbar">
         <div className="toolbar__inner">
-          <button className={`btn ${currency === "som" ? "btn--active" : "btn--outline"}`}
-            onClick={() => setCurrency("som")}>So&apos;m</button>
-          <button className={`btn ${currency === "dollar" ? "btn--active" : "btn--outline"}`}
-            onClick={() => setCurrency("dollar")}>$</button>
-
           <div className="toolbar__divider toolbar__divider--auto" />
-
           <div className="toggle-group">
             <button className={`toggle-group__btn ${view === "grid" ? "toggle-group__btn--active" : ""}`}
               onClick={() => setView("grid")}>
@@ -188,6 +269,44 @@ export default function MahsulotPage() {
 
       {/* Main */}
       <div className="page-content">
+
+        {/* Summary cards */}
+        {(() => {
+          const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
+          const hozirdaBorKg = mahsulotlar.reduce((s, m) => s + n(m.Kg), 0);
+          const fmt    = (v: number) => v.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
+          const fmtUsd = (v: number) => v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const hozirdaBorSom    = mahsulotlar.reduce((s, m) => s + n(m.Kg) * n(m.Sotuv_som),    0);
+          const hozirdaBorDollar = mahsulotlar.reduce((s, m) => s + n(m.Kg) * n(m.Sotuv_dollar), 0);
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+              {[
+                { label: "HOZIRDA BOR (KG)", value: `${fmt(hozirdaBorKg)} kg`, color: "var(--primary)", bg: "#dcfce7",
+                  icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
+                { label: "HOZIRDA BOR", value: `${fmt(hozirdaBorSom)} so'm`, color: "#16a34a", bg: "#dcfce7",
+                  icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
+                { label: "HOZIRDA BOR ($)", value: `$${fmtUsd(hozirdaBorDollar)}`, color: "#2563eb", bg: "#dbeafe",
+                  icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> },
+                { label: "JAMI MAHSULOT", value: `${filtered.length} ta`, color: "#7c3aed", bg: "#ede9fe",
+                  icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg> },
+              ].map(card => (
+                <div key={card.label} style={{
+                  background: "var(--white)", borderRadius: "var(--radius-xl)",
+                  boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)", padding: 20,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em" }}>{card.label}</span>
+                    <span style={{ width: 28, height: 28, borderRadius: 8, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", color: card.color }}>
+                      {card.icon}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 18, fontWeight: 800, color: card.color, lineHeight: 1.1 }}>{card.value}</p>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {!loading && !error && <p className="count-label">{filtered.length} ta mahsulot</p>}
 
         {loading && (
@@ -195,7 +314,7 @@ export default function MahsulotPage() {
             <div className="card-grid">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="skeleton">
-                  <div className="skeleton__img" />
+                  <div className="skeleton__img" style={{ aspectRatio: "unset", height: 120 }} />
                   <div className="skeleton__body">
                     <div className="skeleton__line" />
                     <div className="skeleton__line skeleton__line--short" />
@@ -225,109 +344,214 @@ export default function MahsulotPage() {
           </div>
         )}
 
-        {/* Grid */}
         {!loading && !error && filtered.length > 0 && view === "grid" && (
           <div className="card-grid">
-            {filtered.map(m => (
-              <GridCard key={m.Mahsulot_ID} mahsulot={m}
-                sotuvLabel={sotuvOf(m)} tanLabel={tanOf(m)} valyuta={valyuta(m)}
+            {filtered.map((m, i) => (
+              <GridCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
+                currency={currency}
+                omborNomi={omborNomi(m.Ombor_ID)}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
         )}
 
-        {/* List */}
-        {!loading && !error && filtered.length > 0 && view === "list" && (
+        {!loading && !error && filtered.length > 0 && view === "list" && (() => {
+          const cols = [
+            { key: "nomi",        label: "Nomi",         cls: "list__head-name", show: true },
+            { key: "sotuv_som",   label: "Sotuv (so'm)", cls: "list__head-col",  show: currency !== "dollar" },
+            { key: "sotuv_usd",   label: "Sotuv ($)",    cls: "list__head-col",  show: currency !== "som" },
+            { key: "tan_som",     label: "Tan (so'm)",   cls: "list__head-col",  show: currency !== "dollar" },
+            { key: "tan_usd",     label: "Tan ($)",      cls: "list__head-col",  show: currency !== "som" },
+            { key: "hozirda_bor", label: "Hozirda bor",  cls: "list__head-col",  show: true },
+          ].filter(c => c.show);
+          return (
           <div className="list">
-            <div className="list__head">
+            <div className="list__head" style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--white)" }}>
               <div className="list__head-img" />
-              <div className="list__head-name"><span>Nomi</span></div>
-              <div className="list__head-col"><span>Valyuta</span></div>
-              <div className="list__head-col"><span>Tan narxi</span></div>
-              <div className="list__head-col"><span>Sotuv narxi</span></div>
+              {cols.map(col => (
+                <div key={col.key} className={col.cls}
+                  onClick={() => toggleSort(col.key)}
+                  style={{ cursor: "pointer", userSelect: "none" }}>
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: col.cls === "list__head-name" ? "flex-start" : "flex-end", gap: 2 }}>
+                    <span style={{ fontWeight: 700 }}>{col.label}</span>
+                    <span style={{ fontSize: 10, color: sortCol === col.key ? "var(--primary)" : "var(--text-3)" }}>
+                      {sortCol === col.key ? (sortDir === "asc" ? "↑ o'sish" : "↓ kamayish") : "↕ sort"}
+                    </span>
+                  </div>
+                </div>
+              ))}
               <div className="list__head-actions" />
             </div>
-
-            {filtered.map(m => (
-              <ListCard key={m.Mahsulot_ID} mahsulot={m}
-                sotuvLabel={sotuvOf(m)} tanLabel={tanOf(m)} valyuta={valyuta(m)}
+            {sorted.map((m, i) => (
+              <ListCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
+                currency={currency}
+                balans={balansMap[m.Mahsulot_ID]}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
 
-      {/* Add/Edit Modal */}
-      {modalOpen && (
-        <div className="modal-overlay" onClick={() => setModalOpen(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <div className="modal__head">
-              <h2 className="modal__title">{editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}</h2>
-              <button className="modal__close" onClick={() => setModalOpen(false)}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      {/* ── Drawer (right side panel) ── */}
+      {drawerOpen && (
+        <>
+          <div className="drawer-overlay" onClick={() => setDrawerOpen(false)} />
+          <div className="drawer">
+            {/* Head */}
+            <div className="drawer__head">
+              <button className="drawer__back" onClick={() => setDrawerOpen(false)}>
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
                 </svg>
               </button>
+              <span className="drawer__title">
+                {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}
+              </span>
             </div>
-            <div className="modal__body">
-              <Field label="Nomi *" value={formData.Nomi} placeholder="Mahsulot nomi"
-                onChange={v => setFormData(p => ({ ...p, Nomi: v }))} />
 
-              {/* Valyuta tanlash */}
-              <div className="field">
-                <label>Sotuv valyutasi</label>
-                <div style={{ display: "flex", gap: 8, marginTop: 2 }}>
-                  {([
-                    { key: "som",    label: "So'm", active: formSom,    toggle: () => setFormSom(p => !p) },
-                    { key: "dollar", label: "$",    active: formDollar, toggle: () => setFormDollar(p => !p) },
-                  ]).map(({ key, label, active, toggle }) => (
-                    <button key={key} type="button" onClick={toggle}
-                      style={{
-                        flex: 1, padding: "9px 0", borderRadius: 10, border: "1px solid",
-                        fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "all .15s",
-                        background: active ? "var(--primary)" : "var(--bg)",
-                        color: active ? "#fff" : "var(--text-2)",
-                        borderColor: active ? "var(--primary)" : "var(--border)",
-                      }}>
-                      {label}
-                    </button>
-                  ))}
+            {/* Body */}
+            <div className="drawer__body">
+
+              {/* 1. Asosiy */}
+              <div className="drawer__section">
+                <p className="drawer__section-label">Asosiy ma&apos;lumot</p>
+
+                <div className="field">
+                  <label>Mahsulot nomi *</label>
+                  <input
+                    value={formData.Nomi}
+                    onChange={e => setFormData(p => ({ ...p, Nomi: e.target.value }))}
+                    placeholder="Masalan: Rizq 500gr"
+                    style={{ fontSize: 15, fontWeight: 600 }}
+                    autoFocus
+                  />
                 </div>
+
+                {/* Ombor tanlash */}
+                {omborlar.length > 0 && (
+                  <div className="field">
+                    <label>Ombor</label>
+                    <div className="pill-group">
+                      {omborlar.map(o => (
+                        <button key={o.Ombor_ID} type="button"
+                          className={`pill ${formData.Ombor_ID === o.Ombor_ID ? "pill--active" : ""}`}
+                          onClick={() => setFormData(p => ({ ...p, Ombor_ID: o.Ombor_ID }))}>
+                          {o.Nomi}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="field">
+                  <label>Og&apos;irligi (kg)</label>
+                  <input value={formData.Kg} onChange={e => setFormData(p => ({ ...p, Kg: e.target.value }))} placeholder="1" />
+                </div>
+
               </div>
 
-              {/* So'm maydonlari */}
-              {formSom && (
-                <div className="grid-2">
-                  <Field label="Sotuv (so'm)" value={formData.Sotuv_som} placeholder="0"
-                    onChange={v => setFormData(p => ({ ...p, Sotuv_som: v }))} />
-                  <Field label="Tan narx (so'm)" value={formData.Tan_som} placeholder="0"
-                    onChange={v => setFormData(p => ({ ...p, Tan_som: v }))} />
+              {/* 2. Narxlar — faqat nom kiritilganda */}
+              {nameEntered && (
+                <div className="drawer__section fade-in">
+                  <p className="drawer__section-label">Narxlar *</p>
+
+                  {/* Sotuv narxi — har doim ikkalasi, majburiy */}
+                  <div className="grid-2">
+                    <Field label="Sotuv narxi so'm *" value={formData.Sotuv_som} placeholder="0"
+                      onChange={v => setFormData(p => ({ ...p, Sotuv_som: v }))} />
+                    <Field label="Sotuv narxi $ *" value={formData.Sotuv_dollar} placeholder="0"
+                      onChange={v => setFormData(p => ({ ...p, Sotuv_dollar: v }))} />
+                  </div>
+
+                  {/* Tan narx valyuta toggle — majburiy */}
+                  <div className="field">
+                    <label>Tan narx valyutasi *</label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {([
+                        { key: "som",    label: "So'm", active: formSom,    toggle: () => setFormSom(p => !p) },
+                        { key: "dollar", label: "$",    active: formDollar, toggle: () => setFormDollar(p => !p) },
+                      ]).map(({ key, label, active, toggle }) => (
+                        <button key={key} type="button" onClick={toggle}
+                          style={{
+                            flex: 1, padding: "9px 0", borderRadius: 10, border: "1.5px solid",
+                            fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all .15s",
+                            background: active ? "var(--primary)" : "var(--bg)",
+                            color:      active ? "#fff"           : "var(--text-2)",
+                            borderColor: active ? "var(--primary)" : "var(--border)",
+                          }}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Tan narxi — tanlangan valyutaga ko'ra, majburiy */}
+                  {(formSom || formDollar) && (
+                    <div className={formSom && formDollar ? "grid-2 fade-in" : "fade-in"}>
+                      {formSom && (
+                        <Field label="Tan narxi so'm *" value={formData.Tan_som} placeholder="0"
+                          onChange={v => setFormData(p => ({ ...p, Tan_som: v }))} />
+                      )}
+                      {formDollar && (
+                        <Field label="Tan narxi $ *" value={formData.Tan_dollar} placeholder="0"
+                          onChange={v => setFormData(p => ({ ...p, Tan_dollar: v }))} />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Dollar maydonlari */}
-              {formDollar && (
-                <div className="grid-2">
-                  <Field label="Sotuv ($)" value={formData.Sotuv_dollar} placeholder="0"
-                    onChange={v => setFormData(p => ({ ...p, Sotuv_dollar: v }))} />
-                  <Field label="Tan narx ($)" value={formData.Tan_dollar} placeholder="0"
-                    onChange={v => setFormData(p => ({ ...p, Tan_dollar: v }))} />
+              {/* Rasm — eng pastda, to'liq kenglik, past bo'y */}
+              <div className="drawer__section">
+                <p className="drawer__section-label">Rasm</p>
+                <div className="img-upload"
+                  style={{ width: "100%", height: 110, aspectRatio: "unset" }}
+                  onClick={() => !uploading && fileRef.current?.click()}>
+                  {(imgPreview || formData.Rasm) ? (
+                    <>
+                      <img src={imgPreview || `/api/image?path=${encodeURIComponent(formData.Rasm)}`} alt="preview" />
+                      {uploading && (
+                        <div className="img-upload__overlay">
+                          <span className="spinner" style={{ borderTopColor: "var(--primary)", borderColor: "rgba(0,0,0,.1)", width: 22, height: 22 }} />
+                        </div>
+                      )}
+                      {!uploading && (
+                        <button className="img-upload__remove" type="button"
+                          onClick={e => { e.stopPropagation(); setImgPreview(null); setFormData(p => ({ ...p, Rasm: "" })); }}>
+                          <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <div className="img-upload__placeholder" style={{ flexDirection: "row", gap: 8 }}>
+                      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                      </svg>
+                      <span>{uploading ? "Yuklanmoqda..." : "Rasm tanlash"}</span>
+                    </div>
+                  )}
                 </div>
-              )}
-
-              <Field label="Og'irligi (kg)" value={formData.Kg} placeholder="1"
-                onChange={v => setFormData(p => ({ ...p, Kg: v }))} />
+                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
+                  onChange={handleImageSelect} />
+              </div>
             </div>
-            <div className="modal__footer">
-              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setModalOpen(false)}>Bekor</button>
+
+            {/* Footer */}
+            <div className="drawer__footer">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setDrawerOpen(false)}>
+                Bekor qilish
+              </button>
               <button className="btn btn--primary" style={{ flex: 1 }} onClick={handleSave}
-                disabled={saving || !formData.Nomi.trim() || (!formSom && !formDollar)}>
+                disabled={saving || !isValid()}>
                 {saving && <span className="spinner" />}
-                {editTarget ? "Saqlash" : "Qo'shish"}
+                {editTarget ? "Saqlash" : "Qoʻshish"}
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Delete confirm */}
@@ -357,66 +581,27 @@ export default function MahsulotPage() {
   );
 }
 
-/* ── Field ─────────────────────────────────── */
-function Field({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (v: string) => void; placeholder?: string }) {
+/* ── Price Line ─────────────────────────────── */
+function PriceLine({ label, value, blue, dim }: { label: string; value: string; blue?: boolean; dim?: boolean }) {
   return (
-    <div className="field">
-      <label>{label}</label>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
-    </div>
-  );
-}
-
-/* ── Grid Card ──────────────────────────────── */
-function GridCard({ mahsulot: m, sotuvLabel, tanLabel, valyuta, onEdit, onDelete }:
-  { mahsulot: Mahsulot; sotuvLabel: string; tanLabel: string; valyuta: string; onEdit: () => void; onDelete: () => void }) {
-  const [imgError, setImgError] = useState(false);
-  return (
-    <div className="card">
-      <div className="card__img">
-        {!imgError && m.Rasm
-          ? <img src={`/api/image?path=${encodeURIComponent(m.Rasm)}`} alt={m.Nomi} onError={() => setImgError(true)} />
-          : <div className="card__img-placeholder">📦</div>}
-        <div className="card__actions">
-          <button className="card__action-btn card__action-btn--edit" onClick={e => { e.stopPropagation(); onEdit(); }}>
-            <svg width="16" height="16" fill="none" stroke="#2563eb" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-            </svg>
-          </button>
-          <button className="card__action-btn card__action-btn--del" onClick={e => { e.stopPropagation(); onDelete(); }}>
-            <svg width="16" height="16" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-      <div className="card__body">
-        <p className="card__name">{m.Nomi}</p>
-        <div className="card__prices">
-          <div className="card__price-box">
-            <p className="card__price-label">Sotuv</p>
-            <p className="card__price-val">{sotuvLabel}</p>
-          </div>
-          <div className="card__price-box">
-            <p className="card__price-label">Tan</p>
-            <p className="card__price-val card__price-val--gray">{tanLabel}</p>
-          </div>
-        </div>
-        {m.Kg && <p className="card__kg">{m.Kg} kg</p>}
-        <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
-          <span style={{ fontWeight: 600, color: "var(--text-2)" }}>{valyuta}</span> bilan sotiladi
-        </p>
-      </div>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: dim ? "var(--text-2)" : "var(--text-2)" }}>{label}</span>
+      <span style={{ fontSize: 12, fontWeight: 700, color: blue ? "#2563eb" : "var(--text)" }}>{value}</span>
     </div>
   );
 }
 
 /* ── List Card ──────────────────────────────── */
-function ListCard({ mahsulot: m, sotuvLabel, tanLabel, valyuta, onEdit, onDelete }:
-  { mahsulot: Mahsulot; sotuvLabel: string; tanLabel: string; valyuta: string; onEdit: () => void; onDelete: () => void }) {
+function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; balans?: number; onEdit: () => void; onDelete: () => void;
+}) {
   const [imgError, setImgError] = useState(false);
+  const router = useRouter();
+  const hasSom    = m.Sotuv_som    && String(m.Sotuv_som).trim()    !== "" && String(m.Sotuv_som).trim()    !== "0";
+  const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
+
   return (
-    <div className="list-card">
+    <div className="list-card" style={{ cursor: "pointer" }} onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
       <div className="list-card__img">
         {!imgError && m.Rasm
           ? <img src={`/api/image?path=${encodeURIComponent(m.Rasm)}`} alt={m.Nomi} onError={() => setImgError(true)} />
@@ -426,29 +611,125 @@ function ListCard({ mahsulot: m, sotuvLabel, tanLabel, valyuta, onEdit, onDelete
         <p>{m.Nomi}</p>
         {m.Kg && <span>{m.Kg} kg</span>}
       </div>
+      {currency !== "dollar" && (
+        <div className="list-card__col">
+          <p className="list-card__col-val">{hasSom ? `${Number(m.Sotuv_som).toLocaleString("ru-RU")}` : "—"}</p>
+        </div>
+      )}
+      {currency !== "som" && (
+        <div className="list-card__col">
+          <p className="list-card__col-val" style={{ color: hasDollar ? "#2563eb" : undefined }}>
+            {hasDollar ? `${Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+          </p>
+        </div>
+      )}
+      {currency !== "dollar" && (
+        <div className="list-card__col">
+          <p className="list-card__col-val--gray">
+            {m.Tan_som && String(m.Tan_som).trim() !== "" && String(m.Tan_som).trim() !== "0"
+              ? Number(m.Tan_som).toLocaleString("ru-RU") : "—"}
+          </p>
+        </div>
+      )}
+      {currency !== "som" && (
+        <div className="list-card__col">
+          <p className="list-card__col-val--gray" style={{ color: m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0" ? "#2563eb" : undefined }}>
+            {m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0"
+              ? Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+          </p>
+        </div>
+      )}
       <div className="list-card__col">
-        <span style={{
-          display: "inline-block", background: "var(--primary)", color: "#fff",
-          fontSize: 13, fontWeight: 600, padding: "4px 12px", borderRadius: 8
-        }}>{valyuta}</span>
-      </div>
-      <div className="list-card__col">
-        <p className="list-card__col-val--gray">{tanLabel}</p>
-      </div>
-      <div className="list-card__col">
-        <p className="list-card__col-val">{sotuvLabel}</p>
+        <p className="list-card__col-val" style={{ color: balans !== undefined && balans > 0 ? "var(--primary)" : balans !== undefined && balans < 0 ? "#ef4444" : "var(--text-3)", fontWeight: 700 }}>
+          {balans !== undefined ? `${balans.toLocaleString("ru-RU")} kg` : "—"}
+        </p>
       </div>
       <div className="list-card__actions">
-        <button className="icon-btn icon-btn--blue" onClick={onEdit}>
+        <button className="icon-btn icon-btn--blue" onClick={e => { e.stopPropagation(); onEdit(); }}>
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
           </svg>
         </button>
-        <button className="icon-btn icon-btn--red" onClick={onDelete}>
+        <button className="icon-btn icon-btn--red" onClick={e => { e.stopPropagation(); onDelete(); }}>
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
           </svg>
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── Field ─────────────────────────────────── */
+function Field({ label, value, onChange, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
+}) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+/* ── Grid Card ──────────────────────────────── */
+function GridCard({ mahsulot: m, currency, omborNomi, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; omborNomi: string; onEdit: () => void; onDelete: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+  const router = useRouter();
+
+  const hasSom    = m.Sotuv_som    && String(m.Sotuv_som).trim()    !== "" && String(m.Sotuv_som).trim()    !== "0";
+  const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
+  const showSom    = currency !== "dollar";
+  const showDollar = currency !== "som";
+
+  return (
+    <div className="card" style={{ cursor: "pointer" }}
+      onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
+      {/* Kichikroq rasm */}
+      <div className="card__img" style={{ aspectRatio: "unset", height: 120 }}>
+        {!imgError && m.Rasm
+          ? <img src={`/api/image?path=${encodeURIComponent(m.Rasm)}`} alt={m.Nomi} onError={() => setImgError(true)} />
+          : <div className="card__img-placeholder" style={{ fontSize: 32 }}>📦</div>}
+        <div className="card__actions">
+          <button className="card__action-btn card__action-btn--edit" onClick={e => { e.stopPropagation(); onEdit(); }}>
+            <svg width="15" height="15" fill="none" stroke="#2563eb" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+            </svg>
+          </button>
+          <button className="card__action-btn card__action-btn--del" onClick={e => { e.stopPropagation(); onDelete(); }}>
+            <svg width="15" height="15" fill="none" stroke="#ef4444" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div className="card__body">
+        <p className="card__name">{m.Nomi || "—"}</p>
+        {omborNomi && (
+          <p style={{ fontSize: 10, fontWeight: 600, color: "var(--green)", marginBottom: 6 }}>{omborNomi}</p>
+        )}
+
+        {/* Narxlar */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {showSom && hasSom && (<>
+            <PriceLine label="Sotuv narxi (so'm)" value={Number(m.Sotuv_som).toLocaleString("ru-RU")} />
+            {m.Tan_som && String(m.Tan_som).trim() !== "" && String(m.Tan_som).trim() !== "0" && (
+              <PriceLine label="Tan narxi (so'm)" value={Number(m.Tan_som).toLocaleString("ru-RU")} dim />
+            )}
+          </>)}
+          {showDollar && hasDollar && (<>
+            <PriceLine label="Sotuv narxi ($)" value={Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} blue />
+            {m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0" && (
+              <PriceLine label="Tan narxi ($)" value={Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} dim />
+            )}
+          </>)}
+          {!hasSom && !hasDollar && (
+            <span style={{ fontSize: 11, color: "var(--text-3)" }}>Narx kiritilmagan</span>
+          )}
+        </div>
       </div>
     </div>
   );

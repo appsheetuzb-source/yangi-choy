@@ -1,18 +1,27 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import Sidebar from "@/components/Sidebar";
+import { AuthProvider } from "@/lib/AuthContext";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Yangi Choy",
   description: "Yangi Choy boshqaruv paneli",
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: "#0d1117",
+};
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="uz">
       <body>
-        <Sidebar />
-        <div className="page-wrap">{children}</div>
+        <AuthProvider>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );
