@@ -14,7 +14,8 @@ interface XaridSavat {
   Soni: string; Narxi: string; Narx_som: string; Foiz: string; Foizli_narx_dollar: string;
   Summa_Som: string; Jami_Summa: string;
 }
-interface Taminotchi { Taminotchi_ID: string; Ism: string; }
+interface Taminotchi { Taminotchi_ID: string; Ism: string; Boshlangich_som?: string; Boshlangich_Balans?: string; }
+interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Valyuta: string; Summa: string; Som: string; Summa_dollar: string; Dollar: string; }
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Kg: string; Ombor_ID: string;
   Sotuv_dollar: string; Sotuv_som: string; Tan_dollar: string; Tan_som: string;
@@ -148,6 +149,7 @@ export default function XaridPage() {
   const router = useRouter();
   const [xaridlar, setXaridlar]           = useState<Xarid[]>([]);
   const [savatMap, setSavatMap]           = useState<Record<string,XaridSavat[]>>({});
+  const [xtolov, setXtolov]               = useState<XTolov[]>([]);
   const [taminotchilar, setTaminotchilar] = useState<Taminotchi[]>([]);
   const [tMap, setTMap]                   = useState<Record<string,string>>({});
   const [mahsulotlar, setMahsulotlar]     = useState<Mahsulot[]>([]);
@@ -196,8 +198,10 @@ export default function XaridPage() {
         fetchSheet("Xarid_Savat"),
         fetchSheet("Taminotchi"),
         fetchSheet("Mahsulot"),
-      ]).then(([xR,xsR,tR,mR])=>{
+        fetchSheet("X_Tolov"),
+      ]).then(([xR,xsR,tR,mR,xtR])=>{
         if(xR.error) throw new Error(xR.error);
+        setXtolov((xtR.data as XTolov[]) || []);
         const pDate=(s:string)=>{const[d,mo,y]=(s||"").split(".").map(Number);return(y||0)*10000+(mo||0)*100+(d||0);};
         const pTime=(v:string)=>{const[h,m,s]=(v||"").split(":").map(Number);return(h||0)*3600+(m||0)*60+(s||0);};
         const sorted=[...(xR.data as Xarid[])].sort((a,b)=>{const dd=pDate(b.Sana)-pDate(a.Sana);return dd!==0?dd:pTime(b.Vaqt)-pTime(a.Vaqt);});
@@ -407,6 +411,18 @@ export default function XaridPage() {
   const editJamiSom=editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx_som),0);
   const tItems=useMemo(()=>taminotchilar.map(t=>({id:t.Taminotchi_ID,label:t.Ism})),[taminotchilar]);
   const mItems=useMemo(()=>mahsulotlar.map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
+
+  // Tanlangan ta'minotchining eski qoldig'i (boshlang'ich + jami xarid - jami to'lov)
+  const tEski=useMemo(()=>{
+    if(!taminotchiId) return null;
+    const t=taminotchilar.find(i=>i.Taminotchi_ID===taminotchiId);
+    const bSom=num(t?.Boshlangich_som), bUsd=num(t?.Boshlangich_Balans);
+    const xSom=xaridlar.filter(x=>x.Taminotchi_ID===taminotchiId).reduce((s,x)=>s+(savatMap[String(x.Xarid_ID||"").trim()]||[]).reduce((ss,r)=>ss+num(r.Summa_Som),0),0);
+    const xUsd=xaridlar.filter(x=>x.Taminotchi_ID===taminotchiId).reduce((s,x)=>s+(savatMap[String(x.Xarid_ID||"").trim()]||[]).reduce((ss,r)=>ss+num(r.Jami_Summa),0),0);
+    const tSom=xtolov.filter(p=>p.Taminotchi_ID===taminotchiId).reduce((s,p)=>s+(p.Valyuta!=="Dollar"?num(p.Summa||p.Som):0),0);
+    const tUsd=xtolov.filter(p=>p.Taminotchi_ID===taminotchiId).reduce((s,p)=>s+(p.Valyuta==="Dollar"?num(p.Summa_dollar||p.Dollar):0),0);
+    return { som: bSom+xSom-tSom, usd: bUsd+xUsd-tUsd };
+  },[taminotchiId, taminotchilar, xaridlar, savatMap, xtolov]);
   const {sana,vaqt}=nowStr();
 
   const modalOverlay: React.CSSProperties = {
@@ -858,7 +874,16 @@ export default function XaridPage() {
             <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
               <div style={{display:"grid",gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",gap:12,marginBottom:14}}>
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Ta&apos;minotchi *</label>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
+                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Ta&apos;minotchi *</label>
+                    {taminotchiId && tEski && (
+                      <span style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                        <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
+                        {(tEski.som!==0||tEski.usd===0)&&<span style={{fontSize:12,fontWeight:800,color:tEski.som>0?"#ef4444":tEski.som<0?"#2563eb":"#16a34a"}}>{tEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
+                        {tEski.usd!==0&&<span style={{fontSize:12,fontWeight:800,color:tEski.usd>0?"#ef4444":"#2563eb"}}>{fmtUsd(tEski.usd)}</span>}
+                      </span>
+                    )}
+                  </div>
                   <SearchSelect items={tItems} value={taminotchiId} onChange={setTaminotchiId} placeholder="Ta'minotchi tanlang..."/>
                 </div>
                 <div>
@@ -867,6 +892,18 @@ export default function XaridPage() {
                     style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
                 </div>
               </div>
+
+              {/* Xariddan keyingi qoldiq — faqat savatda summa bo'lsa */}
+              {taminotchiId && tEski && (jamiSom>0 || jamiUsd>0) && (
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",padding:"11px 14px",marginBottom:14}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"var(--text-3)"}}>Xariddan keyingi qoldiq:</span>
+                  <span style={{display:"flex",gap:10}}>
+                    {((tEski.som+jamiSom)!==0||(tEski.usd+jamiUsd)===0)&&<span style={{fontSize:14,fontWeight:800,color:(tEski.som+jamiSom)>0?"#ef4444":(tEski.som+jamiSom)<0?"#2563eb":"#16a34a"}}>{(tEski.som+jamiSom).toLocaleString("ru-RU")} so&apos;m</span>}
+                    {(tEski.usd+jamiUsd)!==0&&<span style={{fontSize:14,fontWeight:800,color:(tEski.usd+jamiUsd)>0?"#ef4444":"#2563eb"}}>{fmtUsd(tEski.usd+jamiUsd)}</span>}
+                  </span>
+                </div>
+              )}
+
               <div style={{marginBottom:16}}>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:8}}>Chegirma bormi?</label>
                 <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>

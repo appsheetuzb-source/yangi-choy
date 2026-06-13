@@ -46,7 +46,7 @@ interface STolov {
   Izoh: string; Dollar_Kursi: string; Vaqt: string; Check?: string;
   Gazna_ID?: string; Gazna_dollar_ID?: string;
 }
-interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; }
+interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface MijozBalans { Mijoz_ID: string; Qoldi_som: string; Qoldi_dollar: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
 interface Sotuv { Sotuv_ID: string; Sotuv_Raqami: string; Mijoz_ID: string; Sana: string; Balans: string; Balans_dollar: string; }
@@ -298,6 +298,8 @@ export default function SotuvTolovPage() {
   const [tolovlar, setTolovlar]       = useState<STolov[]>([]);
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);
   const [balansMap, setBalansMap]     = useState<Record<string,MijozBalans>>({});
+  const [savatSomTot, setSavatSomTot] = useState<Record<string,number>>({});
+  const [savatDolTot, setSavatDolTot] = useState<Record<string,number>>({});
   const [agentMap, setAgentMap]       = useState<Record<string,string>>({});
   const [sotuvlar, setSotuvlar]       = useState<Sotuv[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -356,8 +358,16 @@ export default function SotuvTolovPage() {
       fetchSheet("Foydalanuvchi"),
       fetchSheet("Sotuv"),
       fetchSheet("Gazna"),
-    ]).then(([tR, mR, bR, fR, sR, gzR]) => {
+      fetchSheet("Sotuv_Savat"),
+      fetchSheet("Sotuv_Savat_Dollar"),
+    ]).then(([tR, mR, bR, fR, sR, gzR, ssR, sdR]) => {
       if (tR.error) throw new Error(tR.error);
+      const ssm: Record<string, number> = {};
+      ((ssR.data||[]) as Record<string,string>[]).forEach(r=>{ const k=String(r.Sotuv_ID||"").trim(); if(k) ssm[k]=(ssm[k]||0)+num(r.Summa_som); });
+      setSavatSomTot(ssm);
+      const sdm: Record<string, number> = {};
+      ((sdR.data||[]) as Record<string,string>[]).forEach(r=>{ const k=String(r.Sotuv_ID||"").trim(); if(k) sdm[k]=(sdm[k]||0)+num(r.Summa); });
+      setSavatDolTot(sdm);
       const sorted = [...(tR.data as STolov[])].sort((a, b) => {
         const p = (s: string) => { const [d,mo,y] = (s||"").split(".").map(Number); return (y||0)*10000+(mo||0)*100+(d||0); };
         const t2s = (v: string) => { const [h,m,s] = (v||"").split(":").map(Number); return (h||0)*3600+(m||0)*60+(s||0); };
@@ -600,9 +610,18 @@ export default function SotuvTolovPage() {
   const selectedMijoz = useMemo(() => mijozlar.find(m => m.Mijoz_ID === addMijoz), [mijozlar, addMijoz]);
   const mijozQoldi = useMemo(() => {
     if (!selectedMijoz) return null;
-    const b = balansMap[addMijoz];
-    return b ? { som: num(b.Qoldi_som), usd: num(b.Qoldi_dollar) } : null;
-  }, [selectedMijoz, addMijoz, balansMap]);
+    // Xom ma'lumotdan: boshlang'ich + jami sotuv - jami to'lov
+    const bSom = num(selectedMijoz.Boshlangich_Balans_som);
+    const bUsd = num(selectedMijoz.Boshlangich_Balans_dollar);
+    let xSom = 0, xUsd = 0;
+    sotuvlar.filter(s => s.Mijoz_ID === addMijoz).forEach(s => {
+      xSom += savatSomTot[s.Sotuv_ID] || 0;
+      xUsd += savatDolTot[s.Sotuv_ID] || 0;
+    });
+    const tSom = tolovlar.filter(t => t.Mijoz_ID === addMijoz).reduce((a,t)=>a+(t.Valyuta!=="Dollar"?num(t.Summa||t.Som):0),0);
+    const tUsd = tolovlar.filter(t => t.Mijoz_ID === addMijoz).reduce((a,t)=>a+(t.Valyuta==="Dollar"?num(t.Summa_dollar||t.Dollar):0),0);
+    return { som: bSom + xSom - tSom, usd: bUsd + xUsd - tUsd };
+  }, [selectedMijoz, addMijoz, sotuvlar, savatSomTot, savatDolTot, tolovlar]);
 
   const modalOverlay: React.CSSProperties = {
     position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)",

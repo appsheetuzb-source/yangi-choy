@@ -346,9 +346,13 @@ export default function SotuvPage() {
   const [checkSaving, setCheckSaving]   = useState("");
   const [chekDone, setChekDone]         = useState<Set<string>>(new Set());
 
+  // Ro'yxat/jadval — doim desktop ko'rinish (web bilan bir xil)
+  useEffect(()=>{ setIsMobile(false); },[]);
+  // Savat formasi uchun — haqiqiy mobil aniqlash (input'lar stacklanishi uchun)
+  const [savatMobile, setSavatMobile] = useState(false);
   useEffect(()=>{
-    const check=()=>setIsMobile(window.innerWidth<768);
-    check(); window.addEventListener("resize",check); return ()=>window.removeEventListener("resize",check);
+    const c=()=>setSavatMobile(window.innerWidth<640);
+    c(); window.addEventListener("resize",c); return ()=>window.removeEventListener("resize",c);
   },[]);
 
   useEffect(()=>{
@@ -740,6 +744,19 @@ export default function SotuvPage() {
   const editJamiSom   = useMemo(()=>editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0),[editSavat]);
   const editJamiDollar= useMemo(()=>editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0),[editSavat]);
 
+  // Tanlangan mijozning eski qarzi (boshlang'ich + jami sotuv - jami to'lov)
+  const addMijozEski = useMemo(()=>{
+    if(!addMijoz) return null;
+    const mj=mijozlar.find(m=>m.Mijoz_ID===addMijoz);
+    let som=num(mj?.Boshlangich_Balans_som), dollar=num(mj?.Boshlangich_Balans_dollar);
+    sotuvlar.filter(s=>s.Mijoz_ID===addMijoz).forEach(s=>{
+      (savatSomMap[s.Sotuv_ID]||[]).forEach(r=>{ som+=num(r.Summa_som); });
+      (savatDollarMap[s.Sotuv_ID]||[]).forEach(r=>{ dollar+=num(r.Summa); });
+      (stolovMap[s.Sotuv_ID]||[]).forEach(r=>{ const isD=String(r.Valyuta||"").toLowerCase().includes("dollar"); som-=(!isD?num(r.Som):0); dollar-=(isD?num(r.Summa_dollar):0); });
+    });
+    return { som, dollar };
+  },[addMijoz, mijozlar, sotuvlar, savatSomMap, savatDollarMap, stolovMap]);
+
   const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(0,0,0,.45)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
 
@@ -1130,7 +1147,16 @@ export default function SotuvPage() {
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,overflowY:"auto",flex:1}}>
               <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Mijoz *</label>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
+                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Mijoz *</label>
+                    {addMijoz && addMijozEski && (
+                      <span style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                        <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
+                        {(addMijozEski.som!==0||addMijozEski.dollar===0)&&<span style={{fontSize:12,fontWeight:800,color:addMijozEski.som>0?"#ef4444":addMijozEski.som<0?"#2563eb":"#16a34a"}}>{addMijozEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
+                        {addMijozEski.dollar!==0&&<span style={{fontSize:12,fontWeight:800,color:addMijozEski.dollar>0?"#ef4444":"#2563eb"}}>{fmtUsd(addMijozEski.dollar)}</span>}
+                      </span>
+                    )}
+                  </div>
                   <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz tanlang..." borderColor={!addMijoz?"#ef4444":undefined}/>
                 </div>
                 <div>
@@ -1138,13 +1164,25 @@ export default function SotuvPage() {
                   <SearchSelect items={aItems} value={addAgent} onChange={v=>{setAddAgent(v);setAddMijoz("");}} placeholder="Agent tanlang..." borderColor={!addAgent?"#ef4444":undefined}/>
                 </div>
               </div>
+
+              {/* Sotuvdan keyingi qoldiq — faqat savatda summa bo'lsa */}
+              {addMijoz && addMijozEski && (jamiSom>0 || jamiDollar>0) && (
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,flexWrap:"wrap",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",padding:"11px 14px"}}>
+                  <span style={{fontSize:12,fontWeight:600,color:"var(--text-3)"}}>Sotuvdan keyingi qoldiq:</span>
+                  <span style={{display:"flex",gap:10}}>
+                    {((addMijozEski.som+jamiSom)!==0||(addMijozEski.dollar+jamiDollar)===0)&&<span style={{fontSize:14,fontWeight:800,color:(addMijozEski.som+jamiSom)>0?"#ef4444":(addMijozEski.som+jamiSom)<0?"#2563eb":"#16a34a"}}>{(addMijozEski.som+jamiSom).toLocaleString("ru-RU")} so&apos;m</span>}
+                    {(addMijozEski.dollar+jamiDollar)!==0&&<span style={{fontSize:14,fontWeight:800,color:(addMijozEski.dollar+jamiDollar)>0?"#ef4444":"#2563eb"}}>{fmtUsd(addMijozEski.dollar+jamiDollar)}</span>}
+                  </span>
+                </div>
+              )}
+
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
                 <input value={addIzoh} onChange={e=>setAddIzoh(e.target.value)} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={isMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
+                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
             </div>
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
@@ -1192,7 +1230,7 @@ export default function SotuvPage() {
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={isMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
+                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
             </div>
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
