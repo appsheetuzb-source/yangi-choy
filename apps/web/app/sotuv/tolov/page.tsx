@@ -1,14 +1,16 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Shakli?: string; }
 
-function GaznaButtons({ turi, shakli, value, onChange }: {
-  turi: "Som" | "Dollar"; shakli?: string; value: string; onChange: (id: string) => void;
+function GaznaButtons({ turi, shakli, value, onChange, disabled }: {
+  turi: "Som" | "Dollar"; shakli?: string; value: string; onChange: (id: string) => void; disabled?: boolean;
 }) {
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<Gazna[]>([]);
   const [fetching, setFetching] = useState(true);
   useEffect(() => {
@@ -17,8 +19,11 @@ function GaznaButtons({ turi, shakli, value, onChange }: {
       .catch(() => {})
       .finally(() => setFetching(false));
   }, []);
-  const byTuri = turi === "Dollar" ? accounts.filter(g => g.Turi === "Dollar") : accounts.filter(g => g.Turi !== "Dollar");
-  const filtered = shakli ? byTuri.filter(g => !g.Shakli || g.Shakli === "Barchasi" || g.Shakli === shakli) : byTuri;
+  const visible = gaznaForUser(user, accounts);
+  const byTuri = turi === "Dollar" ? visible.filter(g => g.Turi === "Dollar") : visible.filter(g => g.Turi !== "Dollar");
+  // Admin emas — faqat tanlangan gazna ko'rinadi (o'zgartirib bo'lmaydi)
+  const shown = disabled ? byTuri.filter(g => g.Gazna_ID === value) : byTuri;
+  const filtered = shakli ? shown.filter(g => !g.Shakli || g.Shakli === "Barchasi" || g.Shakli === shakli) : shown;
   const color = turi === "Dollar" ? "#2563eb" : "var(--primary)";
   const bg    = turi === "Dollar" ? "#eff6ff"  : "#f0fdf4";
   if (fetching) return <span style={{ fontSize: 13, color: "var(--text-3)" }}>Yuklanmoqda...</span>;
@@ -27,11 +32,11 @@ function GaznaButtons({ turi, shakli, value, onChange }: {
     <>
       {filtered.map(g => (
         <button key={g.Gazna_ID} type="button"
-          onClick={() => onChange(value === g.Gazna_ID ? "" : g.Gazna_ID)}
+          onClick={disabled ? undefined : () => onChange(value === g.Gazna_ID ? "" : g.Gazna_ID)}
           style={{ flex: "1 1 auto", padding: "10px 8px", borderRadius: "var(--radius)",
             border: `1.5px solid ${value === g.Gazna_ID ? color : "var(--border)"}`,
             background: value === g.Gazna_ID ? bg : "var(--white)",
-            fontSize: 13, fontWeight: 700, cursor: "pointer",
+            fontSize: 13, fontWeight: 700, cursor: disabled ? "default" : "pointer",
             color: value === g.Gazna_ID ? color : "var(--text-2)" }}>
           {g.Nomi}
         </button>
@@ -295,6 +300,7 @@ export default function SotuvTolovPage() {
   const router = useRouter();
   const { user } = useAuth();
   const isSotuvchi = user?.lavozim === "Sotuvchi";
+  const isAdmin = user?.lavozim === "Admin";
   const [tolovlar, setTolovlar]       = useState<STolov[]>([]);
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);
   const [balansMap, setBalansMap]     = useState<Record<string,MijozBalans>>({});
@@ -409,18 +415,19 @@ export default function SotuvTolovPage() {
   }, []);
 
   function autoSelectGazna(turi: string, gz: Gazna[], setSom: (id: string) => void, setDol: (id: string) => void) {
+    // Admin emas — birinchi biriktirilgan gazna avtomatik; Admin — faqat bitta bo'lsa
     const somAccs = gz.filter(g => g.Turi !== "Dollar" && (!g.Shakli || g.Shakli === "Barchasi" || g.Shakli === turi));
-    if (somAccs.length === 1) setSom(somAccs[0].Gazna_ID);
+    if (somAccs.length === 1 || (!isAdmin && somAccs.length > 0)) setSom(somAccs[0].Gazna_ID);
     const dolAccs = gz.filter(g => g.Turi === "Dollar" && (!g.Shakli || g.Shakli === "Barchasi" || g.Shakli === turi));
-    if (dolAccs.length === 1) setDol(dolAccs[0].Gazna_ID);
+    if (dolAccs.length === 1 || (!isAdmin && dolAccs.length > 0)) setDol(dolAccs[0].Gazna_ID);
   }
   function selectAddTuri(turi: string) {
     setAddTuri(turi);
-    if (gaznalar.length) autoSelectGazna(turi, gaznalar, setAddGazna, setAddGaznaDollar);
+    if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setAddGazna, setAddGaznaDollar);
   }
   function selectEditTuri(turi: string) {
     setEditTuri(turi);
-    if (gaznalar.length) autoSelectGazna(turi, gaznalar, setEditGazna, setEditGaznaDollar);
+    if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setEditGazna, setEditGaznaDollar);
   }
 
   async function openAdd() {
@@ -433,7 +440,7 @@ export default function SotuvTolovPage() {
       if (Array.isArray(gzR.data) && gzR.data.length > 0) {
         const gz = (gzR.data as Gazna[]).filter(g => g.Gazna_ID);
         setGaznalar(gz);
-        autoSelectGazna("Naqd", gz, setAddGazna, setAddGaznaDollar);
+        autoSelectGazna("Naqd", gaznaForUser(user, gz), setAddGazna, setAddGaznaDollar);
       }
     } catch {}
   }
@@ -850,7 +857,7 @@ export default function SotuvTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Hisob (So&apos;m)</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <GaznaButtons turi="Som" shakli={editTuri} value={editGazna} onChange={setEditGazna} />
+                  <GaznaButtons turi="Som" shakli={editTuri} value={editGazna} onChange={setEditGazna} disabled={!isAdmin} />
                 </div>
               </div>
               )}
@@ -858,7 +865,7 @@ export default function SotuvTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 8 }}>Hisob (Dollar)</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <GaznaButtons turi="Dollar" shakli={editTuri} value={editGaznaDollar} onChange={setEditGaznaDollar} />
+                  <GaznaButtons turi="Dollar" shakli={editTuri} value={editGaznaDollar} onChange={setEditGaznaDollar} disabled={!isAdmin} />
                 </div>
               </div>
               )}
@@ -953,12 +960,12 @@ export default function SotuvTolovPage() {
                     <button key={v} onClick={() => {
                       setAddValyuta(v);
                       if (v === "Som") {
-                        const acc = gaznalar.filter(g => g.Turi !== "Dollar");
-                        if (acc.length === 1) setAddGazna(acc[0].Gazna_ID);
+                        const acc = gaznaForUser(user, gaznalar).filter(g => g.Turi !== "Dollar");
+                        if (acc.length === 1 || (!isAdmin && acc.length > 0)) setAddGazna(acc[0].Gazna_ID);
                         setAddGaznaDollar("");
                       } else {
-                        const acc = gaznalar.filter(g => g.Turi === "Dollar");
-                        if (acc.length === 1) setAddGaznaDollar(acc[0].Gazna_ID);
+                        const acc = gaznaForUser(user, gaznalar).filter(g => g.Turi === "Dollar");
+                        if (acc.length === 1 || (!isAdmin && acc.length > 0)) setAddGaznaDollar(acc[0].Gazna_ID);
                         setAddGazna("");
                       }
                     }}
@@ -1042,7 +1049,7 @@ export default function SotuvTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Hisob (So&apos;m)</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <GaznaButtons turi="Som" shakli={addTuri} value={addGazna} onChange={setAddGazna} />
+                  <GaznaButtons turi="Som" shakli={addTuri} value={addGazna} onChange={setAddGazna} disabled={!isAdmin} />
                 </div>
               </div>
               )}
@@ -1050,7 +1057,7 @@ export default function SotuvTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 8 }}>Hisob (Dollar)</label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <GaznaButtons turi="Dollar" shakli={addTuri} value={addGaznaDollar} onChange={setAddGaznaDollar} />
+                  <GaznaButtons turi="Dollar" shakli={addTuri} value={addGaznaDollar} onChange={setAddGaznaDollar} disabled={!isAdmin} />
                 </div>
               </div>
               )}

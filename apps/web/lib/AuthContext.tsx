@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { AuthUser, getUser, setUser, clearUser } from "./auth";
+import { AuthUser, getUser, setUser, clearUser, parseGaznaIds } from "./auth";
 import { fetchSheet } from "./sheet-cache";
 
 interface AuthCtx {
@@ -34,13 +34,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const fresh = (json.data as Record<string,string>[] || []).find(u => u.Foydalanuvchi_ID === stored.id);
           if (!fresh) return;
           if (fresh.Status === "Nofaol") { clearUser(); setUserState(null); return; }
+          const freshGaznaIds = parseGaznaIds(fresh.Gazna_ID);
           const updated: AuthUser = {
             id: fresh.Foydalanuvchi_ID,
             nomi: fresh.Nomi,
             lavozim: fresh.Lavozim || "Sotuvchi",
             pochta: fresh.Pochta || fresh.Telefon || stored.pochta,
+            gaznaIds: freshGaznaIds,
           };
-          if (updated.lavozim !== stored.lavozim || updated.nomi !== stored.nomi) {
+          if (updated.lavozim !== stored.lavozim || updated.nomi !== stored.nomi
+              || (freshGaznaIds.join(",") !== (stored.gaznaIds || []).join(","))) {
             setUser(updated);
             setUserState(updated);
           }
@@ -75,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         nomi:    found.Nomi,
         lavozim: found.Lavozim || "Sotuvchi",
         pochta:  found.Pochta || found.Telefon || pochta,
+        gaznaIds: parseGaznaIds(found.Gazna_ID),
       };
       setUser(u);
       setUserState(u);

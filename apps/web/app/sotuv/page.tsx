@@ -166,14 +166,15 @@ function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boole
   }
 }
 
-function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap}:{
+function SavatEditor({items,onUpdate,onRemove,onAdd,jamiS,jamiD,kursVal,onKursChange,isMobile,allItems,mMap}:{
   items:SavatItem[]; onUpdate:(id:string,f:keyof SavatItem,v:string)=>void;
-  onRemove:(id:string)=>void; onAddSom:()=>void; onAddDollar:()=>void; jamiS:number; jamiD:number;
+  onRemove:(id:string)=>void; onAdd:()=>void; jamiS:number; jamiD:number;
   kursVal:string; onKursChange:(v:string)=>void; isMobile:boolean;
-  somItems:{id:string;label:string}[]; dollarItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
+  allItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
 }) {
-  const somRows    = items.filter(i=>i.valyuta==="som");
-  const dollarRows = items.filter(i=>i.valyuta==="dollar");
+  // Mahsulot tanlanganda narxlar updateItem ichida avto-to'ladi
+  const pickProduct=(id:string,v:string)=>onUpdate(id,"Mahsulot_ID",v);
+  const GRID="2.6fr 80px 100px 120px 1fr 34px";
   return (
     <div>
       {/* Kurs */}
@@ -184,110 +185,67 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           style={{width:100,padding:"6px 10px",border:`1px solid ${num(kursVal)>0&&num(kursVal)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
       </div>
 
-      {/* So'm section */}
-      <div style={{marginBottom:16}}>
-        <span style={{fontSize:11,fontWeight:700,color:"#16a34a",letterSpacing:".05em",display:"block",marginBottom:8}}>SO&apos;M SAVAT</span>
-        {!isMobile&&somRows.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
-            {["MAHSULOT","MIQDOR","NARX (so'm)","JAMI",""].map(h=>(
-              <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
-            ))}
-          </div>
-        )}
-        {somRows.map(s=>{
-          const jS=num(s.Soni)*num(s.Som_Narx);
-          const bc=isBelowCost(s,kursVal,mMap);
-          if(isMobile) return (
-            <div key={s.id} style={{background:"#f0fdf4",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":undefined}}>
-              <div style={{marginBottom:6}}>
-                <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
-                  style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)"
-                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
-                  <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
-                </div>
-              </div>
-            </div>
-          );
-          return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
-              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
-                style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)"
-                style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-              <div style={{padding:"10px",background:bc?"#fef2f2":"#f0fdf4",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#16a34a"}}>
-                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jS?jS.toLocaleString("ru-RU")+" so'm":"—"):"—")}
-              </div>
-              <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
-            </div>
-          );
-        })}
-        <button onClick={onAddSom} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"1px solid #bbf7d0",borderRadius:8,fontSize:13,fontWeight:600,background:"#f0fdf4",cursor:"pointer",color:"#16a34a",marginTop:4,width:isMobile?"100%":undefined,justifyContent:"center"}}>
-          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> So&apos;m mahsulot
-        </button>
-      </div>
+      {/* Desktop sarlavha */}
+      {!isMobile&&items.length>0&&(
+        <div style={{display:"grid",gridTemplateColumns:GRID,gap:8,padding:"4px 0",marginBottom:4}}>
+          {["MAHSULOT","MIQDOR","NARX ($)","NARX (so'm)","JAMI",""].map((h,i)=>(
+            <span key={i} style={{fontSize:10,fontWeight:700,color:i===2?"#2563eb":"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
+          ))}
+        </div>
+      )}
 
-      {/* Dollar section */}
-      <div style={{marginBottom:8}}>
-        <span style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:".05em",display:"block",marginBottom:8}}>DOLLAR SAVAT</span>
-        {!isMobile&&dollarRows.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
-            {["MAHSULOT","MIQDOR","NARX ($)","JAMI",""].map(h=>(
-              <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
-            ))}
+      {items.map(s=>{
+        const jU=num(s.Soni)*num(s.Narx);
+        const jSm=num(s.Soni)*num(s.Som_Narx);
+        const bc=isBelowCost(s,kursVal,mMap);
+        const jamiText = num(s.Narx)>0 ? (jU?fmtUsd(jU):"—") : (num(s.Som_Narx)>0 ? (jSm?jSm.toLocaleString("ru-RU")+" so'm":"—") : "—");
+
+        if(isMobile) return (
+          <div key={s.id} style={{background:"var(--bg-2)",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":"1px solid var(--border)"}}>
+            <div style={{marginBottom:6}}>
+              <SearchSelect items={allItems} value={s.Mahsulot_ID} onChange={v=>pickProduct(s.id,v)} placeholder="Mahsulot..."/>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+                style={{padding:"8px",border:"1px solid var(--border-2)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
+              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
+                style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"#58a6ff"}}/>
+              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
+                style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
+            </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6}}>
+              <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":(num(s.Narx)>0?"#58a6ff":"#3fb950")}}>{bc?"Tan narxidan past!":jamiText}</span>
+              <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"var(--red-bg)",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
+            </div>
           </div>
-        )}
-        {dollarRows.map(s=>{
-          const jU=num(s.Soni)*num(s.Narx);
-          const bc=isBelowCost(s,kursVal,mMap);
-          if(isMobile) return (
-            <div key={s.id} style={{background:"#eff6ff",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":undefined}}>
-              <div style={{marginBottom:6}}>
-                <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
-                  style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)"
-                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
-                  <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
-                </div>
-              </div>
+        );
+        return (
+          <div key={s.id} style={{display:"grid",gridTemplateColumns:GRID,gap:8,alignItems:"center",marginBottom:8}}>
+            <SearchSelect items={allItems} value={s.Mahsulot_ID} onChange={v=>pickProduct(s.id,v)} placeholder="Mahsulot..."/>
+            <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+              style={{padding:"10px 8px",border:"1px solid var(--border-2)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
+            <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
+              style={{padding:"10px 8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"#58a6ff"}}/>
+            <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
+              style={{padding:"10px 8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
+            <div style={{padding:"10px 8px",background:"var(--bg-2)",borderRadius:"var(--radius)",fontSize:12.5,fontWeight:700,textAlign:"right",color:bc?"#ef4444":(num(s.Narx)>0?"#58a6ff":"#3fb950"),overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+              {bc?"past!":jamiText}
             </div>
-          );
-          return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
-              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
-                style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)"
-                style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
-              <div style={{padding:"10px",background:bc?"#fef2f2":"#eff6ff",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#2563eb"}}>
-                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jU?fmtUsd(jU):"—"):"—")}
-              </div>
-              <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
-            </div>
-          );
-        })}
-        <button onClick={onAddDollar} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"1px solid #bfdbfe",borderRadius:8,fontSize:13,fontWeight:600,background:"#eff6ff",cursor:"pointer",color:"#2563eb",marginTop:4,width:isMobile?"100%":undefined,justifyContent:"center"}}>
-          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Dollar mahsulot
-        </button>
-      </div>
+            <button onClick={()=>onRemove(s.id)} style={{width:34,height:40,borderRadius:8,border:"none",background:"var(--red-bg)",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
+          </div>
+        );
+      })}
+
+      <button onClick={onAdd} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",border:"1px solid var(--border-2)",borderRadius:8,fontSize:13,fontWeight:600,background:"var(--bg-2)",cursor:"pointer",color:"var(--primary)",marginTop:4,width:isMobile?"100%":"fit-content",justifyContent:"center"}}>
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
+      </button>
 
       {(jamiS>0||jamiD>0)&&(
-        <div style={{marginTop:8,background:"var(--bg)",borderRadius:"var(--radius)",overflow:"hidden"}}>
+        <div style={{marginTop:12,background:"var(--bg-2)",borderRadius:"var(--radius)",overflow:"hidden"}}>
           <div style={{display:"flex",justifyContent:"flex-end",gap:16,padding:"10px 14px"}}>
             <span style={{fontSize:12,fontWeight:600,color:"var(--text-3)"}}>Jami:</span>
-            {jamiS>0&&<span style={{fontSize:14,fontWeight:700,color:"#16a34a"}}>{fmtSom(jamiS)}</span>}
-            {jamiD>0&&<span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(jamiD)}</span>}
+            {jamiS>0&&<span style={{fontSize:14,fontWeight:700,color:"#3fb950"}}>{fmtSom(jamiS)}</span>}
+            {jamiD>0&&<span style={{fontSize:14,fontWeight:700,color:"#58a6ff"}}>{fmtUsd(jamiD)}</span>}
           </div>
         </div>
       )}
@@ -299,6 +257,7 @@ export default function SotuvPage() {
   const router = useRouter();
   const { user } = useAuth();
   const isSotuvchi = user?.lavozim === "Sotuvchi";
+  const isAdmin = user?.lavozim === "Admin";
   const [sotuvlar, setSotuvlar]             = useState<Sotuv[]>([]);
   const [savatSomMap, setSavatSomMap]       = useState<Record<string,SotuvSavatRow[]>>({});
   const [savatDollarMap, setSavatDollarMap] = useState<Record<string,SotuvSavatDollarRow[]>>({});
@@ -348,8 +307,12 @@ export default function SotuvPage() {
 
   // Ro'yxat/jadval — doim desktop ko'rinish (web bilan bir xil)
   useEffect(()=>{ setIsMobile(false); },[]);
-  // Savat formasi — doim stacklangan (mobil) ko'rinish: barcha ekranda chiroyli, toshmaydi
-  const savatMobile = true;
+  // Savat formasi: desktopda gorizontal qator, mobilda stacklangan
+  const [savatMobile, setSavatMobile] = useState(false);
+  useEffect(()=>{
+    const c=()=>setSavatMobile(window.innerWidth<640);
+    c(); window.addEventListener("resize",c); return ()=>window.removeEventListener("resize",c);
+  },[]);
 
   useEffect(()=>{
     try {
@@ -432,11 +395,8 @@ export default function SotuvPage() {
 
   useEffect(()=>{loadData();},[loadData]);
 
-  function addSomItem() {
+  function addItem() {
     setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
-  }
-  function addDollarItem() {
-    setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"dollar",Check:"TRUE"}]);
   }
   function updateItem(itemId:string, field:keyof SavatItem, val:string) {
     setSavat(p=>p.map(s=>{
@@ -444,19 +404,13 @@ export default function SotuvPage() {
       const u={...s,[field]:val};
       if(field==="Mahsulot_ID"){
         const m=mMap[val];
-        if(m){
-          if(s.valyuta==="som"){u.Som_Narx=m.Sotuv_som||"";u.Narx="";}
-          else{u.Narx=m.Sotuv_dollar||"";u.Som_Narx="";}
-        }
+        if(m){ u.Som_Narx=m.Sotuv_som||""; u.Narx=m.Sotuv_dollar||""; }
       }
       return u;
     }));
   }
-  function addSomEditItem() {
+  function addEditItem() {
     setEditSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
-  }
-  function addDollarEditItem() {
-    setEditSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"dollar",Check:"TRUE"}]);
   }
   function updateEditItem(itemId:string, field:keyof SavatItem, val:string) {
     setEditSavat(p=>p.map(s=>{
@@ -464,10 +418,7 @@ export default function SotuvPage() {
       const u={...s,[field]:val};
       if(field==="Mahsulot_ID"){
         const m=mMap[val];
-        if(m){
-          if(s.valyuta==="som"){u.Som_Narx=m.Sotuv_som||"";u.Narx="";}
-          else{u.Narx=m.Sotuv_dollar||"";u.Som_Narx="";}
-        }
+        if(m){ u.Som_Narx=m.Sotuv_som||""; u.Narx=m.Sotuv_dollar||""; }
       }
       return u;
     }));
@@ -725,8 +676,6 @@ export default function SotuvPage() {
     return list.map(m=>({id:m.Mijoz_ID,label:m.Ism+(m.Telefon?` (${m.Telefon})`:"")}));
   },[mijozlar, editAgent]);
   const mhItems       = useMemo(()=>mahsulotlar.map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
-  const mhSomItems    = useMemo(()=>mahsulotlar.filter(m=>num(m.Sotuv_som)>0).map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
-  const mhDollarItems = useMemo(()=>mahsulotlar.filter(m=>num(m.Sotuv_dollar)>0).map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
 
   const allUndeliveredSom = useMemo(()=>
     viewTab==="berilmagan" ? viewFiltered.flatMap(s=>(savatSomMap[s.Sotuv_ID]||[]).filter(r=>(r.Check??"").toString().toUpperCase()==="FALSE")) : [],
@@ -1141,7 +1090,7 @@ export default function SotuvPage() {
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,overflowY:"auto",flex:1}}>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+              <div style={{display:"grid",gridTemplateColumns:(isMobile||!isAdmin)?"1fr":"1fr 1fr",gap:12}}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
                     <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Mijoz *</label>
@@ -1155,10 +1104,12 @@ export default function SotuvPage() {
                   </div>
                   <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz tanlang..." borderColor={!addMijoz?"#ef4444":undefined}/>
                 </div>
-                <div>
-                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Agent *</label>
-                  <SearchSelect items={aItems} value={addAgent} onChange={v=>{setAddAgent(v);setAddMijoz("");}} placeholder="Agent tanlang..." borderColor={!addAgent?"#ef4444":undefined}/>
-                </div>
+                {isAdmin && (
+                  <div>
+                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Agent *</label>
+                    <SearchSelect items={aItems} value={addAgent} onChange={v=>{setAddAgent(v);setAddMijoz("");}} placeholder="Agent tanlang..." borderColor={!addAgent?"#ef4444":undefined}/>
+                  </div>
+                )}
               </div>
 
               {/* Sotuvdan keyingi qoldiq — faqat savatda summa bo'lsa */}
@@ -1172,13 +1123,13 @@ export default function SotuvPage() {
                 </div>
               )}
 
+              <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
+                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAdd={addItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} allItems={mhItems} mMap={mMap}/>
+              </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
                 <input value={addIzoh} onChange={e=>setAddIzoh(e.target.value)} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-              </div>
-              <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
             </div>
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
@@ -1210,23 +1161,25 @@ export default function SotuvPage() {
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,overflowY:"auto",flex:1}}>
-              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:12}}>
+              <div style={{display:"grid",gridTemplateColumns:(isMobile||!isAdmin)?"1fr":"1fr 1fr",gap:12}}>
                 <div>
                   <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Mijoz *</label>
                   <SearchSelect items={mJItemsEdit} value={editMijoz} onChange={setEditMijoz} placeholder="Mijoz tanlang..." borderColor={!editMijoz?"#ef4444":undefined}/>
                 </div>
-                <div>
-                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Agent *</label>
-                  <SearchSelect items={aItems} value={editAgent} onChange={v=>{ if(v!==editAgent) setEditMijoz(""); setEditAgent(v); }} placeholder="Agent tanlang..." borderColor={!editAgent?"#ef4444":undefined}/>
-                </div>
+                {isAdmin && (
+                  <div>
+                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Agent *</label>
+                    <SearchSelect items={aItems} value={editAgent} onChange={v=>{ if(v!==editAgent) setEditMijoz(""); setEditAgent(v); }} placeholder="Agent tanlang..." borderColor={!editAgent?"#ef4444":undefined}/>
+                  </div>
+                )}
+              </div>
+              <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
+                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAdd={addEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} allItems={mhItems} mMap={mMap}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
                 <input value={editIzoh} onChange={e=>setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-              </div>
-              <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
             </div>
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>

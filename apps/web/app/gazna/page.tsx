@@ -19,6 +19,11 @@ interface XTolov {
   Summa: string; Summa_dollar: string;
   Gazna_ID: string; Gazna_dollar_ID: string;
 }
+interface Xarajat {
+  Xarajat_ID: string; Sana: string;
+  Som: string; Dollar: string;
+  Gazna_ID: string; Gazna_dollar_ID: string;
+}
 
 function num(v: string | number | undefined) {
   return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
@@ -56,23 +61,30 @@ function inRange(sana: string, from: string, to: string): boolean {
   return true;
 }
 
-function getStats(gaz: Gazna, st: STolov[], xt: XTolov[], from: string, to: string) {
+function getStats(gaz: Gazna, st: STolov[], xt: XTolov[], xr: Xarajat[], from: string, to: string) {
   const isDollar = gaz.Turi === "Dollar";
   const id = gaz.Gazna_ID;
 
   const allKirdi = isDollar
     ? st.filter(t => t.Gazna_dollar_ID === id).reduce((s, t) => s + num(t.Summa_dollar), 0)
     : st.filter(t => t.Gazna_ID === id).reduce((s, t) => s + num(t.Summa), 0);
-  const allChiqdi = isDollar
+  // Chiqim = xarid to'lovlari (X_tolov) + xarajatlar (Xarajat)
+  const allChiqdi = (isDollar
     ? xt.filter(t => t.Gazna_dollar_ID === id).reduce((s, t) => s + num(t.Summa_dollar), 0)
-    : xt.filter(t => t.Gazna_ID === id).reduce((s, t) => s + num(t.Summa), 0);
+    : xt.filter(t => t.Gazna_ID === id).reduce((s, t) => s + num(t.Summa), 0))
+    + (isDollar
+    ? xr.filter(x => x.Gazna_dollar_ID === id).reduce((s, x) => s + num(x.Dollar), 0)
+    : xr.filter(x => x.Gazna_ID === id).reduce((s, x) => s + num(x.Som), 0));
 
   const davrKirdi = isDollar
     ? st.filter(t => t.Gazna_dollar_ID === id && inRange(t.Sana, from, to)).reduce((s, t) => s + num(t.Summa_dollar), 0)
     : st.filter(t => t.Gazna_ID === id && inRange(t.Sana, from, to)).reduce((s, t) => s + num(t.Summa), 0);
-  const davrChiqdi = isDollar
+  const davrChiqdi = (isDollar
     ? xt.filter(t => t.Gazna_dollar_ID === id && inRange(t.Sana, from, to)).reduce((s, t) => s + num(t.Summa_dollar), 0)
-    : xt.filter(t => t.Gazna_ID === id && inRange(t.Sana, from, to)).reduce((s, t) => s + num(t.Summa), 0);
+    : xt.filter(t => t.Gazna_ID === id && inRange(t.Sana, from, to)).reduce((s, t) => s + num(t.Summa), 0))
+    + (isDollar
+    ? xr.filter(x => x.Gazna_dollar_ID === id && inRange(x.Sana, from, to)).reduce((s, x) => s + num(x.Dollar), 0)
+    : xr.filter(x => x.Gazna_ID === id && inRange(x.Sana, from, to)).reduce((s, x) => s + num(x.Som), 0));
 
   const joriy = num(gaz.Boshlangich_balans) + allKirdi - allChiqdi;
   return { allKirdi, allChiqdi, joriy, davrKirdi, davrChiqdi };
@@ -88,6 +100,7 @@ export default function GaznaPage() {
   const [gaznalar, setGaznalar] = useState<Gazna[]>([]);
   const [stolov, setStolov]     = useState<STolov[]>([]);
   const [xtolov, setXtolov]     = useState<XTolov[]>([]);
+  const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -114,7 +127,8 @@ export default function GaznaPage() {
       fetchSheet("S_tolov"),
       fetchSheet("X_tolov"),
       fetchSheet("Foydalanuvchi"),
-    ]).then(([gR, sR, xR, fR]) => {
+      fetchSheet("Xarajat"),
+    ]).then(([gR, sR, xR, fR, xrR]) => {
       if (gR.error) throw new Error(gR.error);
       if (sR.error) throw new Error(sR.error);
       if (xR.error) throw new Error(xR.error);
@@ -123,24 +137,25 @@ export default function GaznaPage() {
       const myGaznaIds = (me?.Gazna_ID || "").split(",").map(s => s.trim()).filter(Boolean);
       setUserGaznaId(myGaznaIds.join(","));
       const allGaznalar = ((gR.data as Gazna[]) || []).filter(g => g.Gazna_ID);
-      // Sotuvchi faqat o'ziga belgilangan gaznalarni ko'radi
-      const visibleGaznalar = isSotuvchi && myGaznaIds.length > 0
-        ? allGaznalar.filter(g => myGaznaIds.includes(g.Gazna_ID))
-        : allGaznalar;
+      // Admin barcha gaznalarni, boshqalar faqat o'ziga biriktirilganlarini ko'radi
+      const visibleGaznalar = user?.lavozim === "Admin"
+        ? allGaznalar
+        : allGaznalar.filter(g => myGaznaIds.includes(g.Gazna_ID));
       setGaznalar(visibleGaznalar);
       setStolov((sR.data as STolov[]) || []);
       setXtolov((xR.data as XTolov[]) || []);
+      setXarajatlar((xrR.data as Xarajat[]) || []);
     })
     .catch((e: unknown) => setError(e instanceof Error ? e.message : "Xatolik"))
     .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
   const somGaznalar    = gaznalar.filter(g => g.Turi !== "Dollar");
   const dollarGaznalar = gaznalar.filter(g => g.Turi === "Dollar");
 
-  const allStats = gaznalar.map(g => ({ g, s: getStats(g, stolov, xtolov, dateFrom, dateTo) }));
+  const allStats = gaznalar.map(g => ({ g, s: getStats(g, stolov, xtolov, xarajatlar, dateFrom, dateTo) }));
   const somStats    = allStats.filter(x => x.g.Turi !== "Dollar");
   const dollarStats = allStats.filter(x => x.g.Turi === "Dollar");
 

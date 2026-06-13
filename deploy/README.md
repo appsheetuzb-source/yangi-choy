@@ -7,6 +7,20 @@ Baza: **Google Sheets** (o'zgarmaydi). Domen: **musaffotea.uz**.
 
 ---
 
+## ⚠️ ISH OQIMI (MAJBURIY): avval LOKAL, keyin DEPLOY
+
+Har bir yangi o'zgarish quyidagi tartibda chiqariladi — **to'g'ridan-to'g'ri serverga o'zgartirish kiritilmaydi**:
+
+1. **Lokalda yozish** — kodni `c:\Users\user\Desktop\yangi-choy` da o'zgartirish.
+2. **Lokalda test** — `npm run dev --workspace=web` → http://localhost:3000 da tekshirish (yoki `npm run build --workspace=web` xatosiz o'tishi).
+3. **Foydalanuvchi tasdiqlashi** — lokalda hammasi to'g'ri ishlasagina davom etamiz.
+4. **Commit + push** — `git add -A && git commit && git push origin main`.
+5. **Serverga deploy** — pastdagi "Yangilash" bo'limidagi komandalar bilan VPS'ga chiqarish.
+
+> Qisqasi: **lokalda ishlamaguncha — deploy yo'q.** Server (musaffotea.uz) faqat tekshirilgan kodni oladi.
+
+---
+
 ## 1. Tizimni tayyorlash (Node 20, git, nginx, pm2)
 ```bash
 sudo apt update && sudo apt upgrade -y

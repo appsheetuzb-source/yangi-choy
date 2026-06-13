@@ -19,6 +19,11 @@ interface XTolov {
   Summa: string; Summa_dollar: string; Izoh: string; Vaqt: string;
   Gazna_ID: string; Gazna_dollar_ID: string;
 }
+interface Xarajat {
+  Xarajat_ID: string; Sana: string; Vaqt?: string; Nomi: string; Izoh: string;
+  Som: string; Dollar: string;
+  Gazna_ID: string; Gazna_dollar_ID: string;
+}
 type Tx = {
   id: string; sana: string; tur: string; tavsif: string;
   kirdi: number; chiqdi: number; valyuta: string; sortKey: string;
@@ -65,6 +70,7 @@ export default function GaznaDetailPage() {
   const [gazna, setGazna]     = useState<Gazna | null>(null);
   const [stolov, setStolov]   = useState<STolov[]>([]);
   const [xtolov, setXtolov]   = useState<XTolov[]>([]);
+  const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -89,13 +95,15 @@ export default function GaznaDetailPage() {
       fetchSheet("Gazna"),
       fetchSheet("S_tolov"),
       fetchSheet("X_tolov"),
-    ]).then(([gR, sR, xR]) => {
+      fetchSheet("Xarajat"),
+    ]).then(([gR, sR, xR, xrR]) => {
       if (gR.error) throw new Error(gR.error);
       if (sR.error) throw new Error(sR.error);
       if (xR.error) throw new Error(xR.error);
       setGazna(((gR.data as Gazna[]) || []).find(g => g.Gazna_ID === id) || null);
       setStolov((sR.data as STolov[]) || []);
       setXtolov((xR.data as XTolov[]) || []);
+      setXarajatlar((xrR.data as Xarajat[]) || []);
     })
     .catch((e: unknown) => setError(e instanceof Error ? e.message : "Xatolik"))
     .finally(() => setLoading(false));
@@ -132,13 +140,21 @@ export default function GaznaDetailPage() {
     isDollar ? (t.Gazna_dollar_ID === id && num(t.Summa_dollar) > 0)
              : (t.Gazna_ID === id && num(t.Summa) > 0)
   );
+  // Shu gaznaga tegishli xarajatlar (chiqim)
+  const xrAmt = (x: Xarajat) => isDollar ? num(x.Dollar) : num(x.Som);
+  const myXr = xarajatlar.filter(x =>
+    isDollar ? (x.Gazna_dollar_ID === id && num(x.Dollar) > 0)
+             : (x.Gazna_ID === id && num(x.Som) > 0)
+  );
 
   const allKirdi  = myS.reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0);
-  const allChiqdi = myX.reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0);
+  const allChiqdi = myX.reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0)
+                  + myXr.reduce((s, x) => s + xrAmt(x), 0);
   const joriy     = num(gazna.Boshlangich_balans) + allKirdi - allChiqdi;
 
   const davrKirdi  = myS.filter(t => inRange(t.Sana, dateFrom, dateTo)).reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0);
-  const davrChiqdi = myX.filter(t => inRange(t.Sana, dateFrom, dateTo)).reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0);
+  const davrChiqdi = myX.filter(t => inRange(t.Sana, dateFrom, dateTo)).reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0)
+                   + myXr.filter(x => inRange(x.Sana, dateFrom, dateTo)).reduce((s, x) => s + xrAmt(x), 0);
   const davrSof    = davrKirdi - davrChiqdi;
 
   const txs: Tx[] = [
@@ -161,6 +177,16 @@ export default function GaznaDetailPage() {
       chiqdi: amt(t.Summa, t.Summa_dollar),
       valyuta: t.Valyuta,
       sortKey: t.Sana ? `${t.Sana.split(".").reverse().join("")}${t.Vaqt || ""}` : "",
+    })),
+    ...myXr.map(x => ({
+      id: x.Xarajat_ID,
+      sana: x.Sana,
+      tur: "Xarajat",
+      tavsif: x.Nomi || x.Izoh || "Xarajat",
+      kirdi: 0,
+      chiqdi: xrAmt(x),
+      valyuta: isDollar ? "Dollar" : "Som",
+      sortKey: x.Sana ? `${x.Sana.split(".").reverse().join("")}${x.Vaqt || ""}` : "",
     })),
   ].sort((a, b) => b.sortKey.localeCompare(a.sortKey));
 

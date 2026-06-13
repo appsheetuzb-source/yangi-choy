@@ -1,5 +1,7 @@
 "use client";
 import { fetchSheet } from "@/lib/sheet-cache";
+import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -27,6 +29,7 @@ function fmtUsd(v: number) {
 export default function XaridTolovDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
 
   const [tolov, setTolov]           = useState<XTolov|null>(null);
   const [taminotchilar, setTaminotchilar] = useState<Taminotchi[]>([]);
@@ -396,7 +399,7 @@ export default function XaridTolovDetailPage() {
                   <select value={editGazna} onChange={e => setEditGazna(e.target.value)}
                     style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--white)" }}>
                     <option value="">— Tanlang —</option>
-                    {gaznalar.filter(g => g.Turi !== "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+                    {gaznaForUser(user, gaznalar).filter(g => g.Turi !== "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
                   </select>
                 </div>
               )}
@@ -406,7 +409,7 @@ export default function XaridTolovDetailPage() {
                   <select value={editGaznaDollar} onChange={e => setEditGaznaDollar(e.target.value)}
                     style={{ width: "100%", padding: "10px 12px", border: "1px solid #bfdbfe", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--white)" }}>
                     <option value="">— Tanlang —</option>
-                    {gaznalar.filter(g => g.Turi === "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+                    {gaznaForUser(user, gaznalar).filter(g => g.Turi === "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
                   </select>
                 </div>
               )}

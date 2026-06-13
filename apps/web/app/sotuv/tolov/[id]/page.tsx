@@ -1,5 +1,7 @@
 "use client";
 import { fetchSheet } from "@/lib/sheet-cache";
+import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -28,6 +30,8 @@ function fmtUsd(v: number) {
 export default function SotuvTolovDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.lavozim === "Admin";
 
   const [tolov, setTolov]             = useState<STolov|null>(null);
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);
@@ -91,6 +95,16 @@ export default function SotuvTolovDetailPage() {
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Admin emas — so'm/dollar > 0 bo'lsa biriktirilgan gazna avtomatik tanlanadi
+  useEffect(() => {
+    if (isAdmin) return;
+    const som = gaznaForUser(user, gaznalar).filter(g => g.Turi !== "Dollar");
+    const dol = gaznaForUser(user, gaznalar).filter(g => g.Turi === "Dollar");
+    if (num(editSom) > 0 && som.length > 0 && !som.some(g => g.Gazna_ID === editGazna)) setEditGazna(som[0].Gazna_ID);
+    if (num(editDollar) > 0 && dol.length > 0 && !dol.some(g => g.Gazna_ID === editGaznaDollar)) setEditGaznaDollar(dol[0].Gazna_ID);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editSom, editDollar, gaznalar, isAdmin, user]);
 
   function openEdit() {
     if (!tolov) return;
@@ -383,20 +397,20 @@ export default function SotuvTolovDetailPage() {
               {num(editSom) > 0 && (
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Hisob (So&apos;m)</label>
-                  <select value={editGazna} onChange={e => setEditGazna(e.target.value)}
+                  <select value={editGazna} onChange={e => setEditGazna(e.target.value)} disabled={!isAdmin}
                     style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--white)" }}>
                     <option value="">— Tanlang —</option>
-                    {gaznalar.filter(g => g.Turi !== "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+                    {gaznaForUser(user, gaznalar).filter(g => g.Turi !== "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
                   </select>
                 </div>
               )}
               {num(editDollar) > 0 && (
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 6 }}>Hisob (Dollar)</label>
-                  <select value={editGaznaDollar} onChange={e => setEditGaznaDollar(e.target.value)}
+                  <select value={editGaznaDollar} onChange={e => setEditGaznaDollar(e.target.value)} disabled={!isAdmin}
                     style={{ width: "100%", padding: "10px 12px", border: "1px solid #bfdbfe", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--white)" }}>
                     <option value="">— Tanlang —</option>
-                    {gaznalar.filter(g => g.Turi === "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+                    {gaznaForUser(user, gaznalar).filter(g => g.Turi === "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
                   </select>
                 </div>
               )}

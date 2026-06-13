@@ -2,6 +2,7 @@
 
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useCallback } from "react";
 
 interface Xarajat {
@@ -43,11 +44,11 @@ const EMPTY = {
 export default function XarajatPage() {
   const { user } = useAuth();
   const isSotuvchi = user?.lavozim === "Sotuvchi";
+  const isAdmin = user?.lavozim === "Admin";
 
   const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);
   const [gaznalar, setGaznalar]     = useState<Gazna[]>([]);
   const [agentMap, setAgentMap]     = useState<Record<string, string>>({});
-  const [myGaznaIds, setMyGaznaIds] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
   const [filterOy, setFilterOy]     = useState(nowStr().oy);
   const [filterYil, setFilterYil]   = useState("");
@@ -75,8 +76,6 @@ export default function XarajatPage() {
       const am: Record<string, string> = {};
       fArr.forEach(f => { am[f.Foydalanuvchi_ID] = f.Nomi; });
       setAgentMap(am);
-      const me = fArr.find(f => f.Foydalanuvchi_ID === user?.id);
-      setMyGaznaIds((me?.Gazna_ID || "").split(",").map(s => s.trim()).filter(Boolean));
       const yillar = [...new Set(list.map(x => x.Yil).filter(Boolean))].sort((a,b) => Number(b)-Number(a));
       setFilterYil(prev => prev || yillar[0] || nowStr().yil);
     }).finally(() => setLoading(false));
@@ -99,6 +98,8 @@ export default function XarajatPage() {
   async function handleSave() {
     const som = num(form.Som), dollar = num(form.Dollar);
     if ((!som && !dollar) || !form.Nomi.trim()) return;
+    if (som > 0 && !form.Gazna_ID) return;
+    if (dollar > 0 && !form.Gazna_dollar_ID) return;
     setSaving(true);
     try {
       const sana = form.Sana || nowStr().sana;
@@ -165,9 +166,24 @@ export default function XarajatPage() {
   const qarzUsd  = jamiUsd - tolovUsd;
   const gaznaNomi = (x: Xarajat) => gaznalar.find(g => g.Gazna_ID === (x.Gazna_ID || x.Gazna_dollar_ID))?.Nomi || "—";
 
-  // Xarajat to'lovi uchun ko'rinadigan gaznalar — sotuvchi faqat o'zinikini ko'radi
-  const somGaznalar    = gaznalar.filter(g => g.Turi !== "Dollar" && (!isSotuvchi || myGaznaIds.includes(g.Gazna_ID)));
-  const dollarGaznalar = gaznalar.filter(g => g.Turi === "Dollar" && (!isSotuvchi || myGaznaIds.includes(g.Gazna_ID)));
+  // Ko'rinadigan gaznalar — Admin barchasini, boshqalar faqat biriktirilganini
+  const visibleGaznalar = gaznaForUser(user, gaznalar);
+  const somGaznalar    = visibleGaznalar.filter(g => g.Turi !== "Dollar");
+  const dollarGaznalar = visibleGaznalar.filter(g => g.Turi === "Dollar");
+
+  // Admin emas — so'm/dollar > 0 bo'lsa biriktirilgan gazna avtomatik tanlanadi (qo'lda tanlash shart emas)
+  useEffect(() => {
+    if (isAdmin || !open) return;
+    setForm(f => {
+      let nf = f;
+      if (num(f.Som) > 0 && somGaznalar.length > 0 && !somGaznalar.some(g => g.Gazna_ID === f.Gazna_ID))
+        nf = { ...nf, Gazna_ID: somGaznalar[0].Gazna_ID };
+      if (num(f.Dollar) > 0 && dollarGaznalar.length > 0 && !dollarGaznalar.some(g => g.Gazna_ID === f.Gazna_dollar_ID))
+        nf = { ...nf, Gazna_dollar_ID: dollarGaznalar[0].Gazna_ID };
+      return nf;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.Som, form.Dollar, gaznalar, isAdmin, open, user]);
 
   return (
     <>
@@ -277,7 +293,8 @@ export default function XarajatPage() {
                 </div>
                 <div>
                   <h2 className="modal__title">{editItem ? "Xarajatni tahrirlash" : "Yangi xarajat"}</h2>
-                  <p style={{ fontSize:12, color:"var(--text-3)", marginTop:1 }}>Yangi chiqim qo&apos;shish</p>
+                  <input value={form.Sana} onChange={e => setForm(f => ({ ...f, Sana: e.target.value }))} placeholder="13.06.2026"
+                    style={{ marginTop:4, padding:"3px 8px", fontSize:12, fontWeight:700, color:"var(--text-2)", background:"var(--bg-2)", border:"1px solid var(--border)", borderRadius:8, outline:"none", width:120 }} />
                 </div>
               </div>
               <button className="modal__close" onClick={() => setOpen(false)}>
@@ -316,8 +333,9 @@ export default function XarajatPage() {
                 </div>
                 {num(form.Som) > 0 && (
                   <div className="field">
-                    <label>Hisob (so&apos;m)</label>
-                    <select value={form.Gazna_ID} onChange={e => setForm(f => ({ ...f, Gazna_ID: e.target.value }))}>
+                    <label>Hisob (so&apos;m) <span style={{ color:"var(--red)" }}>*</span></label>
+                    <select value={form.Gazna_ID} onChange={e => setForm(f => ({ ...f, Gazna_ID: e.target.value }))} disabled={!isAdmin}
+                      style={!form.Gazna_ID ? { borderColor: "var(--red)" } : undefined}>
                       <option value="">Tanlang</option>
                       {somGaznalar.map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
                     </select>
@@ -333,8 +351,9 @@ export default function XarajatPage() {
                 </div>
                 {num(form.Dollar) > 0 && (
                   <div className="field">
-                    <label>Hisob (dollar)</label>
-                    <select value={form.Gazna_dollar_ID} onChange={e => setForm(f => ({ ...f, Gazna_dollar_ID: e.target.value }))}>
+                    <label>Hisob (dollar) <span style={{ color:"var(--red)" }}>*</span></label>
+                    <select value={form.Gazna_dollar_ID} onChange={e => setForm(f => ({ ...f, Gazna_dollar_ID: e.target.value }))} disabled={!isAdmin}
+                      style={!form.Gazna_dollar_ID ? { borderColor: "var(--red)" } : undefined}>
                       <option value="">Tanlang</option>
                       {dollarGaznalar.map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
                     </select>
@@ -356,7 +375,7 @@ export default function XarajatPage() {
             </div>
             <div className="modal__footer">
               <button className="btn btn--outline" style={{ flex:1 }} onClick={() => setOpen(false)} disabled={saving}>Bekor</button>
-              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim()}>
+              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim() || (num(form.Som) > 0 && !form.Gazna_ID) || (num(form.Dollar) > 0 && !form.Gazna_dollar_ID)}>
                 {saving ? "Saqlanmoqda..." : "Saqlash"}
               </button>
             </div>

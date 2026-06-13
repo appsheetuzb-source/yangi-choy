@@ -14,6 +14,7 @@ interface SavatSom { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_
 interface SavatDol { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; }
 interface STolov { Tolov_ID: string; Agent: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Summa: string; Summa_dollar: string; Vaqt: string; }
 interface XTolov { Gazna_ID: string; Gazna_dollar_ID: string; Sana: string; Summa: string; Summa_dollar: string; }
+interface Xarajat { Gazna_ID: string; Gazna_dollar_ID: string; Sana: string; Som: string; Dollar: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; Kg: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; Agent: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Boshlangich_balans: string; }
@@ -84,14 +85,15 @@ export default function Home() {
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [mijozlar, setMijozlar]   = useState<Mijoz[]>([]);
   const [gaznalar, setGaznalar]   = useState<Gazna[]>([]);
+  const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);
   const [myGaznaIds, setMyGaznaIds] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","X_tolov","Mahsulot","Mijozlar","Gazna","Foydalanuvchi"])
+    fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","X_tolov","Mahsulot","Mijozlar","Gazna","Foydalanuvchi","Xarajat"])
     .then(r=>{
       setSotuvlar(r["Sotuv"]?.data||[]); setSavatS(r["Sotuv_Savat"]?.data||[]); setSavatD(r["Sotuv_Savat_Dollar"]?.data||[]);
       setTolovlar(r["S_tolov"]?.data||[]); setXtolov(r["X_tolov"]?.data||[]); setMahsulotlar(r["Mahsulot"]?.data||[]);
-      setMijozlar(r["Mijozlar"]?.data||[]); setGaznalar(r["Gazna"]?.data||[]);
+      setMijozlar(r["Mijozlar"]?.data||[]); setGaznalar(r["Gazna"]?.data||[]); setXarajatlar(r["Xarajat"]?.data||[]);
       const me = (r["Foydalanuvchi"]?.data as Foydalanuvchi[]||[]).find(u=>u.Foydalanuvchi_ID===user?.id);
       setMyGaznaIds((me?.Gazna_ID||"").split(",").map(x=>x.trim()).filter(Boolean));
     }).finally(()=>setLoading(false));
@@ -127,18 +129,21 @@ export default function Home() {
     const oyTolovDollar = myTolovlar.filter(x=>inRange(x.Sana, dateFrom, dateTo)).reduce((a,x)=>a+num(x.Summa_dollar),0);
 
     // Gazna balans
-    // Gazna joriy balans = boshlangich + kirim(S_tolov) - chiqim(X_tolov)
-    const gaznaList = isSotuvchi ? gaznalar.filter(g=>myGaznaIds.includes(g.Gazna_ID)) : gaznalar;
+    // Gazna joriy balans = boshlangich + kirim(S_tolov) - chiqim(X_tolov + Xarajat)
+    const gaznaList = user?.lavozim==="Admin" ? gaznalar : gaznalar.filter(g=>myGaznaIds.includes(g.Gazna_ID));
     let gaznaSom=0, gaznaDollar=0;
     gaznaList.forEach(g=>{
       const isD = g.Turi==="Dollar";
       const kir = isD
         ? tolovlar.reduce((a,x)=> a + ((x as STolov & {Gazna_dollar_ID?:string}).Gazna_dollar_ID===g.Gazna_ID ? num(x.Summa_dollar):0),0)
         : tolovlar.reduce((a,x)=> a + ((x as STolov & {Gazna_ID?:string}).Gazna_ID===g.Gazna_ID ? num(x.Summa):0),0);
-      const chiq = isD
+      const chiqTolov = isD
         ? xtolov.reduce((a,x)=> a + (x.Gazna_dollar_ID===g.Gazna_ID ? num(x.Summa_dollar):0),0)
         : xtolov.reduce((a,x)=> a + (x.Gazna_ID===g.Gazna_ID ? num(x.Summa):0),0);
-      const joriy = num(g.Boshlangich_balans) + kir - chiq;
+      const chiqXarajat = isD
+        ? xarajatlar.reduce((a,x)=> a + (x.Gazna_dollar_ID===g.Gazna_ID ? num(x.Dollar):0),0)
+        : xarajatlar.reduce((a,x)=> a + (x.Gazna_ID===g.Gazna_ID ? num(x.Som):0),0);
+      const joriy = num(g.Boshlangich_balans) + kir - chiqTolov - chiqXarajat;
       if(isD) gaznaDollar+=joriy; else gaznaSom+=joriy;
     });
 
@@ -153,7 +158,7 @@ export default function Home() {
     myTolovlar.forEach(x=>{ qarzSom -= num(x.Summa); qarzDollar -= num(x.Summa_dollar); });
 
     return { oySom, oyDollar, oyFoyda, oyFoydaDollar, oyTolovSom, oyTolovDollar, gaznaSom, gaznaDollar, qarzSom, qarzDollar };
-  },[savatS, savatD, sotuvMap, mahMap, myTolovlar, tolovlar, xtolov, gaznalar, myGaznaIds, mijozlar, isSotuvchi, user, mySotuvIds, dateFrom, dateTo]);
+  },[savatS, savatD, sotuvMap, mahMap, myTolovlar, tolovlar, xtolov, xarajatlar, gaznalar, myGaznaIds, mijozlar, isSotuvchi, user, mySotuvIds, dateFrom, dateTo]);
 
   // ── Chart: tanlangan davrga moslashadi (qisqa davr → kunlik, uzun → oylik) ──
   const { chartData, chartMode } = useMemo(()=>{

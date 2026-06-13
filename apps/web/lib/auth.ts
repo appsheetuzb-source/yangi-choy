@@ -3,6 +3,7 @@ export interface AuthUser {
   nomi: string;
   lavozim: string; // "Admin" | "Sotuvchi" | ...
   pochta: string;
+  gaznaIds?: string[]; // foydalanuvchiga biriktirilgan gazna ID'lari
 }
 
 const KEY = "yc_user";
@@ -29,6 +30,19 @@ export function isAdmin(user: AuthUser | null) {
 
 export function isSotuvchi(user: AuthUser | null) {
   return user?.lavozim === "Sotuvchi";
+}
+
+// Vergul bilan ajratilgan Gazna_ID matnini massivga aylantirish
+export function parseGaznaIds(raw?: string): string[] {
+  return (raw || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+
+// Foydalanuvchiga ko'rinadigan gaznalar: Admin → barchasi, boshqalar → biriktirilganlar
+export function gaznaForUser<T extends { Gazna_ID: string }>(user: AuthUser | null, gaznalar: T[]): T[] {
+  if (!user) return [];
+  if (user.lavozim === "Admin") return gaznalar;
+  const ids = user.gaznaIds || [];
+  return gaznalar.filter(g => ids.includes(g.Gazna_ID));
 }
 
 // Sotuvchi ko'ra oladigan sahifalar

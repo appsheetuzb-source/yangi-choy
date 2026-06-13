@@ -16,6 +16,7 @@ interface Foydalanuvchi {
 }
 
 interface Ombor { Ombor_ID: string; Nomi: string; }
+interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; }
 
 const LAVOZIMLAR = ["Admin", "Sotuvchi", "Omborchi", "Hisobchi"];
 const STATUSLAR  = ["Faol", "Nofaol"];
@@ -47,6 +48,7 @@ function LavozimBadge({ lavozim }: { lavozim: string }) {
 export default function FoydalanuvchiPage() {
   const [users, setUsers]       = useState<Foydalanuvchi[]>([]);
   const [omborlar, setOmborlar] = useState<Ombor[]>([]);
+  const [gaznalar, setGaznalar] = useState<Gazna[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
   const [search, setSearch]     = useState("");
@@ -65,10 +67,12 @@ export default function FoydalanuvchiPage() {
       Promise.all([
         fetchSheet("Foydalanuvchi"),
         fetchSheet("Ombor"),
-      ]).then(([uRes, oRes]) => {
+        fetchSheet("Gazna"),
+      ]).then(([uRes, oRes, gRes]) => {
         if (uRes.error) throw new Error(uRes.error);
         setUsers(uRes.data as Foydalanuvchi[]);
         if (!oRes.error) setOmborlar(oRes.data as Ombor[]);
+        if (!gRes.error) setGaznalar(gRes.data as Gazna[]);
       }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
         .finally(() => setLoading(false));
     }, delay);
@@ -113,6 +117,7 @@ export default function FoydalanuvchiPage() {
         await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Foydalanuvchi", row: form }) });
       }
+      afterWrite("Foydalanuvchi");
       setDrawerOpen(false);
       loadData(800);
     } finally { setSaving(false); }
@@ -124,6 +129,7 @@ export default function FoydalanuvchiPage() {
     try {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Foydalanuvchi", idColumn: "Foydalanuvchi_ID", idValue: deleteTarget.Foydalanuvchi_ID }) });
+      afterWrite("Foydalanuvchi");
       setDeleteTarget(null);
       loadData(800);
     } finally { setDeleting(false); }
@@ -261,6 +267,30 @@ export default function FoydalanuvchiPage() {
                         {o.Nomi}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Gazna — ko'p tanlovli (vergul bilan saqlanadi) */}
+              {gaznalar.length > 0 && (
+                <div className="drawer__section">
+                  <p className="drawer__section-label">Gazna</p>
+                  <div className="pill-group">
+                    {gaznalar.map(g => {
+                      const ids = (form.Gazna_ID || "").split(",").map(s => s.trim()).filter(Boolean);
+                      const active = ids.includes(g.Gazna_ID);
+                      return (
+                        <button key={g.Gazna_ID} type="button"
+                          className={`pill ${active ? "pill--active" : ""}`}
+                          onClick={() => setForm(p => {
+                            const cur = (p.Gazna_ID || "").split(",").map(s => s.trim()).filter(Boolean);
+                            const next = cur.includes(g.Gazna_ID) ? cur.filter(x => x !== g.Gazna_ID) : [...cur, g.Gazna_ID];
+                            return { ...p, Gazna_ID: next.join(", ") };
+                          })}>
+                          {g.Nomi}{g.Turi === "Dollar" ? " ($)" : ""}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

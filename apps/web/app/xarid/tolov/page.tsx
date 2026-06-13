@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -9,6 +11,7 @@ interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Shakli?: string;
 function GaznaButtons({ turi, shakli, value, onChange }: {
   turi: "Som" | "Dollar"; shakli?: string; value: string; onChange: (id: string) => void;
 }) {
+  const { user } = useAuth();
   const [accounts, setAccounts] = useState<Gazna[]>([]);
   const [fetching, setFetching] = useState(true);
   useEffect(() => {
@@ -17,7 +20,8 @@ function GaznaButtons({ turi, shakli, value, onChange }: {
       .catch(() => {})
       .finally(() => setFetching(false));
   }, []);
-  const byTuri = turi === "Dollar" ? accounts.filter(g => g.Turi === "Dollar") : accounts.filter(g => g.Turi !== "Dollar");
+  const visible = gaznaForUser(user, accounts);
+  const byTuri = turi === "Dollar" ? visible.filter(g => g.Turi === "Dollar") : visible.filter(g => g.Turi !== "Dollar");
   const filtered = shakli ? byTuri.filter(g => !g.Shakli || g.Shakli === "Barchasi" || g.Shakli === shakli) : byTuri;
   const color = turi === "Dollar" ? "#2563eb" : "var(--primary)";
   const bg    = turi === "Dollar" ? "#eff6ff"  : "#f0fdf4";
@@ -170,6 +174,7 @@ function SearchSelect({ items, value, onChange, placeholder }: {
 
 export default function XaridTolovPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [tolovlar, setTolovlar]           = useState<XTolov[]>([]);
   const [tMap, setTMap]                   = useState<Record<string,string>>({});
   const [xMap, setXMap]                   = useState<Record<string,string>>({});
@@ -299,11 +304,11 @@ export default function XaridTolovPage() {
   }
   function selectAddTuri(turi: string) {
     setAddTuri(turi);
-    if (gaznalar.length) autoSelectGazna(turi, gaznalar, setAddGazna, setAddGaznaDollar);
+    if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setAddGazna, setAddGaznaDollar);
   }
   function selectEditTuri(turi: string) {
     setEditTuri(turi);
-    if (gaznalar.length) autoSelectGazna(turi, gaznalar, setEditGazna, setEditGaznaDollar);
+    if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setEditGazna, setEditGaznaDollar);
   }
 
   async function openAdd() {
@@ -316,7 +321,7 @@ export default function XaridTolovPage() {
       if (Array.isArray(gzR.data) && gzR.data.length > 0) {
         const gz = (gzR.data as Gazna[]).filter(g => g.Gazna_ID);
         setGaznalar(gz);
-        autoSelectGazna("Naqd", gz, setAddGazna, setAddGaznaDollar);
+        autoSelectGazna("Naqd", gaznaForUser(user, gz), setAddGazna, setAddGaznaDollar);
       }
     } catch {}
   }
@@ -960,11 +965,11 @@ export default function XaridTolovPage() {
                     <button key={v} onClick={() => {
                       setAddValyuta(v);
                       if (v === "Som") {
-                        const acc = gaznalar.filter(g => g.Turi !== "Dollar");
+                        const acc = gaznaForUser(user, gaznalar).filter(g => g.Turi !== "Dollar");
                         if (acc.length === 1) setAddGazna(acc[0].Gazna_ID);
                         setAddGaznaDollar("");
                       } else {
-                        const acc = gaznalar.filter(g => g.Turi === "Dollar");
+                        const acc = gaznaForUser(user, gaznalar).filter(g => g.Turi === "Dollar");
                         if (acc.length === 1) setAddGaznaDollar(acc[0].Gazna_ID);
                         setAddGazna("");
                       }

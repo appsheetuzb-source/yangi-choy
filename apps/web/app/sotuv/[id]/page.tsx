@@ -1,5 +1,7 @@
 "use client";
 import { fetchSheet } from "@/lib/sheet-cache";
+import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -80,6 +82,8 @@ function SearchSelect({ items, value, onChange, placeholder }: {
 export default function SotuvDetailPage() {
   const { id } = useParams<{id:string}>();
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.lavozim === "Admin";
 
   const [sotuv, setSotuv]             = useState<Sotuv|null>(null);
   const [savatSom, setSavatSom]       = useState<SotuvSavatRow[]>([]);
@@ -236,6 +240,18 @@ export default function SotuvDetailPage() {
   }
 
   useEffect(()=>{ if(id) loadData(); },[id]); // eslint-disable-line
+
+  // Admin emas — so'm/dollar > 0 bo'lsa biriktirilgan gazna avtomatik tanlanadi
+  useEffect(()=>{
+    if(isAdmin) return;
+    const som=gaznaForUser(user,gaznalar).filter(g=>g.Turi!=="Dollar");
+    const dol=gaznaForUser(user,gaznalar).filter(g=>g.Turi==="Dollar");
+    if(num(addTolovSom)>0 && som.length>0 && !som.some(g=>g.Gazna_ID===addTolovGazna)) setAddTolovGazna(som[0].Gazna_ID);
+    if(num(addTolovDollar)>0 && dol.length>0 && !dol.some(g=>g.Gazna_ID===addTolovGaznaDollar)) setAddTolovGaznaDollar(dol[0].Gazna_ID);
+    if(num(editTolovSom)>0 && som.length>0 && !som.some(g=>g.Gazna_ID===editTolovGazna)) setEditTolovGazna(som[0].Gazna_ID);
+    if(num(editTolovDollar)>0 && dol.length>0 && !dol.some(g=>g.Gazna_ID===editTolovGaznaDollar)) setEditTolovGaznaDollar(dol[0].Gazna_ID);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[addTolovSom,addTolovDollar,editTolovSom,editTolovDollar,addTolovGazna,addTolovGaznaDollar,editTolovGazna,editTolovGaznaDollar,gaznalar,isAdmin,user]);
 
   async function toggleSomCheck(s:SotuvSavatRow) {
     const newVal=s.Check==="FALSE"?"TRUE":"FALSE";
@@ -1074,11 +1090,11 @@ export default function SotuvDetailPage() {
                 <input value={addTolovIzoh} onChange={e=>setAddTolovIzoh(e.target.value)} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
-              {gaznalar.filter(g=>g.Turi!=="Dollar").length>0 && (
+              {gaznaForUser(user, gaznalar).filter(g=>g.Turi!=="Dollar").length>0 && (
                 <div>
                   <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:8}}>Hisob (So&apos;m)</label>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {gaznalar.filter(g=>g.Turi!=="Dollar").map(g=>(
+                    {gaznaForUser(user, gaznalar).filter(g=>g.Turi!=="Dollar").map(g=>(
                       <button key={g.Gazna_ID} onClick={()=>setAddTolovGazna(addTolovGazna===g.Gazna_ID?"":g.Gazna_ID)}
                         style={{flex:"1 1 auto",padding:"10px 8px",borderRadius:"var(--radius)",border:`1.5px solid ${addTolovGazna===g.Gazna_ID?"var(--primary)":"var(--border)"}`,background:addTolovGazna===g.Gazna_ID?"#f0fdf4":"var(--white)",fontSize:13,fontWeight:700,cursor:"pointer",color:addTolovGazna===g.Gazna_ID?"var(--primary)":"var(--text-2)"}}>
                         {g.Nomi}
@@ -1087,11 +1103,11 @@ export default function SotuvDetailPage() {
                   </div>
                 </div>
               )}
-              {gaznalar.filter(g=>g.Turi==="Dollar").length>0 && (
+              {gaznaForUser(user, gaznalar).filter(g=>g.Turi==="Dollar").length>0 && (
                 <div>
                   <label style={{fontSize:12,fontWeight:600,color:"#2563eb",display:"block",marginBottom:8}}>Hisob (Dollar)</label>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {gaznalar.filter(g=>g.Turi==="Dollar").map(g=>(
+                    {gaznaForUser(user, gaznalar).filter(g=>g.Turi==="Dollar").map(g=>(
                       <button key={g.Gazna_ID} onClick={()=>setAddTolovGaznaDollar(addTolovGaznaDollar===g.Gazna_ID?"":g.Gazna_ID)}
                         style={{flex:"1 1 auto",padding:"10px 8px",borderRadius:"var(--radius)",border:`1.5px solid ${addTolovGaznaDollar===g.Gazna_ID?"#2563eb":"var(--border)"}`,background:addTolovGaznaDollar===g.Gazna_ID?"#eff6ff":"var(--white)",fontSize:13,fontWeight:700,cursor:"pointer",color:addTolovGaznaDollar===g.Gazna_ID?"#2563eb":"var(--text-2)"}}>
                         {g.Nomi}
@@ -1179,11 +1195,11 @@ export default function SotuvDetailPage() {
                 <input value={editTolovIzoh} onChange={e=>setEditTolovIzoh(e.target.value)} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
-              {gaznalar.filter(g=>g.Turi!=="Dollar").length>0 && (
+              {gaznaForUser(user, gaznalar).filter(g=>g.Turi!=="Dollar").length>0 && (
                 <div>
                   <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:8}}>Hisob (So&apos;m)</label>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {gaznalar.filter(g=>g.Turi!=="Dollar").map(g=>(
+                    {gaznaForUser(user, gaznalar).filter(g=>g.Turi!=="Dollar").map(g=>(
                       <button key={g.Gazna_ID} onClick={()=>setEditTolovGazna(editTolovGazna===g.Gazna_ID?"":g.Gazna_ID)}
                         style={{flex:"1 1 auto",padding:"10px 8px",borderRadius:"var(--radius)",border:`1.5px solid ${editTolovGazna===g.Gazna_ID?"var(--primary)":"var(--border)"}`,background:editTolovGazna===g.Gazna_ID?"#f0fdf4":"var(--white)",fontSize:13,fontWeight:700,cursor:"pointer",color:editTolovGazna===g.Gazna_ID?"var(--primary)":"var(--text-2)"}}>
                         {g.Nomi}
@@ -1192,11 +1208,11 @@ export default function SotuvDetailPage() {
                   </div>
                 </div>
               )}
-              {gaznalar.filter(g=>g.Turi==="Dollar").length>0 && (
+              {gaznaForUser(user, gaznalar).filter(g=>g.Turi==="Dollar").length>0 && (
                 <div>
                   <label style={{fontSize:12,fontWeight:600,color:"#2563eb",display:"block",marginBottom:8}}>Hisob (Dollar)</label>
                   <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                    {gaznalar.filter(g=>g.Turi==="Dollar").map(g=>(
+                    {gaznaForUser(user, gaznalar).filter(g=>g.Turi==="Dollar").map(g=>(
                       <button key={g.Gazna_ID} onClick={()=>setEditTolovGaznaDollar(editTolovGaznaDollar===g.Gazna_ID?"":g.Gazna_ID)}
                         style={{flex:"1 1 auto",padding:"10px 8px",borderRadius:"var(--radius)",border:`1.5px solid ${editTolovGaznaDollar===g.Gazna_ID?"#2563eb":"var(--border)"}`,background:editTolovGaznaDollar===g.Gazna_ID?"#eff6ff":"var(--white)",fontSize:13,fontWeight:700,cursor:"pointer",color:editTolovGaznaDollar===g.Gazna_ID?"#2563eb":"var(--text-2)"}}>
                         {g.Nomi}
