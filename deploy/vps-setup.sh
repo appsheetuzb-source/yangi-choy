@@ -7,6 +7,19 @@ set -e
 APP_DIR=/var/www/yangi-choy
 IP=$(hostname -I | awk '{print $1}')
 
+echo "==> 0/5 Swap (virtual xotira) tekshirish — build OOM bo'lmasligi uchun..."
+if [ "$(swapon --show | wc -l)" -eq 0 ]; then
+  echo "    2GB swap yaratilmoqda..."
+  fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
+  chmod 600 /swapfile
+  mkswap /swapfile
+  swapon /swapfile
+  grep -q '/swapfile' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  echo "    Swap qo'shildi."
+else
+  echo "    Swap allaqachon bor."
+fi
+
 echo "==> 1/5 Node 20, nginx, pm2 o'rnatilmoqda..."
 if ! command -v node >/dev/null 2>&1; then
   curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
