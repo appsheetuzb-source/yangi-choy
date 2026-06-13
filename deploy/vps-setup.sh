@@ -38,7 +38,8 @@ fi
 echo "==> 2/5 O'rnatish va build (bir necha daqiqa kutiladi)..."
 cd "$APP_DIR"
 npm install
-npm run build --workspace=web
+# Kichik VPS uchun Node heap'ni oshirish (swap bilan birga OOM bo'lmaydi)
+NODE_OPTIONS="--max-old-space-size=2048" npm run build --workspace=web
 
 echo "==> 3/5 PM2 bilan ishga tushirish..."
 pm2 delete yangi-choy 2>/dev/null || true
