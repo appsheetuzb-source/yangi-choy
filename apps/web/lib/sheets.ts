@@ -34,8 +34,67 @@ function getAuthClient(scopes?: string[]) {
   });
 }
 
+// ── Singleton sheets client — har so'rovda qayta auth qilmaslik uchun ──
+let _sheetsClient: ReturnType<typeof google.sheets> | null = null;
 function getSheetsClient() {
-  return google.sheets({ version: "v4", auth: getAuthClient() });
+  if (!_sheetsClient) {
+    _sheetsClient = google.sheets({ version: "v4", auth: getAuthClient() });
+  }
+  return _sheetsClient;
+}
+
+// ── Qatorlarni { headers, data } ga aylantirish ──
+function parseRows(rows: unknown[][] | null | undefined) {
+  if (!rows || rows.length === 0) return { headers: [] as string[], data: [] as Record<string, string>[] };
+  const rawHeaders = rows[0] as unknown[];
+  const validCols = rawHeaders
+    .map((h, i) => ({ h: String(h), i }))
+    .filter(({ h }) => h && h !== "false" && h !== "null");
+  const headers = validCols.map(({ h }) => h);
+  const data = rows.slice(1).map((row) => {
+    const obj: Record<string, string> = {};
+    validCols.forEach(({ h, i }) => {
+      const val = row[i];
+      if (val === true) obj[h] = "TRUE";
+      else if (val === false) obj[h] = "FALSE";
+      else obj[h] = val === null || val === undefined ? "" : String(val);
+    });
+    return obj;
+  });
+  return { headers, data };
+}
+
+// ── BATCH READ — bir nechta jadvalni BITTA Google so'rovida olish ──
+export async function getMultipleSheets(ranges: string[]) {
+  const result: Record<string, { headers: string[]; data: Record<string, string>[] }> = {};
+  const missing: string[] = [];
+
+  // Avval keshdan
+  for (const r of ranges) {
+    const cached = cacheGet(r);
+    if (cached) result[r] = cached as { headers: string[]; data: Record<string, string>[] };
+    else missing.push(r);
+  }
+  if (missing.length === 0) return result;
+
+  const sheets = getSheetsClient();
+  try {
+    const resp = await sheets.spreadsheets.values.batchGet({
+      spreadsheetId: SPREADSHEET_ID,
+      ranges: missing,
+      valueRenderOption: "UNFORMATTED_VALUE",
+      dateTimeRenderOption: "FORMATTED_STRING",
+    });
+    const valueRanges = resp.data.valueRanges || [];
+    missing.forEach((range, idx) => {
+      const parsed = parseRows(valueRanges[idx]?.values as unknown[][]);
+      result[range] = parsed;
+      if (parsed.headers.length > 0) cacheSet(range, parsed);
+    });
+  } catch {
+    missing.forEach(range => { if (!result[range]) result[range] = { headers: [], data: [] }; });
+  }
+  return result;
 }
 
 // ── READ ──────────────────────────────────────────────
@@ -60,28 +119,8 @@ export async function getSheetData(range?: string) {
     return { headers: [], data: [] };
   }
 
-  const rows = response.data.values;
-  if (!rows || rows.length === 0) return { headers: [], data: [] };
-
-  const rawHeaders = rows[0] as unknown[];
-  const validCols = rawHeaders
-    .map((h, i) => ({ h: String(h), i }))
-    .filter(({ h }) => h && h !== "false" && h !== "null");
-
-  const headers = validCols.map(({ h }) => h);
-  const data = rows.slice(1).map((row) => {
-    const obj: Record<string, string> = {};
-    validCols.forEach(({ h, i }) => {
-      const val = row[i];
-      if (val === true)  obj[h] = "TRUE";
-      else if (val === false) obj[h] = "FALSE";
-      else obj[h] = val === null || val === undefined ? "" : String(val);
-    });
-    return obj;
-  });
-
-  const result = { headers, data };
-  if (headers.length > 0) cacheSet(fullRange, result);
+  const result = parseRows(response.data.values as unknown[][]);
+  if (result.headers.length > 0) cacheSet(fullRange, result);
   return result;
 }
 

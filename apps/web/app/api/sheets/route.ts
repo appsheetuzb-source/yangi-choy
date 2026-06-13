@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSheetData, getSheetNames, appendRow, updateRow, deleteRow } from "@/lib/sheets";
+import { getSheetData, getSheetNames, getMultipleSheets, appendRow, updateRow, deleteRow } from "@/lib/sheets";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +25,16 @@ export async function GET(request: NextRequest) {
     if (action === "sheets") {
       const sheetNames = await getSheetNames();
       return NextResponse.json({ sheets: sheetNames });
+    }
+
+    // Batch: bir nechta jadval bitta so'rovda — ?ranges=A,B,C
+    const rangesParam = searchParams.get("ranges");
+    if (rangesParam) {
+      const ranges = rangesParam.split(",").map(s => s.trim()).filter(Boolean);
+      const results = await getMultipleSheets(ranges);
+      return NextResponse.json({ results }, {
+        headers: { "Cache-Control": "public, max-age=300, stale-while-revalidate=60" },
+      });
     }
 
     const key = range || "__all__";

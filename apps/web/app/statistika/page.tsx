@@ -1,5 +1,5 @@
 ﻿"use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheets } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -120,26 +120,17 @@ export default function StatistikaPage() {
   const [currency, setCurrency] = useState<"som" | "dollar">("som");
 
   useEffect(() => {
-    Promise.all([
-      fetchSheet("Sotuv"),
-      fetchSheet("Sotuv_Savat"),
-      fetchSheet("Sotuv_Savat_Dollar"),
-      fetchSheet("S_tolov"),
-      fetchSheet("Xarid"),
-      fetchSheet("Xarid_Savat"),
-      fetchSheet("Mahsulot"),
-      fetchSheet("Mijozlar"),
-      fetchSheet("Taminotchi"),
-    ]).then(([sR, ssR, ssdR, tR, xR, xsR, mR, mjR, tmR]) => {
-      setSotuvlar(sR.data || []);
-      setSavat(ssR.data || []);
-      setSavatD(ssdR.data || []);
-      setTolovlar(tR.data || []);
-      setXaridlar(xR.data || []);
-      setXSavat(xsR.data || []);
-      setMahsulotlar(mR.data || []);
-      setMijozlar(mjR.data || []);
-      setTaminotchilar(tmR.data || []);
+    fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","Xarid","Xarid_Savat","Mahsulot","Mijozlar","Taminotchi"])
+    .then(r => {
+      setSotuvlar(r["Sotuv"]?.data || []);
+      setSavat(r["Sotuv_Savat"]?.data || []);
+      setSavatD(r["Sotuv_Savat_Dollar"]?.data || []);
+      setTolovlar(r["S_tolov"]?.data || []);
+      setXaridlar(r["Xarid"]?.data || []);
+      setXSavat(r["Xarid_Savat"]?.data || []);
+      setMahsulotlar(r["Mahsulot"]?.data || []);
+      setMijozlar(r["Mijozlar"]?.data || []);
+      setTaminotchilar(r["Taminotchi"]?.data || []);
     }).finally(() => setLoading(false));
   }, []);
 

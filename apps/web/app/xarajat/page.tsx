@@ -16,7 +16,6 @@ interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
 
 const OY_NOMLARI = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
 const KATEGORIYALAR = ["Maosh","Ijara","Kommunal","Transport","Soliq","Ta'mirlash","Reklama","Boshqa"];
-const TURLAR = ["Naqd","Bank","Karta"];
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function num(v: string|number|undefined) {
@@ -36,10 +35,9 @@ function nowStr() {
 }
 
 const EMPTY = {
-  Xarajat_ID: "", Yil: "", Oy: "", Sana: "", Kategoriya: "Maosh", Agent: "",
-  Nomi: "", Soni: "", Som: "", Dollar_kursi: "", Dollar: "", Summa: "",
+  Xarajat_ID: "", Yil: "", Oy: "", Sana: "", Kategoriya: "", Agent: "",
+  Nomi: "", Soni: "1", Som: "", Dollar_kursi: "12100", Dollar: "", Summa: "",
   Turi: "Naqd", Gazna_ID: "", Gazna_dollar_ID: "", Izoh: "", Qoshdi: "", Qoshilgan_Vaqt: "",
-  valyuta: "Som" as "Som" | "Dollar",
 };
 
 export default function XarajatPage() {
@@ -49,8 +47,9 @@ export default function XarajatPage() {
   const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);
   const [gaznalar, setGaznalar]     = useState<Gazna[]>([]);
   const [agentMap, setAgentMap]     = useState<Record<string, string>>({});
+  const [myGaznaIds, setMyGaznaIds] = useState<string[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [filterOy, setFilterOy]     = useState("0");
+  const [filterOy, setFilterOy]     = useState(nowStr().oy);
   const [filterYil, setFilterYil]   = useState("");
   const [search, setSearch]         = useState("");
 
@@ -72,13 +71,16 @@ export default function XarajatPage() {
       list.sort((a, b) => (b.Sana?.split(".").reverse().join("") || "").localeCompare(a.Sana?.split(".").reverse().join("") || ""));
       setXarajatlar(list);
       setGaznalar((gR.data as Gazna[]) || []);
+      const fArr = (fR.data as (Foydalanuvchi & { Gazna_ID?: string })[]) || [];
       const am: Record<string, string> = {};
-      ((fR.data as Foydalanuvchi[]) || []).forEach(f => { am[f.Foydalanuvchi_ID] = f.Nomi; });
+      fArr.forEach(f => { am[f.Foydalanuvchi_ID] = f.Nomi; });
       setAgentMap(am);
+      const me = fArr.find(f => f.Foydalanuvchi_ID === user?.id);
+      setMyGaznaIds((me?.Gazna_ID || "").split(",").map(s => s.trim()).filter(Boolean));
       const yillar = [...new Set(list.map(x => x.Yil).filter(Boolean))].sort((a,b) => Number(b)-Number(a));
       setFilterYil(prev => prev || yillar[0] || nowStr().yil);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -90,30 +92,30 @@ export default function XarajatPage() {
   }
   function openEdit(x: Xarajat) {
     setEditItem(x);
-    setForm({ ...EMPTY, ...x, valyuta: num(x.Dollar) > 0 ? "Dollar" : "Som" });
+    setForm({ ...EMPTY, ...x });
     setOpen(true);
   }
 
   async function handleSave() {
-    const summaVal = num(form.Som) || num(form.Dollar);
-    if (!summaVal || !form.Kategoriya) return;
+    const som = num(form.Som), dollar = num(form.Dollar);
+    if ((!som && !dollar) || !form.Nomi.trim()) return;
     setSaving(true);
     try {
-      const [, m, y] = (form.Sana || "01.01.2026").split(".");
+      const sana = form.Sana || nowStr().sana;
+      const [, m, y] = sana.split(".");
       const now = nowStr();
-      const isDollar = form.valyuta === "Dollar";
-      const som    = isDollar ? "" : String(num(form.Som));
-      const dollar = isDollar ? String(num(form.Dollar)) : "";
-      const summa  = isDollar ? String(num(form.Dollar)) : String(num(form.Som));
       const row = {
-        Xarajat_ID: form.Xarajat_ID, Yil: y, Oy: String(Number(m)), Sana: form.Sana,
+        Xarajat_ID: form.Xarajat_ID, Yil: y, Oy: String(Number(m)), Sana: sana,
         Kategoriya: form.Kategoriya,
         Agent: editItem ? (form.Agent || user?.id || "") : (user?.id || ""),
         Nomi: form.Nomi, Soni: form.Soni || "1",
-        Som: som, Dollar_kursi: form.Dollar_kursi, Dollar: dollar, Summa: summa,
+        Som: som ? String(som) : "",
+        Dollar_kursi: form.Dollar_kursi,
+        Dollar: dollar ? String(dollar) : "",
+        Summa: String(som || dollar),
         Turi: form.Turi,
-        Gazna_ID: isDollar ? "" : form.Gazna_ID,
-        Gazna_dollar_ID: isDollar ? form.Gazna_ID : "",
+        Gazna_ID: som ? form.Gazna_ID : "",
+        Gazna_dollar_ID: dollar ? form.Gazna_dollar_ID : "",
         Izoh: form.Izoh,
         Qoshdi: editItem ? form.Qoshdi : (user?.nomi || ""),
         Qoshilgan_Vaqt: editItem ? form.Qoshilgan_Vaqt : `${now.sana} ${now.vaqt}`,
@@ -156,54 +158,56 @@ export default function XarajatPage() {
 
   const jamiSom = filtered.reduce((s, x) => s + num(x.Som), 0);
   const jamiUsd = filtered.reduce((s, x) => s + num(x.Dollar), 0);
+  // To'langan (gazna tanlangan) va qarz (gazna yo'q)
+  const tolovSom = filtered.reduce((s, x) => s + (x.Gazna_ID ? num(x.Som) : 0), 0);
+  const tolovUsd = filtered.reduce((s, x) => s + (x.Gazna_dollar_ID ? num(x.Dollar) : 0), 0);
+  const qarzSom  = jamiSom - tolovSom;
+  const qarzUsd  = jamiUsd - tolovUsd;
   const gaznaNomi = (x: Xarajat) => gaznalar.find(g => g.Gazna_ID === (x.Gazna_ID || x.Gazna_dollar_ID))?.Nomi || "—";
+
+  // Xarajat to'lovi uchun ko'rinadigan gaznalar — sotuvchi faqat o'zinikini ko'radi
+  const somGaznalar    = gaznalar.filter(g => g.Turi !== "Dollar" && (!isSotuvchi || myGaznaIds.includes(g.Gazna_ID)));
+  const dollarGaznalar = gaznalar.filter(g => g.Turi === "Dollar" && (!isSotuvchi || myGaznaIds.includes(g.Gazna_ID)));
 
   return (
     <>
       <header className="header">
         <div className="header__inner">
           <h1 className="header__title">Xarajatlar</h1>
-          <div className="search" style={{ maxWidth: 280 }}>
+          <div className="search" style={{ maxWidth: 260 }}>
             <span className="search__icon"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
             <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          <select value={filterOy} onChange={e => setFilterOy(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
+            <option value="0">Barcha oylar</option>
+            {OY_NOMLARI.map((o, i) => <option key={i} value={String(i+1)}>{o}</option>)}
+          </select>
           <select value={filterYil} onChange={e => setFilterYil(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
             {yillar.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           <div className="header__spacer" />
           <button className="btn btn--primary" onClick={openAdd}>
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            Xarajat qo&apos;shish
+            Qo&apos;shish
           </button>
         </div>
       </header>
 
-      {/* Oy filter */}
-      <div style={{ background: "var(--bg-2)", borderBottom: "1px solid var(--border)", padding: "10px 24px" }}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", maxWidth: 1360, margin: "0 auto" }}>
-          {[{ v: "0", l: "Barchasi" }, ...OY_NOMLARI.map((o, i) => ({ v: String(i+1), l: o.slice(0,3) }))].map(item => (
-            <button key={item.v} onClick={() => setFilterOy(item.v)} style={{
-              padding: "4px 12px", borderRadius: 20, border: "1.5px solid",
-              fontSize: 11, fontWeight: 700, cursor: "pointer", transition: "all .12s",
-              background: filterOy === item.v ? "var(--primary)" : "transparent",
-              color: filterOy === item.v ? "#fff" : "var(--text-3)",
-              borderColor: filterOy === item.v ? "var(--primary)" : "var(--border)",
-            }}>{item.l}</button>
-          ))}
-        </div>
-      </div>
-
       <div className="page-content">
         {/* Stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14, marginBottom: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 14, marginBottom: 20 }}>
           {[
-            { label: "JAMI XARAJAT (SO'M)", value: fmtSom(jamiSom), color: "#f85149" },
-            { label: "JAMI XARAJAT ($)",   value: fmtUsd(jamiUsd), color: "#2f81f7" },
-            { label: "XARAJATLAR SONI",    value: `${filtered.length} ta`, color: "var(--text)" },
+            { label: "JAMI XARAJAT", value: fmtSom(jamiSom), sub: jamiUsd?fmtUsd(jamiUsd):undefined, color: "#f85149", bg:"var(--red-bg)" },
+            { label: "XARAJATGA TO'LOV", value: fmtSom(tolovSom), sub: tolovUsd?fmtUsd(tolovUsd):undefined, color: "#3fb950", bg:"var(--green-bg)" },
+            { label: "XARAJATDAN QARZ", value: fmtSom(qarzSom), sub: qarzUsd?fmtUsd(qarzUsd):undefined, color: qarzSom>0?"#d97706":"var(--text-3)", bg:"var(--orange-bg)" },
           ].map(c => (
             <div key={c.label} style={{ background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", padding: "16px 20px", boxShadow: "var(--shadow-sm)" }}>
-              <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 8 }}>{c.label}</p>
+              <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:8 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em" }}>{c.label}</span>
+                <span style={{ width:8, height:8, borderRadius:"50%", background:c.color }}/>
+              </div>
               <p style={{ fontSize: 18, fontWeight: 800, color: c.color }}>{c.value}</p>
+              {c.sub && <p style={{ fontSize: 12, fontWeight: 700, color: "#58a6ff", marginTop: 4 }}>{c.sub}</p>}
             </div>
           ))}
         </div>
@@ -262,74 +266,97 @@ export default function XarajatPage() {
         )}
       </div>
 
-      {/* Drawer */}
+      {/* Modal (markazda) */}
       {open && (
-        <div className="drawer-overlay" onClick={() => setOpen(false)}>
-          <div className="drawer" onClick={e => e.stopPropagation()}>
-            <div className="drawer__head">
-              <button className="drawer__back" onClick={() => setOpen(false)}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-              <span className="drawer__title">{editItem ? "Xarajatni tahrirlash" : "Yangi xarajat"}</span>
-            </div>
-            <div className="drawer__body">
-              <div className="field">
-                <label>Sana *</label>
-                <input type="text" placeholder="DD.MM.YYYY" value={form.Sana} onChange={e => setForm(f => ({ ...f, Sana: e.target.value }))} />
-              </div>
-              <div className="field">
-                <label>Kategoriya *</label>
-                <select value={form.Kategoriya} onChange={e => setForm(f => ({ ...f, Kategoriya: e.target.value }))}>
-                  {KATEGORIYALAR.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
-              <div className="field">
-                <label>Nomi / Tavsif</label>
-                <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Masalan: Gaz to'lovi" />
-              </div>
-              <div className="field">
-                <label>Valyuta</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {(["Som","Dollar"] as const).map(v => (
-                    <button key={v} type="button" onClick={() => setForm(f => ({ ...f, valyuta: v, Gazna_ID: "" }))} style={{
-                      flex: 1, padding: "9px 0", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, cursor: "pointer",
-                      border: `1.5px solid ${form.valyuta === v ? "var(--primary)" : "var(--border-2)"}`,
-                      background: form.valyuta === v ? "var(--primary-glow)" : "var(--bg-2)",
-                      color: form.valyuta === v ? "var(--primary)" : "var(--text-2)",
-                    }}>{v === "Som" ? "So'm" : "Dollar"}</button>
-                  ))}
+        <div className="modal-overlay" onClick={() => setOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 560 }}>
+            <div className="modal__head">
+              <div style={{ display:"flex", alignItems:"center", gap:12 }}>
+                <div style={{ width:38, height:38, borderRadius:11, background:"var(--red-bg)", color:"var(--red)", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
+                </div>
+                <div>
+                  <h2 className="modal__title">{editItem ? "Xarajatni tahrirlash" : "Yangi xarajat"}</h2>
+                  <p style={{ fontSize:12, color:"var(--text-3)", marginTop:1 }}>Yangi chiqim qo&apos;shish</p>
                 </div>
               </div>
-              <div className="field">
-                <label>Summa *</label>
-                {form.valyuta === "Som"
-                  ? <input type="number" value={form.Som} onChange={e => setForm(f => ({ ...f, Som: e.target.value }))} placeholder="0" />
-                  : <input type="number" value={form.Dollar} onChange={e => setForm(f => ({ ...f, Dollar: e.target.value }))} placeholder="0" />
-                }
+              <button className="modal__close" onClick={() => setOpen(false)}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal__body">
+              <p className="drawer__section-label">📋 Asosiy ma&apos;lumotlar</p>
+
+              <div className="grid-2">
+                <div className="field">
+                  <label>Kategoriya</label>
+                  <select value={form.Kategoriya} onChange={e => setForm(f => ({ ...f, Kategoriya: e.target.value }))}>
+                    <option value="">Tanlang...</option>
+                    {KATEGORIYALAR.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="field">
+                  <label>Soni</label>
+                  <input type="number" value={form.Soni} onChange={e => setForm(f => ({ ...f, Soni: e.target.value }))} placeholder="1" />
+                </div>
               </div>
+
               <div className="field">
-                <label>To&apos;lov turi</label>
-                <select value={form.Turi} onChange={e => setForm(f => ({ ...f, Turi: e.target.value }))}>
-                  {TURLAR.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
+                <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
               </div>
-              <div className="field">
-                <label>Gazna</label>
-                <select value={form.Gazna_ID} onChange={e => setForm(f => ({ ...f, Gazna_ID: e.target.value }))}>
-                  <option value="">Tanlang</option>
-                  {gaznalar.filter(g => form.valyuta === "Dollar" ? g.Turi === "Dollar" : g.Turi !== "Dollar").map(g => (
-                    <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>
-                  ))}
-                </select>
+
+              <p className="drawer__section-label" style={{ marginTop:8 }}>💵 Xarajat to&apos;lov</p>
+
+              {/* So'm */}
+              <div className="grid-2">
+                <div className="field">
+                  <label>So&apos;m</label>
+                  <input type="number" value={form.Som} onChange={e => setForm(f => ({ ...f, Som: e.target.value }))} placeholder="0" />
+                </div>
+                {num(form.Som) > 0 && (
+                  <div className="field">
+                    <label>Hisob (so&apos;m)</label>
+                    <select value={form.Gazna_ID} onChange={e => setForm(f => ({ ...f, Gazna_ID: e.target.value }))}>
+                      <option value="">Tanlang</option>
+                      {somGaznalar.map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
+
+              {/* Dollar */}
+              <div className="grid-2">
+                <div className="field">
+                  <label>Dollar ($)</label>
+                  <input type="number" value={form.Dollar} onChange={e => setForm(f => ({ ...f, Dollar: e.target.value }))} placeholder="0" />
+                </div>
+                {num(form.Dollar) > 0 && (
+                  <div className="field">
+                    <label>Hisob (dollar)</label>
+                    <select value={form.Gazna_dollar_ID} onChange={e => setForm(f => ({ ...f, Gazna_dollar_ID: e.target.value }))}>
+                      <option value="">Tanlang</option>
+                      {dollarGaznalar.map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {num(form.Dollar) > 0 && (
+                <div className="field">
+                  <label>Dollar kursi</label>
+                  <input type="number" value={form.Dollar_kursi} onChange={e => setForm(f => ({ ...f, Dollar_kursi: e.target.value }))} placeholder="12100" />
+                </div>
+              )}
+
               <div className="field">
                 <label>Izoh</label>
-                <input value={form.Izoh} onChange={e => setForm(f => ({ ...f, Izoh: e.target.value }))} placeholder="Ixtiyoriy" />
+                <input value={form.Izoh} onChange={e => setForm(f => ({ ...f, Izoh: e.target.value }))} placeholder="Qo'shimcha izoh..." />
               </div>
             </div>
-            <div className="drawer__footer">
-              <button className="btn btn--outline" onClick={() => setOpen(false)} disabled={saving}>Bekor</button>
-              <button className="btn btn--primary" onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar))}>
+            <div className="modal__footer">
+              <button className="btn btn--outline" style={{ flex:1 }} onClick={() => setOpen(false)} disabled={saving}>Bekor</button>
+              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim()}>
                 {saving ? "Saqlanmoqda..." : "Saqlash"}
               </button>
             </div>

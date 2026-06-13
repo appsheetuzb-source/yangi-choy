@@ -1,5 +1,6 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useAuth } from "@/lib/AuthContext";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -86,6 +87,8 @@ function BalansCell({ som, usd, label }: { som: number; usd: number; label?: str
 
 export default function MijozlarPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const isSotuvchi = user?.lavozim === "Sotuvchi";
   const [mijozlar, setMijozlar]         = useState<Mijoz[]>([]);
   const [balansMap, setBalansMap]       = useState<Record<string, MijozBalans>>({});
   const [sotuvSomMap, setSotuvSomMap]   = useState<Record<string, number>>({});
@@ -187,10 +190,12 @@ export default function MijozlarPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = mijozlar.filter(m =>
-    String(m.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
-    String(m.Telefon || "").includes(search)
-  );
+  const filtered = mijozlar.filter(m => {
+    // Sotuvchi faqat o'z mijozlarini ko'radi
+    if (isSotuvchi && user?.id && (m.Agent || "").trim() !== user.id) return false;
+    return String(m.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
+      String(m.Telefon || "").includes(search);
+  });
 
   // Group by Agent
   const agentIds = [...new Set(filtered.map(m => m.Agent || ""))];

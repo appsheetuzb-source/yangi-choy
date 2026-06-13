@@ -52,6 +52,27 @@ export async function fetchSheet(range: string): Promise<CacheEntry["data"]> {
   return json;
 }
 
+// Bir nechta jadvalni BITTA so'rovda olish — keshda yo'qlarini batch qiladi
+export async function fetchSheets(ranges: string[]): Promise<Record<string, SheetData>> {
+  const out: Record<string, SheetData> = {};
+  const missing: string[] = [];
+  for (const r of ranges) {
+    const c = getCachedSheet(r);
+    if (c) out[r] = c; else missing.push(r);
+  }
+  if (missing.length > 0) {
+    const res = await fetch(`/api/sheets?ranges=${encodeURIComponent(missing.join(","))}`, { cache: "no-store" });
+    const json = await res.json();
+    const results = (json.results || {}) as Record<string, SheetData>;
+    for (const r of missing) {
+      const data = results[r] || { headers: [], data: [] };
+      out[r] = data;
+      if (data.headers?.length > 0) setCachedSheet(r, data);
+    }
+  }
+  return out;
+}
+
 // Yozish operatsiyalaridan keyin chaqiriladi — keshni tozalaydi
 export function afterWrite(sheetName: string) {
   delete STORE[sheetName];

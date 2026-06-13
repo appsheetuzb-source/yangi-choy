@@ -1,5 +1,5 @@
 ﻿"use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheets, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -371,15 +371,9 @@ export default function SotuvPage() {
   const loadData = useCallback((delay=0)=>{
     setLoading(true);
     setTimeout(()=>{
-      Promise.all([
-        fetchSheet("Sotuv"),
-        fetchSheet("Sotuv_Savat"),
-        fetchSheet("Sotuv_savat_dollar"),
-        fetchSheet("Foydalanuvchi"),
-        fetchSheet("Mijozlar"),
-        fetchSheet("Mahsulot"),
-        fetchSheet("Kurs"),
-      ]).then(([sR,ssR,sdR,fR,mzR,mhR,kR])=>{
+      fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_savat_dollar","Foydalanuvchi","Mijozlar","Mahsulot","Kurs"])
+      .then((rr)=>{
+        const sR=rr["Sotuv"], ssR=rr["Sotuv_Savat"], sdR=rr["Sotuv_savat_dollar"], fR=rr["Foydalanuvchi"], mzR=rr["Mijozlar"], mhR=rr["Mahsulot"], kR=rr["Kurs"];
         if(sR.error) throw new Error(sR.error);
         const pDate=(s:string)=>{const[d,mo,y]=(s||"").split(".").map(Number);return(y||0)*10000+(mo||0)*100+(d||0);};
         const pTime=(v:string)=>{const[h,m,s]=(v||"").split(":").map(Number);return(h||0)*3600+(m||0)*60+(s||0);};

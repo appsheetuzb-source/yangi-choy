@@ -279,7 +279,7 @@ export default function MahsulotPage() {
           const hozirdaBorSom    = mahsulotlar.reduce((s, m) => s + n(m.Kg) * n(m.Sotuv_som),    0);
           const hozirdaBorDollar = mahsulotlar.reduce((s, m) => s + n(m.Kg) * n(m.Sotuv_dollar), 0);
           return (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
                 { label: "HOZIRDA BOR (KG)", value: `${fmt(hozirdaBorKg)} kg`, color: "var(--primary)", bg: "#dcfce7",
                   icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
@@ -365,8 +365,8 @@ export default function MahsulotPage() {
             { key: "hozirda_bor", label: "Hozirda bor",  cls: "list__head-col",  show: true },
           ].filter(c => c.show);
           return (
-          <div className="list">
-            <div className="list__head" style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--white)" }}>
+          <div className="list" style={{ overflowX: "auto" }}>
+            <div className="list__head" style={{ position: "sticky", top: 0, zIndex: 10, background: "var(--white)", minWidth: "fit-content" }}>
               <div className="list__head-img" />
               {cols.map(col => (
                 <div key={col.key} className={col.cls}
