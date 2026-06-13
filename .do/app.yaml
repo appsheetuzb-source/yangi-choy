@@ -1,0 +1,33 @@
+# DigitalOcean App Platform spec — Yangi Choy (Next.js monorepo)
+# Baza: Google Sheets (env orqali ulanadi, o'zgarmaydi)
+name: yangi-choy
+region: fra   # Frankfurt — O'zbekistonga eng yaqin
+services:
+  - name: web
+    github:
+      repo: appsheetuzb-source/yangi-choy
+      branch: main
+      deploy_on_push: true
+    # Monorepo: build root'dan, workspace (web) maqsadli
+    source_dir: /
+    build_command: npm install && npm run build --workspace=web
+    run_command: npm run start --workspace=web
+    environment_slug: node-js
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    http_port: 8080
+    routes:
+      - path: /
+    envs:
+      - key: GOOGLE_SHEETS_ID
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: GOOGLE_SERVICE_ACCOUNT_EMAIL
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: GOOGLE_PRIVATE_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: GOOGLE_SHEET_NAME
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
