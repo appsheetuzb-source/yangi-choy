@@ -5,7 +5,6 @@ const nextConfig: NextConfig = {
 
   // Kichik VPS'da build xotirasini kamaytirish (lokalda allaqachon tekshiriladi)
   typescript: { ignoreBuildErrors: true },
-  eslint: { ignoreDuringBuilds: true },
 
   // Bundle analyzer off by default
   experimental: {
