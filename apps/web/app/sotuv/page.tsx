@@ -348,12 +348,8 @@ export default function SotuvPage() {
 
   // Ro'yxat/jadval — doim desktop ko'rinish (web bilan bir xil)
   useEffect(()=>{ setIsMobile(false); },[]);
-  // Savat formasi uchun — haqiqiy mobil aniqlash (input'lar stacklanishi uchun)
-  const [savatMobile, setSavatMobile] = useState(false);
-  useEffect(()=>{
-    const c=()=>setSavatMobile(window.innerWidth<640);
-    c(); window.addEventListener("resize",c); return ()=>window.removeEventListener("resize",c);
-  },[]);
+  // Savat formasi — doim stacklangan (mobil) ko'rinish: barcha ekranda chiroyli, toshmaydi
+  const savatMobile = true;
 
   useEffect(()=>{
     try {
