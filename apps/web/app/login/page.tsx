@@ -65,7 +65,7 @@ export default function LoginPage() {
           border: "1px solid var(--border-2)",
           borderRadius: 20,
           padding: "28px 28px",
-          boxShadow: "0 8px 32px rgba(0,0,0,.4)",
+          boxShadow: "0 12px 36px rgba(30,64,124,.16)",
         }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
 

@@ -54,7 +54,7 @@ interface STolov {
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface MijozBalans { Mijoz_ID: string; Qoldi_som: string; Qoldi_dollar: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
-interface Sotuv { Sotuv_ID: string; Sotuv_Raqami: string; Mijoz_ID: string; Sana: string; Balans: string; Balans_dollar: string; }
+interface Sotuv { Sotuv_ID: string; Sotuv_Raqami: string; Mijoz_ID: string; Sana: string; Balans: string; Balans_dollar: string; Chek?: string; }
 
 const OY_NOMLARI = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
 const TURI_LIST  = ["Naqd","Bank","Karta"];
@@ -192,9 +192,16 @@ const TolovList = memo(function TolovList({
         const jamiSom = num(t.Summa), jamiUsd = num(t.Summa_dollar);
         const sRaqam = t.Sotuv_ID ? sotuvRaqamMap[t.Sotuv_ID] : null;
         const isHa = t.Check === "True" || t.Check === "true";
+        const showDate = idx === 0 || (!!filtered[idx-1] && filtered[idx-1].Sana !== t.Sana);
         return (
-          <div key={t.Tolov_ID || idx} onClick={() => onRowClick(t.Tolov_ID)}
-            style={{ padding: "14px", borderBottom: idx < filtered.length-1 ? "1px solid var(--border)" : "none", background: isHa ? "#dcfce7" : "#fee2e2", cursor: "pointer" }}>
+          <div key={t.Tolov_ID || idx}>
+            {showDate && (
+              <div style={{ padding: "7px 14px", background: "#eef2fb", borderTop: idx > 0 ? "1px solid var(--border)" : "none", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, color: "var(--primary)" }}>
+                {t.Sana || "—"}
+              </div>
+            )}
+            <div onClick={() => onRowClick(t.Tolov_ID)}
+              style={{ padding: "14px", borderBottom: "1px solid var(--border)", background: isHa ? "#dcfce7" : "#fee2e2", cursor: "pointer" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 10 }}>
               <div>
                 <p style={{ fontSize: 14, fontWeight: 800, color: "#ef4444" }}>{mNomi}</p>
@@ -233,6 +240,7 @@ const TolovList = memo(function TolovList({
                   style={{ padding: "5px 12px", fontSize: 12, fontWeight: 700, border: "none", cursor: isHa ? "pointer" : "default", background: !isHa ? "#ef4444" : "var(--white)", color: !isHa ? "#fff" : "var(--text-3)" }}>Yo&apos;q</button>
               </div>
             </div>
+            </div>
           </div>
         );
       })}
@@ -249,11 +257,18 @@ const TolovList = memo(function TolovList({
         const isHa = t.Check === "True" || t.Check === "true";
         const rowBg = isHa ? "#dcfce7" : "#fee2e2";
         const rowHover = isHa ? "#bbf7d0" : "#fecaca";
+        const showDate = idx === 0 || (!!filtered[idx-1] && filtered[idx-1].Sana !== t.Sana);
         return (
-          <div key={t.Tolov_ID || idx} onClick={() => onRowClick(t.Tolov_ID)}
-            style={{ display: "grid", gridTemplateColumns: "minmax(130px,1.3fr) 90px 110px 100px 90px 115px 115px minmax(70px,.8fr) 110px 64px", padding: "10px 16px", alignItems: "center", borderBottom: idx < filtered.length-1 ? "1px solid var(--border)" : "none", background: rowBg, cursor: "pointer" }}
-            onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
-            onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
+          <div key={t.Tolov_ID || idx}>
+            {showDate && (
+              <div style={{ padding: "7px 16px", background: "#eef2fb", borderTop: idx > 0 ? "1px solid var(--border)" : "none", borderBottom: "1px solid var(--border)", fontSize: 12, fontWeight: 800, color: "var(--primary)", letterSpacing: ".02em" }}>
+                {t.Sana || "—"}
+              </div>
+            )}
+            <div onClick={() => onRowClick(t.Tolov_ID)}
+              style={{ display: "grid", gridTemplateColumns: "minmax(130px,1.3fr) 90px 110px 100px 90px 115px 115px minmax(70px,.8fr) 110px 64px", padding: "10px 16px", alignItems: "center", borderBottom: "1px solid var(--border)", background: rowBg, cursor: "pointer" }}
+              onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
+              onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
             <div>
               <p style={{ fontSize: 13, fontWeight: 800, color: "#ef4444", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mNomi}</p>
               <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 1 }}>{t.Sana || "—"}{t.Vaqt ? ` · ${t.Vaqt}` : ""}</p>
@@ -288,6 +303,7 @@ const TolovList = memo(function TolovList({
                 onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                 <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
               </button>
+            </div>
             </div>
           </div>
         );
@@ -621,7 +637,7 @@ export default function SotuvTolovPage() {
     const bSom = num(selectedMijoz.Boshlangich_Balans_som);
     const bUsd = num(selectedMijoz.Boshlangich_Balans_dollar);
     let xSom = 0, xUsd = 0;
-    sotuvlar.filter(s => s.Mijoz_ID === addMijoz).forEach(s => {
+    sotuvlar.filter(s => s.Mijoz_ID === addMijoz && String(s.Chek||"").toUpperCase()==="TRUE").forEach(s => {
       xSom += savatSomTot[s.Sotuv_ID] || 0;
       xUsd += savatDolTot[s.Sotuv_ID] || 0;
     });
@@ -631,7 +647,7 @@ export default function SotuvTolovPage() {
   }, [selectedMijoz, addMijoz, sotuvlar, savatSomTot, savatDolTot, tolovlar]);
 
   const modalOverlay: React.CSSProperties = {
-    position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)",
+    position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)",
     display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center",
     padding: isMobile ? 0 : 20,
   };
@@ -646,7 +662,7 @@ export default function SotuvTolovPage() {
       <header className="header">
         <div className="header__inner">
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <h1 className="header__title" style={{ paddingLeft: 4 }}>Sotuv to&apos;lovlari</h1>
+            <h1 className="header__title" style={{ paddingLeft: 4 }}>Pul ayirish</h1>
             <span style={{ fontSize: 11, color: "var(--text-3)", paddingLeft: 4 }}>Barcha to&apos;lovlar ro&apos;yxati</span>
           </div>
           <div className="header__spacer"/>

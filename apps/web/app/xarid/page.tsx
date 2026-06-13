@@ -426,7 +426,7 @@ export default function XaridPage() {
   const {sana,vaqt}=nowStr();
 
   const modalOverlay: React.CSSProperties = {
-    position:"fixed",inset:0,zIndex:50,background:"rgba(0,0,0,.45)",
+    position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",
     display:"flex", alignItems: isMobile ? "flex-end" : "center",
     justifyContent:"center", padding: isMobile ? 0 : 20,
   };

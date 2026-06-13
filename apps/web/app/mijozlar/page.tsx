@@ -17,7 +17,7 @@ interface MijozBalans {
   Berdi_som: string; Berdi_dollar: string; Qoldi_som: string; Qoldi_dollar: string;
 }
 interface SotuvRow {
-  Sotuv_ID: string; Mijoz_ID: string;
+  Sotuv_ID: string; Mijoz_ID: string; Chek?: string;
 }
 interface SavatSomRow {
   Sotuv_ID: string; Summa_som: string;
@@ -142,9 +142,10 @@ export default function MijozlarPage() {
         agents.forEach(f => { aMap[f.Foydalanuvchi_ID] = f.Nomi; });
         setAgentMap(aMap);
 
-        // Sotuv_ID → Mijoz_ID mapping
+        // Sotuv_ID → Mijoz_ID mapping (faqat tasdiqlangan: Chek=TRUE)
         const sotuvMijozMap: Record<string, string> = {};
         ((sR.data || []) as SotuvRow[]).forEach(s => {
+          if (String(s.Chek || "").toUpperCase() !== "TRUE") return;
           const sid = String(s.Sotuv_ID || "").trim();
           const mid = String(s.Mijoz_ID || "").trim();
           if (sid && mid) sotuvMijozMap[sid] = mid;
@@ -244,7 +245,7 @@ export default function MijozlarPage() {
   }
 
   const modalOverlay: React.CSSProperties = {
-    position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)",
+    position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)",
     display: "flex", alignItems: isMobile ? "flex-end" : "center",
     justifyContent: "center", padding: isMobile ? 0 : 20,
   };
@@ -260,7 +261,7 @@ export default function MijozlarPage() {
     <>
       <header className="header">
         <div className="header__inner">
-          <h1 className="header__title" style={{ paddingLeft: 4 }}>Mijozlar</h1>
+          <h1 className="header__title" style={{ paddingLeft: 4 }}>Klientlar</h1>
           {!isMobile && (
             <div className="search" style={{ maxWidth: 300 }}>
               <span className="search__icon">

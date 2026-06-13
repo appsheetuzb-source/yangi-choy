@@ -453,14 +453,14 @@ export default function GaznaDetailPage() {
       {selectedTx && (
         <div onClick={() => setSelectedTx(null)} style={{
           position: "fixed", inset: 0, zIndex: 200,
-          background: "rgba(0,0,0,.45)",
+          background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)",
           display: "flex", alignItems: "center", justifyContent: "center",
           padding: 16,
         }}>
           <div onClick={e => e.stopPropagation()} style={{
             background: "var(--white)", borderRadius: 16, width: "100%", maxWidth: 420,
             borderTop: `4px solid ${selectedTx.kirdi > 0 ? "var(--primary)" : "#ef4444"}`,
-            boxShadow: "0 20px 60px rgba(0,0,0,.2)", overflow: "hidden",
+            boxShadow: "0 20px 60px rgba(30,64,124,.22)", overflow: "hidden",
           }}>
             {/* Head */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 20px 14px" }}>

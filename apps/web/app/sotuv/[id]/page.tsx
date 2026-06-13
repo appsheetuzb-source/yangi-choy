@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useRef, useMemo } from "react";
@@ -61,12 +61,12 @@ function SearchSelect({ items, value, onChange, placeholder }: {
       </div>
       {open&&(
         <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:200,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
-          <div style={{padding:"8px",borderBottom:"1px solid var(--border)"}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Qidirish..." style={{width:"100%",padding:"7px 10px",border:"1px solid var(--border)",borderRadius:8,fontSize:13,outline:"none"}}/></div>
-          <div style={{maxHeight:220,overflowY:"auto"}}>
-            {list.length===0?<div style={{padding:"12px 14px",fontSize:13,color:"var(--text-3)"}}>Topilmadi</div>
+          <div style={{padding:"10px",borderBottom:"1px solid var(--border)"}}><input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Qidirish..." style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:8,fontSize:14.5,outline:"none"}}/></div>
+          <div style={{maxHeight:380,overflowY:"auto"}}>
+            {list.length===0?<div style={{padding:"14px 16px",fontSize:14,color:"var(--text-3)"}}>Topilmadi</div>
               :list.map(i=>(
                 <div key={i.id} onClick={()=>{onChange(i.id);setOpen(false);setQ("");}}
-                  style={{padding:"10px 14px",fontSize:13,cursor:"pointer",fontWeight:i.id===value?700:400,background:i.id===value?"var(--bg)":"transparent",color:i.id===value?"var(--primary)":"var(--text)"}}
+                  style={{padding:"12px 16px",fontSize:14.5,cursor:"pointer",fontWeight:i.id===value?700:500,background:i.id===value?"var(--bg)":"transparent",color:i.id===value?"var(--primary)":"var(--text)"}}
                   onMouseEnter={e=>(e.currentTarget.style.background="var(--bg)")}
                   onMouseLeave={e=>(e.currentTarget.style.background=i.id===value?"var(--bg)":"transparent")}>
                   {i.label}
@@ -143,6 +143,12 @@ export default function SotuvDetailPage() {
   const [editDollarSoni, setEditDollarSoni]   = useState("");
   const [editDollarNarx, setEditDollarNarx]   = useState("");
   const [editDollarSaving, setEditDollarSaving] = useState(false);
+
+  // Ommaviy (bulk) tahrirlash — narx/soni
+  const [bulkMode, setBulkMode]   = useState(false);
+  const [bulkSel, setBulkSel]     = useState<Set<string>>(new Set());
+  const [bulkEdits, setBulkEdits] = useState<Record<string,{Soni:string;Narx:string}>>({});
+  const [bulkSaving, setBulkSaving] = useState(false);
 
   // Delete confirms
   const [deleteOpen, setDeleteOpen]         = useState(false);
@@ -435,6 +441,47 @@ export default function SotuvDetailPage() {
     } finally { setEditDollarSaving(false); }
   }
 
+  // ── Ommaviy (bulk) tahrirlash ───────────────────────────
+  function exitBulk(){ setBulkMode(false); setBulkSel(new Set()); setBulkEdits({}); }
+  function toggleBulkRow(savatId:string, soni:string, narx:string){
+    setBulkSel(prev=>{ const n=new Set(prev); if(n.has(savatId)) n.delete(savatId); else n.add(savatId); return n; });
+    setBulkEdits(e=> e[savatId] ? e : {...e,[savatId]:{Soni:soni,Narx:narx}});
+  }
+  function setBulkVal(savatId:string, field:"Soni"|"Narx", val:string){
+    setBulkEdits(e=>({...e,[savatId]:{...(e[savatId]||{Soni:"",Narx:""}),[field]:val}}));
+  }
+  function toggleAllBulk(rows:{Savat_ID:string;Soni:string;narx:string}[]){
+    const allSel = rows.length>0 && rows.every(r=>bulkSel.has(r.Savat_ID));
+    if(allSel){
+      setBulkSel(prev=>{ const n=new Set(prev); rows.forEach(r=>n.delete(r.Savat_ID)); return n; });
+    } else {
+      setBulkSel(prev=>{ const n=new Set(prev); rows.forEach(r=>n.add(r.Savat_ID)); return n; });
+      setBulkEdits(e=>{ const ne={...e}; rows.forEach(r=>{ if(!ne[r.Savat_ID]) ne[r.Savat_ID]={Soni:r.Soni,Narx:r.narx}; }); return ne; });
+    }
+  }
+  async function handleBulkSave(){
+    if(!sotuv||bulkSel.size===0) return;
+    setBulkSaving(true);
+    try {
+      for(const r of savatSom){
+        if(!bulkSel.has(r.Savat_ID)) continue;
+        const e=bulkEdits[r.Savat_ID]; if(!e) continue;
+        await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Soni:e.Soni,Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx))}})});
+      }
+      for(const r of savatDollar){
+        if(!bulkSel.has(r.Savat_ID)) continue;
+        const e=bulkEdits[r.Savat_ID]; if(!e) continue;
+        await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Soni:e.Soni,Narx:e.Narx,Summa:String(num(e.Soni)*num(e.Narx))}})});
+      }
+      afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
+      setSavatSom(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Soni:e.Soni,Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx))}:r; }));
+      setSavatDollar(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Soni:e.Soni,Narx:e.Narx,Summa:String(num(e.Soni)*num(e.Narx))}:r; }));
+      exitBulk();
+    } finally { setBulkSaving(false); }
+  }
+
   async function handleAddSomRow() {
     if(!sotuv||!addSomMahsulot||!addSomSoni) return;
     setAddSomSaving(true);
@@ -699,17 +746,44 @@ export default function SotuvDetailPage() {
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",marginBottom:(savatDollar.length>0||addDollarOpen)?16:0}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
               <span style={{fontSize:15,fontWeight:700}}>So&apos;m mahsulotlar</span>
-              <button onClick={()=>setAddSomOpen(true)} disabled={addSomOpen} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",cursor:addSomOpen?"default":"pointer",fontSize:13,fontWeight:600,color:"var(--text-2)",opacity:addSomOpen?0.5:1}}>
-                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
-              </button>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={()=>bulkMode?exitBulk():setBulkMode(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:`1px solid ${bulkMode?"var(--primary)":"var(--border)"}`,borderRadius:"var(--radius)",background:bulkMode?"var(--primary-glow)":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:bulkMode?"var(--primary)":"var(--text-2)"}}>
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> {bulkMode?"Bekor":"Ommaviy"}
+                </button>
+                <button onClick={()=>setAddSomOpen(true)} disabled={addSomOpen||bulkMode} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",cursor:(addSomOpen||bulkMode)?"default":"pointer",fontSize:13,fontWeight:600,color:"var(--text-2)",opacity:(addSomOpen||bulkMode)?0.5:1}}>
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
+                </button>
+              </div>
             </div>
-            <div style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
-              {["#","MAHSULOT","SONI","NARX","JAMI","YETKAZIB BERILDIMI?",""].map(h=><span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>{h}</span>)}
+            <div style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
+              {bulkMode
+                ? <input type="checkbox" checked={savatSom.length>0&&savatSom.every(r=>bulkSel.has(r.Savat_ID))} onChange={()=>toggleAllBulk(savatSom.map(r=>({Savat_ID:r.Savat_ID,Soni:r.Soni,narx:r.Som_Narx})))} style={{width:17,height:17,cursor:"pointer"}}/>
+                : <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>#</span>}
+              {["MAHSULOT","SONI","NARX","JAMI",bulkMode?"":"YETKAZIB BERILDIMI?",""].map((h,hi)=><span key={hi} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>{h}</span>)}
             </div>
             {savatSom.map((s,i)=>{
               const m=mMap[s.Mahsulot_ID];
               const isEdit=editSomRow?.Savat_ID===s.Savat_ID;
               const delivered=s.Check!=="FALSE";
+              if(bulkMode){
+                const sel=bulkSel.has(s.Savat_ID);
+                const e=bulkEdits[s.Savat_ID]||{Soni:s.Soni,Narx:s.Som_Narx};
+                const jami=sel?num(e.Soni)*num(e.Narx):num(s.Summa_som);
+                return (
+                  <div key={s.Savat_ID||i} style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",alignItems:"center",borderBottom:i<savatSom.length-1?"1px solid var(--border)":"none",background:sel?"#f0f9ff":"transparent"}}>
+                    <input type="checkbox" checked={sel} onChange={()=>toggleBulkRow(s.Savat_ID,s.Soni,s.Som_Narx)} style={{width:17,height:17,cursor:"pointer"}}/>
+                    <span style={{fontSize:14,fontWeight:600}}>{m?.Nomi||"—"}</span>
+                    {sel
+                      ? <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                      : <span style={{fontSize:14,fontWeight:700}}>{fmt(s.Soni)}</span>}
+                    {sel
+                      ? <input value={e.Narx} onChange={ev=>setBulkVal(s.Savat_ID,"Narx",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                      : <span style={{fontSize:14,fontWeight:700}}>{fmt(s.Som_Narx)}</span>}
+                    <span style={{fontSize:14,fontWeight:800,color:sel?"var(--primary)":"var(--text)"}}>{fmtSom(jami)}</span>
+                    <div/><div/>
+                  </div>
+                );
+              }
               return (
                 <div key={s.Savat_ID||i} style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:isEdit?"8px 20px":"13px 20px",alignItems:"center",borderBottom:i<savatSom.length-1?"1px solid var(--border)":"none",background:isEdit?"#f0f9ff":"transparent"}}>
                   <span style={{fontSize:13,color:"var(--text-3)"}}>{i+1}</span>
@@ -791,17 +865,44 @@ export default function SotuvDetailPage() {
         <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
             <span style={{fontSize:15,fontWeight:700}}>Dollar mahsulotlar</span>
-            <button onClick={()=>setAddDollarOpen(true)} disabled={addDollarOpen} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",cursor:addDollarOpen?"default":"pointer",fontSize:13,fontWeight:600,color:"var(--text-2)",opacity:addDollarOpen?0.5:1}}>
-              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
-            </button>
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>bulkMode?exitBulk():setBulkMode(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:`1px solid ${bulkMode?"var(--primary)":"var(--border)"}`,borderRadius:"var(--radius)",background:bulkMode?"var(--primary-glow)":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:bulkMode?"var(--primary)":"var(--text-2)"}}>
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> {bulkMode?"Bekor":"Ommaviy"}
+              </button>
+              <button onClick={()=>setAddDollarOpen(true)} disabled={addDollarOpen||bulkMode} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",cursor:(addDollarOpen||bulkMode)?"default":"pointer",fontSize:13,fontWeight:600,color:"var(--text-2)",opacity:(addDollarOpen||bulkMode)?0.5:1}}>
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
+              </button>
+            </div>
           </div>
-          <div style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
-            {["#","MAHSULOT","SONI","NARX ($)","JAMI ($)","YETKAZIB BERILDIMI?",""].map(h=><span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>{h}</span>)}
+          <div style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
+            {bulkMode
+              ? <input type="checkbox" checked={savatDollar.length>0&&savatDollar.every(r=>bulkSel.has(r.Savat_ID))} onChange={()=>toggleAllBulk(savatDollar.map(r=>({Savat_ID:r.Savat_ID,Soni:r.Soni,narx:r.Narx})))} style={{width:17,height:17,cursor:"pointer"}}/>
+              : <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>#</span>}
+            {["MAHSULOT","SONI","NARX ($)","JAMI ($)",bulkMode?"":"YETKAZIB BERILDIMI?",""].map((h,hi)=><span key={hi} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>{h}</span>)}
           </div>
           {savatDollar.map((s,i)=>{
             const m=mMap[s.Mahsulot_ID];
             const isEdit=editDollarRow?.Savat_ID===s.Savat_ID;
             const delivered=s.Check!=="FALSE";
+            if(bulkMode){
+              const sel=bulkSel.has(s.Savat_ID);
+              const e=bulkEdits[s.Savat_ID]||{Soni:s.Soni,Narx:s.Narx};
+              const jami=sel?num(e.Soni)*num(e.Narx):num(s.Summa);
+              return (
+                <div key={s.Savat_ID||i} style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",alignItems:"center",borderBottom:i<savatDollar.length-1?"1px solid var(--border)":"none",background:sel?"#eff6ff":"transparent"}}>
+                  <input type="checkbox" checked={sel} onChange={()=>toggleBulkRow(s.Savat_ID,s.Soni,s.Narx)} style={{width:17,height:17,cursor:"pointer"}}/>
+                  <span style={{fontSize:14,fontWeight:600}}>{m?.Nomi||"—"}</span>
+                  {sel
+                    ? <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                    : <span style={{fontSize:14,fontWeight:700}}>{fmt(s.Soni)}</span>}
+                  {sel
+                    ? <input value={e.Narx} onChange={ev=>setBulkVal(s.Savat_ID,"Narx",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
+                    : <span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(s.Narx)}</span>}
+                  <span style={{fontSize:14,fontWeight:800,color:sel?"#2563eb":"var(--text)"}}>{fmtUsd(jami)}</span>
+                  <div/><div/>
+                </div>
+              );
+            }
             return (
               <div key={s.Savat_ID||i} style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:isEdit?"8px 20px":"13px 20px",alignItems:"center",borderBottom:i<savatDollar.length-1?"1px solid var(--border)":"none",background:isEdit?"#eff6ff":"transparent"}}>
                 <span style={{fontSize:13,color:"var(--text-3)"}}>{i+1}</span>
@@ -877,6 +978,17 @@ export default function SotuvDetailPage() {
           )}
         </div>
         )}
+
+        {/* Ommaviy tahrirlash — pastki saqlash paneli */}
+        {bulkMode&&(
+          <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:60,background:"var(--white)",borderTop:"1px solid var(--border)",boxShadow:"0 -4px 20px rgba(30,64,124,.14)",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:12,flexWrap:"wrap"}}>
+            <span style={{fontSize:13,fontWeight:700,color:"var(--text-2)"}}>{bulkSel.size} ta tanlandi</span>
+            <button onClick={exitBulk} className="btn btn--outline" disabled={bulkSaving}>Bekor</button>
+            <button onClick={handleBulkSave} className="btn btn--primary" disabled={bulkSaving||bulkSel.size===0}>
+              {bulkSaving?<span className="spinner"/>:null}{bulkSaving?"Saqlanmoqda...":"Saqlash"}
+            </button>
+          </div>
+        )}
         {savatSom.length===0&&savatDollar.length===0&&!addSomOpen&&!addDollarOpen&&(
           <div style={{marginTop:24,background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:"32px 20px",textAlign:"center"}}>
             <p style={{color:"var(--text-3)",fontSize:13,marginBottom:12}}>Savat bo&apos;sh</p>
@@ -890,7 +1002,7 @@ export default function SotuvDetailPage() {
 
       {/* ── Edit/Add Modal ── */}
       {editOpen&&(
-        <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setEditOpen(false)}>
+        <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setEditOpen(false)}>
           <div style={{background:"var(--white)",borderRadius:16,width:"100%",maxWidth:900,maxHeight:"92vh",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",alignItems:"center",gap:16,padding:"20px 24px",borderBottom:"1px solid var(--border)"}}>
               <div style={{flex:1}}>
@@ -946,8 +1058,8 @@ export default function SotuvDetailPage() {
                   </div>
                 );
               })}
-              <button onClick={()=>setEditSavatItems(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:""}])} style={{display:"flex",alignItems:"center",gap:4,padding:"7px 14px",border:"1px solid var(--border)",borderRadius:8,fontSize:12,fontWeight:600,background:"var(--white)",cursor:"pointer",color:"var(--text-2)",marginTop:4}}>
-                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
+              <button onClick={()=>setEditSavatItems(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:""}])} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,padding:"12px 20px",border:"1.5px solid var(--primary)",borderRadius:10,fontSize:14.5,fontWeight:700,background:"var(--primary-glow)",cursor:"pointer",color:"var(--primary)",marginTop:6,width:"fit-content"}}>
+                <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 4v16m8-8H4"/></svg> Mahsulot qo&apos;shish
               </button>
               {(editJamiSom>0||editJamiDollar>0)&&(
                 <div style={{display:"flex",justifyContent:"flex-end",gap:16,padding:"10px 14px",background:"var(--bg)",borderRadius:"var(--radius)",marginTop:8}}>
@@ -1012,7 +1124,7 @@ export default function SotuvDetailPage() {
 
       {/* ── Add Tolov Modal ── */}
       {addTolovOpen&&(
-        <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setAddTolovOpen(false)}>
+        <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setAddTolovOpen(false)}>
           <div style={{background:"var(--white)",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",alignItems:"center",gap:14,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
               <div style={{width:38,height:38,borderRadius:10,background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
@@ -1130,7 +1242,7 @@ export default function SotuvDetailPage() {
 
       {/* ── Edit Tolov Modal ── */}
       {editTolov&&(
-        <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(0,0,0,.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setEditTolov(null)}>
+        <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setEditTolov(null)}>
           <div style={{background:"var(--white)",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 20px",borderBottom:"1px solid var(--border)"}}>
               <h2 style={{fontSize:15,fontWeight:800}}>To&apos;lovni tahrirlash</h2>

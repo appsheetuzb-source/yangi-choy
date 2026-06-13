@@ -401,13 +401,13 @@ export default function TaminotchiDetailPage() {
       {/* Edit drawer */}
       {editOpen && (
         <>
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 999 }} onClick={() => setEditOpen(false)} />
+          <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", zIndex: 999 }} onClick={() => setEditOpen(false)} />
           <div style={{ position: "fixed", ...(isMobile
             ? { bottom: 0, left: 0, right: 0, borderRadius: "20px 20px 0 0", maxHeight: "85vh", overflowY: "auto" }
             : { top: 0, right: 0, width: 380, height: "100%", overflowY: "auto" }),
             background: "var(--white)", zIndex: 1000, padding: "24px 20px",
             display: "flex", flexDirection: "column", gap: 16,
-            boxShadow: "-4px 0 32px rgba(0,0,0,0.1)" }}>
+            boxShadow: "-16px 0 48px rgba(30,64,124,.18)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 16, fontWeight: 800 }}>Tahrirlash</span>
               <button onClick={() => setEditOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, fontSize: 18, color: "var(--text-3)" }}>✕</button>

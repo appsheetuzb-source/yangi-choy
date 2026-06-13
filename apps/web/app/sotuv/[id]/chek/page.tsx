@@ -93,8 +93,9 @@ function buildPDF(
         r.Izoh||"",
       ]),
       foot: [["","","","Jami:",thisSom.toLocaleString("ru-RU")+" so'm",""]],
-      styles: { fontStyle:"bold" },
-      headStyles: { fillColor:[26,39,68], textColor:255, fontStyle:"bold", fontSize:8 },
+      theme: "grid",
+      styles: { fontStyle:"bold", lineColor:[150,158,185], lineWidth:0.2 },
+      headStyles: { fillColor:[26,39,68], textColor:255, fontStyle:"bold", fontSize:8, lineColor:[26,39,68], lineWidth:0.2 },
       bodyStyles: { fontSize:9, textColor:[45,51,72], fontStyle:"bold" },
       footStyles: { fillColor:[238,240,248], textColor:[26,39,68], fontStyle:"bold", fontSize:10 },
       alternateRowStyles: { fillColor:[247,248,252] },
@@ -120,8 +121,9 @@ function buildPDF(
         r.Izoh||"",
       ]),
       foot: [["","","","Jami:",thisDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $",""]],
-      styles: { fontStyle:"bold" },
-      headStyles: { fillColor:[26,39,68], textColor:255, fontStyle:"bold", fontSize:8 },
+      theme: "grid",
+      styles: { fontStyle:"bold", lineColor:[150,158,185], lineWidth:0.2 },
+      headStyles: { fillColor:[26,39,68], textColor:255, fontStyle:"bold", fontSize:8, lineColor:[26,39,68], lineWidth:0.2 },
       bodyStyles: { fontSize:9, textColor:[45,51,72], fontStyle:"bold" },
       footStyles: { fillColor:[238,240,248], textColor:[26,39,68], fontStyle:"bold", fontSize:10 },
       alternateRowStyles: { fillColor:[247,248,252] },
@@ -378,8 +380,8 @@ function ChekContent() {
         /* Table wrapper */
         .chek-table-wrap { padding: 0 32px 10px; }
 
-        /* Table */
-        .chek-table { width:100%; border-collapse:collapse; margin-bottom:4px; }
+        /* Table — har bir katak ramkali (grid) */
+        .chek-table { width:100%; border-collapse:collapse; margin-bottom:4px; border:1.5px solid #1a2744; }
         .chek-table thead th {
           background: #1a2744;
           color: #fff;
@@ -389,6 +391,7 @@ function ChekContent() {
           text-transform: uppercase;
           padding: 8px 12px;
           text-align: center;
+          border: 1px solid #2d3a5c;
         }
         .chek-table tbody tr:nth-child(even) { background: #f7f8fc; }
         .chek-table tbody tr:hover { background: #eef0f8; }
@@ -397,7 +400,7 @@ function ChekContent() {
           font-size: 12px;
           font-weight: 700;
           color: #2d3348;
-          border-bottom: 1px solid #f0f2f5;
+          border: 1px solid #c8cde1;
           text-align: center;
         }
         .chek-table tbody td.left { text-align: left; }
@@ -409,7 +412,7 @@ function ChekContent() {
           font-weight: 800;
           color: #1a2744;
           background: #eef0f8;
-          border-top: 3px double #1a2744;
+          border: 1px solid #1a2744;
           text-align: center;
         }
         .chek-table tfoot td.label { text-align: right; color: #5a6080; font-weight: 800; }
@@ -511,9 +514,10 @@ function ChekContent() {
           .chek-section-title { padding: 5px 8px 3px; font-size: 9px; letter-spacing: 1px; }
           .chek-table-wrap { padding: 0 0 6px; }
           .chek-info { padding: 6px 8px; }
-          .chek-table thead th { padding: 4px 8px; font-size: 8px; color: #000 !important; }
-          .chek-table tbody td { padding: 3px 8px; font-size: 10px; }
-          .chek-table tfoot td { padding: 4px 8px; font-size: 11px; }
+          .chek-table { border: 1.2px solid #000 !important; }
+          .chek-table thead th { padding: 4px 8px; font-size: 8px; color: #000 !important; border: 0.8px solid #000 !important; }
+          .chek-table tbody td { padding: 3px 8px; font-size: 10px; border: 0.8px solid #555 !important; }
+          .chek-table tfoot td { padding: 4px 8px; font-size: 11px; border: 0.8px solid #000 !important; }
 
           .chek-balance { margin: 5px 0 10px; border-radius: 0; }
           .chek-balance__header { padding: 5px 10px; font-size: 9px; color: #000 !important; }

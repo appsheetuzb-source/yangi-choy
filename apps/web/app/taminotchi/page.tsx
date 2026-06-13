@@ -167,7 +167,7 @@ export default function TaminotchiPage() {
   }
 
   const modalOverlay: React.CSSProperties = {
-    position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,.45)",
+    position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)",
     display: "flex", alignItems: isMobile ? "flex-end" : "center",
     justifyContent: "center", padding: isMobile ? 0 : 20,
   };
@@ -183,7 +183,7 @@ export default function TaminotchiPage() {
     <>
       <header className="header">
         <div className="header__inner">
-          <h1 className="header__title" style={{ paddingLeft: 4 }}>Ta&apos;minotchilar</h1>
+          <h1 className="header__title" style={{ paddingLeft: 4 }}>Firmalar</h1>
           {!isMobile && (
             <div className="search" style={{ maxWidth: 300 }}>
               <span className="search__icon">

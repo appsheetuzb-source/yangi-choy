@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 interface Sotuv {
   Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Status: string;
   Sotuv_Raqami: string; Agent: string; Mijoz_ID: string;
-  Balans: string; Balans_dollar: string; Izoh: string; Vaqt: string;
+  Balans: string; Balans_dollar: string; Izoh: string; Vaqt: string; Chek?: string;
 }
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
@@ -166,15 +166,14 @@ function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boole
   }
 }
 
-function SavatEditor({items,onUpdate,onRemove,onAdd,jamiS,jamiD,kursVal,onKursChange,isMobile,allItems,mMap}:{
+function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap}:{
   items:SavatItem[]; onUpdate:(id:string,f:keyof SavatItem,v:string)=>void;
-  onRemove:(id:string)=>void; onAdd:()=>void; jamiS:number; jamiD:number;
+  onRemove:(id:string)=>void; onAddSom:()=>void; onAddDollar:()=>void; jamiS:number; jamiD:number;
   kursVal:string; onKursChange:(v:string)=>void; isMobile:boolean;
-  allItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
+  somItems:{id:string;label:string}[]; dollarItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
 }) {
-  // Mahsulot tanlanganda narxlar updateItem ichida avto-to'ladi
-  const pickProduct=(id:string,v:string)=>onUpdate(id,"Mahsulot_ID",v);
-  const GRID="2.6fr 80px 100px 120px 1fr 34px";
+  const somRows    = items.filter(i=>i.valyuta==="som");
+  const dollarRows = items.filter(i=>i.valyuta==="dollar");
   return (
     <div>
       {/* Kurs */}
@@ -185,67 +184,110 @@ function SavatEditor({items,onUpdate,onRemove,onAdd,jamiS,jamiD,kursVal,onKursCh
           style={{width:100,padding:"6px 10px",border:`1px solid ${num(kursVal)>0&&num(kursVal)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
       </div>
 
-      {/* Desktop sarlavha */}
-      {!isMobile&&items.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:GRID,gap:8,padding:"4px 0",marginBottom:4}}>
-          {["MAHSULOT","MIQDOR","NARX ($)","NARX (so'm)","JAMI",""].map((h,i)=>(
-            <span key={i} style={{fontSize:10,fontWeight:700,color:i===2?"#2563eb":"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
-          ))}
-        </div>
-      )}
-
-      {items.map(s=>{
-        const jU=num(s.Soni)*num(s.Narx);
-        const jSm=num(s.Soni)*num(s.Som_Narx);
-        const bc=isBelowCost(s,kursVal,mMap);
-        const jamiText = num(s.Narx)>0 ? (jU?fmtUsd(jU):"—") : (num(s.Som_Narx)>0 ? (jSm?jSm.toLocaleString("ru-RU")+" so'm":"—") : "—");
-
-        if(isMobile) return (
-          <div key={s.id} style={{background:"var(--bg-2)",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":"1px solid var(--border)"}}>
-            <div style={{marginBottom:6}}>
-              <SearchSelect items={allItems} value={s.Mahsulot_ID} onChange={v=>pickProduct(s.id,v)} placeholder="Mahsulot..."/>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:6}}>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
-                style={{padding:"8px",border:"1px solid var(--border-2)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
-              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"#58a6ff"}}/>
-              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
-                style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
-            </div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginTop:6}}>
-              <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":(num(s.Narx)>0?"#58a6ff":"#3fb950")}}>{bc?"Tan narxidan past!":jamiText}</span>
-              <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"var(--red-bg)",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
-            </div>
+      {/* So'm section */}
+      <div style={{marginBottom:16}}>
+        <span style={{fontSize:11,fontWeight:700,color:"#16a34a",letterSpacing:".05em",display:"block",marginBottom:8}}>SO&apos;M SAVAT</span>
+        {!isMobile&&somRows.length>0&&(
+          <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
+            {["MAHSULOT","MIQDOR","NARX (so'm)","JAMI",""].map(h=>(
+              <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
+            ))}
           </div>
-        );
-        return (
-          <div key={s.id} style={{display:"grid",gridTemplateColumns:GRID,gap:8,alignItems:"center",marginBottom:8}}>
-            <SearchSelect items={allItems} value={s.Mahsulot_ID} onChange={v=>pickProduct(s.id,v)} placeholder="Mahsulot..."/>
-            <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
-              style={{padding:"10px 8px",border:"1px solid var(--border-2)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
-            <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-              style={{padding:"10px 8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"#58a6ff"}}/>
-            <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
-              style={{padding:"10px 8px",border:`1px solid ${bc?"#ef4444":"var(--border-2)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",background:"var(--bg)",color:"var(--text)"}}/>
-            <div style={{padding:"10px 8px",background:"var(--bg-2)",borderRadius:"var(--radius)",fontSize:12.5,fontWeight:700,textAlign:"right",color:bc?"#ef4444":(num(s.Narx)>0?"#58a6ff":"#3fb950"),overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-              {bc?"past!":jamiText}
+        )}
+        {somRows.map(s=>{
+          const jS=num(s.Soni)*num(s.Som_Narx);
+          const bc=isBelowCost(s,kursVal,mMap);
+          if(isMobile) return (
+            <div key={s.id} style={{background:"#f0fdf4",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":undefined}}>
+              <div style={{marginBottom:6}}>
+                <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+                  style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)"
+                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
+                  <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
+                </div>
+              </div>
             </div>
-            <button onClick={()=>onRemove(s.id)} style={{width:34,height:40,borderRadius:8,border:"none",background:"var(--red-bg)",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
-          </div>
-        );
-      })}
+          );
+          return (
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
+              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+                style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)"
+                style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+              <div style={{padding:"10px",background:bc?"#fef2f2":"#f0fdf4",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#16a34a"}}>
+                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jS?jS.toLocaleString("ru-RU")+" so'm":"—"):"—")}
+              </div>
+              <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
+            </div>
+          );
+        })}
+        <button onClick={onAddSom} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"1px solid #bbf7d0",borderRadius:8,fontSize:13,fontWeight:600,background:"#f0fdf4",cursor:"pointer",color:"#16a34a",marginTop:4,width:isMobile?"100%":undefined,justifyContent:"center"}}>
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> So&apos;m mahsulot
+        </button>
+      </div>
 
-      <button onClick={onAdd} style={{display:"flex",alignItems:"center",gap:6,padding:"9px 16px",border:"1px solid var(--border-2)",borderRadius:8,fontSize:13,fontWeight:600,background:"var(--bg-2)",cursor:"pointer",color:"var(--primary)",marginTop:4,width:isMobile?"100%":"fit-content",justifyContent:"center"}}>
-        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
-      </button>
+      {/* Dollar section */}
+      <div style={{marginBottom:8}}>
+        <span style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:".05em",display:"block",marginBottom:8}}>DOLLAR SAVAT</span>
+        {!isMobile&&dollarRows.length>0&&(
+          <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
+            {["MAHSULOT","MIQDOR","NARX ($)","JAMI",""].map(h=>(
+              <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
+            ))}
+          </div>
+        )}
+        {dollarRows.map(s=>{
+          const jU=num(s.Soni)*num(s.Narx);
+          const bc=isBelowCost(s,kursVal,mMap);
+          if(isMobile) return (
+            <div key={s.id} style={{background:"#eff6ff",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":undefined}}>
+              <div style={{marginBottom:6}}>
+                <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+                  style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)"
+                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
+                  <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
+                </div>
+              </div>
+            </div>
+          );
+          return (
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
+              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+                style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)"
+                style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
+              <div style={{padding:"10px",background:bc?"#fef2f2":"#eff6ff",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#2563eb"}}>
+                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jU?fmtUsd(jU):"—"):"—")}
+              </div>
+              <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
+            </div>
+          );
+        })}
+        <button onClick={onAddDollar} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"1px solid #bfdbfe",borderRadius:8,fontSize:13,fontWeight:600,background:"#eff6ff",cursor:"pointer",color:"#2563eb",marginTop:4,width:isMobile?"100%":undefined,justifyContent:"center"}}>
+          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Dollar mahsulot
+        </button>
+      </div>
 
       {(jamiS>0||jamiD>0)&&(
-        <div style={{marginTop:12,background:"var(--bg-2)",borderRadius:"var(--radius)",overflow:"hidden"}}>
+        <div style={{marginTop:8,background:"var(--bg)",borderRadius:"var(--radius)",overflow:"hidden"}}>
           <div style={{display:"flex",justifyContent:"flex-end",gap:16,padding:"10px 14px"}}>
             <span style={{fontSize:12,fontWeight:600,color:"var(--text-3)"}}>Jami:</span>
-            {jamiS>0&&<span style={{fontSize:14,fontWeight:700,color:"#3fb950"}}>{fmtSom(jamiS)}</span>}
-            {jamiD>0&&<span style={{fontSize:14,fontWeight:700,color:"#58a6ff"}}>{fmtUsd(jamiD)}</span>}
+            {jamiS>0&&<span style={{fontSize:14,fontWeight:700,color:"#16a34a"}}>{fmtSom(jamiS)}</span>}
+            {jamiD>0&&<span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(jamiD)}</span>}
           </div>
         </div>
       )}
@@ -303,10 +345,13 @@ export default function SotuvPage() {
   const [deleteTarget, setDeleteTarget] = useState<Sotuv|null>(null);
   const [deleting, setDeleting]         = useState(false);
   const [checkSaving, setCheckSaving]   = useState("");
-  const [chekDone, setChekDone]         = useState<Set<string>>(new Set());
+  const [tasdiqSaving, setTasdiqSaving] = useState("");
 
-  // Ro'yxat/jadval — doim desktop ko'rinish (web bilan bir xil)
-  useEffect(()=>{ setIsMobile(false); },[]);
+  // Ro'yxat/jadval — mobilda kompakt mobil ko'rinish, desktopda jadval
+  useEffect(()=>{
+    const c=()=>setIsMobile(window.innerWidth<768);
+    c(); window.addEventListener("resize",c); return ()=>window.removeEventListener("resize",c);
+  },[]);
   // Savat formasi: desktopda gorizontal qator, mobilda stacklangan
   const [savatMobile, setSavatMobile] = useState(false);
   useEffect(()=>{
@@ -314,21 +359,19 @@ export default function SotuvPage() {
     c(); window.addEventListener("resize",c); return ()=>window.removeEventListener("resize",c);
   },[]);
 
-  useEffect(()=>{
-    try {
-      const ids: string[] = JSON.parse(localStorage.getItem("sotuv_chek_done")||"[]");
-      setChekDone(new Set(ids));
-    } catch {}
-  },[]);
+  // Sotuv "Belgilangan" (tasdiqlangan) holati — Chek ustuni TRUE bo'lsa qarzga ta'sir qiladi
+  const isTasdiq = (s: Sotuv) => String(s.Chek||"").toUpperCase()==="TRUE";
 
-  function toggleChek(sotuvId: string) {
-    setChekDone(prev=>{
-      const next=new Set(prev);
-      if(next.has(sotuvId)) next.delete(sotuvId);
-      else next.add(sotuvId);
-      try { localStorage.setItem("sotuv_chek_done",JSON.stringify([...next])); } catch {}
-      return next;
-    });
+  async function toggleTasdiq(s: Sotuv) {
+    if (tasdiqSaving) return;
+    const newChek = isTasdiq(s) ? "FALSE" : "TRUE";
+    setTasdiqSaving(s.Sotuv_ID);
+    setSotuvlar(prev => prev.map(x => x.Sotuv_ID===s.Sotuv_ID ? {...x, Chek:newChek} : x));
+    try {
+      await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sheet:"Sotuv", idColumn:"Sotuv_ID", idValue:s.Sotuv_ID, updates:{Chek:newChek}})});
+      afterWrite("Sotuv");
+    } finally { setTasdiqSaving(""); }
   }
 
   const loadData = useCallback((delay=0)=>{
@@ -395,8 +438,11 @@ export default function SotuvPage() {
 
   useEffect(()=>{loadData();},[loadData]);
 
-  function addItem() {
+  function addSomItem() {
     setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
+  }
+  function addDollarItem() {
+    setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"dollar",Check:"TRUE"}]);
   }
   function updateItem(itemId:string, field:keyof SavatItem, val:string) {
     setSavat(p=>p.map(s=>{
@@ -404,13 +450,19 @@ export default function SotuvPage() {
       const u={...s,[field]:val};
       if(field==="Mahsulot_ID"){
         const m=mMap[val];
-        if(m){ u.Som_Narx=m.Sotuv_som||""; u.Narx=m.Sotuv_dollar||""; }
+        if(m){
+          if(s.valyuta==="som"){u.Som_Narx=m.Sotuv_som||"";u.Narx="";}
+          else{u.Narx=m.Sotuv_dollar||"";u.Som_Narx="";}
+        }
       }
       return u;
     }));
   }
-  function addEditItem() {
+  function addSomEditItem() {
     setEditSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
+  }
+  function addDollarEditItem() {
+    setEditSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"dollar",Check:"TRUE"}]);
   }
   function updateEditItem(itemId:string, field:keyof SavatItem, val:string) {
     setEditSavat(p=>p.map(s=>{
@@ -418,7 +470,10 @@ export default function SotuvPage() {
       const u={...s,[field]:val};
       if(field==="Mahsulot_ID"){
         const m=mMap[val];
-        if(m){ u.Som_Narx=m.Sotuv_som||""; u.Narx=m.Sotuv_dollar||""; }
+        if(m){
+          if(s.valyuta==="som"){u.Som_Narx=m.Sotuv_som||"";u.Narx="";}
+          else{u.Narx=m.Sotuv_dollar||"";u.Som_Narx="";}
+        }
       }
       return u;
     }));
@@ -453,7 +508,7 @@ export default function SotuvPage() {
           Izoh:addIzoh,Vaqt:vaqt,Foiz_som:"",Foiz_summa_som:"0",
           Foiz_dollar:"",Foiz_summasi_dollar:"0",Qoshdi:"",
           Qoshilgan_Vaqt:"",Ozgartirdi:"",Oxirgi_ozgarish:"",
-          Chek:"",Chek_file:"",Chek_file_phone:"",Chek_phone:"",Change:"",Change_phone:"",
+          Chek:"FALSE",Chek_file:"",Chek_file_phone:"",Chek_phone:"",Change:"",Change_phone:"",
         }})});
       let savatIdx=1;
       for(const r of valid){
@@ -675,7 +730,8 @@ export default function SotuvPage() {
       : mijozlar;
     return list.map(m=>({id:m.Mijoz_ID,label:m.Ism+(m.Telefon?` (${m.Telefon})`:"")}));
   },[mijozlar, editAgent]);
-  const mhItems       = useMemo(()=>mahsulotlar.map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
+  const mhSomItems    = useMemo(()=>mahsulotlar.filter(m=>num(m.Sotuv_som)>0).map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
+  const mhDollarItems = useMemo(()=>mahsulotlar.filter(m=>num(m.Sotuv_dollar)>0).map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
 
   const allUndeliveredSom = useMemo(()=>
     viewTab==="berilmagan" ? viewFiltered.flatMap(s=>(savatSomMap[s.Sotuv_ID]||[]).filter(r=>(r.Check??"").toString().toUpperCase()==="FALSE")) : [],
@@ -694,7 +750,7 @@ export default function SotuvPage() {
     if(!addMijoz) return null;
     const mj=mijozlar.find(m=>m.Mijoz_ID===addMijoz);
     let som=num(mj?.Boshlangich_Balans_som), dollar=num(mj?.Boshlangich_Balans_dollar);
-    sotuvlar.filter(s=>s.Mijoz_ID===addMijoz).forEach(s=>{
+    sotuvlar.filter(s=>s.Mijoz_ID===addMijoz && isTasdiq(s)).forEach(s=>{
       (savatSomMap[s.Sotuv_ID]||[]).forEach(r=>{ som+=num(r.Summa_som); });
       (savatDollarMap[s.Sotuv_ID]||[]).forEach(r=>{ dollar+=num(r.Summa); });
       (stolovMap[s.Sotuv_ID]||[]).forEach(r=>{ const isD=String(r.Valyuta||"").toLowerCase().includes("dollar"); som-=(!isD?num(r.Som):0); dollar-=(isD?num(r.Summa_dollar):0); });
@@ -702,7 +758,7 @@ export default function SotuvPage() {
     return { som, dollar };
   },[addMijoz, mijozlar, sotuvlar, savatSomMap, savatDollarMap, stolovMap]);
 
-  const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(0,0,0,.45)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
+  const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
 
   return (
@@ -821,7 +877,7 @@ export default function SotuvPage() {
                   </div>
                   {/* Table header */}
                   {viewTab!=="berilmagan"&&(
-                  <div style={{display:"grid",gridTemplateColumns:"48px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(100px,.85fr) minmax(100px,.85fr) minmax(110px,.95fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",padding:"8px 16px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
+                  <div style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(100px,.85fr) minmax(100px,.85fr) minmax(110px,.95fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",padding:"8px 16px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
                     {["#","SANA/RAQAM","MIJOZ","AGENT","JAMI SO'M","JAMI DOLLAR","TO'LANDI","QARZ","IZOH",""].map(h=>(
                       <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text)",letterSpacing:".05em"}}>{h}</span>
                     ))}
@@ -855,13 +911,11 @@ export default function SotuvPage() {
                             <p style={{fontSize:12,color:"var(--text-2)",marginTop:1}}>Agent: {agNomi}</p>
                           </div>
                           <div style={{display:"flex",gap:6,flexShrink:0,marginLeft:8}}>
-                            <button onClick={e=>{e.stopPropagation();toggleChek(s.Sotuv_ID);}}
-                              title={chekDone.has(s.Sotuv_ID)?"Chek chiqarilgan (bosib o'chirish)":"Chek belgilash"}
-                              style={{width:34,height:34,borderRadius:10,border:`1.5px solid ${chekDone.has(s.Sotuv_ID)?"#7c3aed":"#d4d4d8"}`,background:chekDone.has(s.Sotuv_ID)?"#7c3aed":"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:chekDone.has(s.Sotuv_ID)?"#fff":"var(--text-3)"}}>
-                              {chekDone.has(s.Sotuv_ID)
-                                ?<svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>
-                                :<svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth={2}/></svg>
-                              }
+                            <button disabled={tasdiqSaving===s.Sotuv_ID} onClick={e=>{e.stopPropagation();toggleTasdiq(s);}}
+                              title={isTasdiq(s)?"Tasdiqlandi (bosib bekor qilish)":"Tasdiqlash (qarzga qo'shish)"}
+                              style={{display:"flex",alignItems:"center",gap:5,padding:"7px 11px",borderRadius:10,border:`1.5px solid ${isTasdiq(s)?"#16a34a":"#f59e0b"}`,background:isTasdiq(s)?"#16a34a":"#fffbeb",cursor:"pointer",color:isTasdiq(s)?"#fff":"#b45309",fontSize:12,fontWeight:700,whiteSpace:"nowrap",opacity:tasdiqSaving===s.Sotuv_ID?.6:1}}>
+                              {isTasdiq(s)&&<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7"/></svg>}
+                              {isTasdiq(s)?"Tasdiqlandi":"Tasdiqlash"}
                             </button>
                             <button onClick={e=>{e.stopPropagation();openEdit(s);}}
                               style={{width:34,height:34,borderRadius:10,border:"1px solid #dbeafe",background:"#eff6ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#2563eb"}}>
@@ -989,16 +1043,18 @@ export default function SotuvPage() {
                       const qarzDollar = jD - paidDollar;
                       return (
                         <div key={s.Sotuv_ID||idx} onClick={()=>router.push(`/sotuv/${s.Sotuv_ID}`)}
-                          style={{display:"grid",gridTemplateColumns:"48px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(100px,.85fr) minmax(100px,.85fr) minmax(110px,.95fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",
+                          style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(100px,.85fr) minmax(100px,.85fr) minmax(110px,.95fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",
                             padding:"10px 16px",alignItems:"center",borderBottom:idx<viewFiltered.length-1?"1px solid var(--border)":"none",
                             cursor:"pointer",background:"transparent",transition:"background .1s"}}
                           onMouseEnter={e=>(e.currentTarget.style.background="var(--bg)")}
                           onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
                           <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}} onClick={e=>e.stopPropagation()}>
                             <span style={{fontSize:13,color:"var(--text-3)"}}>{idx+1}</span>
-                            <button onClick={()=>toggleChek(s.Sotuv_ID)} title={chekDone.has(s.Sotuv_ID)?"Chiqarilgan (bekor qilish)":"Belgilash"}
-                              style={{width:16,height:16,borderRadius:"50%",border:`2px solid ${chekDone.has(s.Sotuv_ID)?"#7c3aed":"#d4d4d8"}`,background:chekDone.has(s.Sotuv_ID)?"#7c3aed":"transparent",cursor:"pointer",padding:0,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                              {chekDone.has(s.Sotuv_ID)&&<svg width="8" height="8" fill="none" stroke="#fff" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7"/></svg>}
+                            <button disabled={tasdiqSaving===s.Sotuv_ID} onClick={e=>{e.stopPropagation();toggleTasdiq(s);}} title={isTasdiq(s)?"Tasdiqlandi (bosib bekor qilish)":"Tasdiqlash (qarzga qo'shish)"}
+                              style={{display:"flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:20,border:`1.5px solid ${isTasdiq(s)?"#16a34a":"#f59e0b"}`,background:isTasdiq(s)?"#16a34a":"#fffbeb",cursor:"pointer",color:isTasdiq(s)?"#fff":"#b45309",fontSize:10,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.4,opacity:tasdiqSaving===s.Sotuv_ID?.6:1}}>
+                              {isTasdiq(s)
+                                ?<><svg width="9" height="9" fill="none" stroke="#fff" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7"/></svg>Tasdiqlandi</>
+                                :"Tasdiqlash"}
                             </button>
                           </div>
                           <div>
@@ -1027,7 +1083,7 @@ export default function SotuvPage() {
                               const mj=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID);
                               const ag=aMap[s.Agent]||"";
                               // Mijozning eski qarzi (detail sahifasidagi kabi)
-                              const allIds=sotuvlar.filter(sv=>sv.Mijoz_ID===s.Mijoz_ID&&sv.Sotuv_ID!==s.Sotuv_ID).map(sv=>sv.Sotuv_ID);
+                              const allIds=sotuvlar.filter(sv=>sv.Mijoz_ID===s.Mijoz_ID&&sv.Sotuv_ID!==s.Sotuv_ID&&isTasdiq(sv)).map(sv=>sv.Sotuv_ID);
                               const isDollar=(v:string)=>String(v||"").toLowerCase().includes("dollar")||v.trim()==="$";
                               const somJami=allIds.flatMap(id=>savatSomMap[id]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
                               const dollarJami=allIds.flatMap(id=>savatDollarMap[id]||[]).reduce((t,r)=>t+num(r.Summa),0);
@@ -1124,7 +1180,7 @@ export default function SotuvPage() {
               )}
 
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAdd={addItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} allItems={mhItems} mMap={mMap}/>
+                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
@@ -1174,7 +1230,7 @@ export default function SotuvPage() {
                 )}
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAdd={addEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} allItems={mhItems} mMap={mMap}/>
+                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>

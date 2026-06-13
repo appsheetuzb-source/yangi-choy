@@ -13,7 +13,7 @@ interface Foydalanuvchi {
 }
 interface Sotuv {
   Sotuv_ID: string; Mijoz_ID: string; Sana: string; Status: string;
-  Sotuv_Raqami: string; Agent: string; Izoh: string; Vaqt: string;
+  Sotuv_Raqami: string; Agent: string; Izoh: string; Vaqt: string; Chek?: string;
 }
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
@@ -132,14 +132,15 @@ export default function MijozDetailPage() {
     .finally(() => setLoading(false));
   }, [id, tick]);
 
-  // Stats
+  // Stats — faqat tasdiqlangan (Chek=TRUE) sotuvlar qarzga qo'shiladi
+  const tasdiqSotuv = (sv: Sotuv) => String(sv.Chek||"").toUpperCase()==="TRUE";
   const jamiSotuvSom = useMemo(() =>
-    sotuvlar.reduce((s, sv) =>
+    sotuvlar.filter(tasdiqSotuv).reduce((s, sv) =>
       s + (savatMap[sv.Sotuv_ID] || []).reduce((ss, r) => ss + num(r.Summa_som), 0), 0),
     [sotuvlar, savatMap]);
 
   const jamiSotuvDollar = useMemo(() =>
-    sotuvlar.reduce((s, sv) =>
+    sotuvlar.filter(tasdiqSotuv).reduce((s, sv) =>
       s + (savatDolMap[sv.Sotuv_ID] || []).reduce((ss, r) => ss + num(r.Summa), 0), 0),
     [sotuvlar, savatDolMap]);
 
@@ -279,7 +280,7 @@ export default function MijozDetailPage() {
                 const sdRows  = savatDolMap[s.Sotuv_ID] || [];
                 const somAmt  = svRows.reduce((acc, r) => acc + num(r.Summa_som), 0);
                 const usdAmt  = sdRows.reduce((acc, r) => acc + num(r.Summa), 0);
-                const isTasdiqlandi = s.Status === "Tasdiqlandi";
+                const isTasdiqlandi = String(s.Chek||"").toUpperCase()==="TRUE";
                 return (
                   <div key={s.Sotuv_ID} onClick={() => router.push(`/sotuv/${s.Sotuv_ID}`)}
                     style={{ background: isTasdiqlandi ? "#dcfce7" : "#fef9c3", borderRadius: "var(--radius)", padding: "12px 14px", cursor: "pointer", border: `1px solid ${isTasdiqlandi ? "#86efac" : "#fde68a"}` }}>
@@ -316,7 +317,7 @@ export default function MijozDetailPage() {
                 const sdRows  = savatDolMap[s.Sotuv_ID] || [];
                 const somAmt  = svRows.reduce((acc, r) => acc + num(r.Summa_som), 0);
                 const usdAmt  = sdRows.reduce((acc, r) => acc + num(r.Summa), 0);
-                const isTasdiqlandi = s.Status === "Tasdiqlandi";
+                const isTasdiqlandi = String(s.Chek||"").toUpperCase()==="TRUE";
                 return (
                   <div key={s.Sotuv_ID} onClick={() => router.push(`/sotuv/${s.Sotuv_ID}`)}
                     style={{ display: "grid", gridTemplateColumns: COLS_S, padding: "12px 20px", alignItems: "center", borderBottom: i < sotuvlar.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isTasdiqlandi ? "#dcfce7" : "#fef9c3" }}
@@ -455,7 +456,7 @@ export default function MijozDetailPage() {
       {/* ── Edit drawer ── */}
       {editOpen && (
         <>
-          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 999 }} onClick={() => setEditOpen(false)}/>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", zIndex: 999 }} onClick={() => setEditOpen(false)}/>
           <div style={{
             position: "fixed",
             ...(isMobile
@@ -463,7 +464,7 @@ export default function MijozDetailPage() {
               : { top: 0, right: 0, width: 380, height: "100%", overflowY: "auto" }),
             background: "var(--white)", zIndex: 1000, padding: "24px 20px",
             display: "flex", flexDirection: "column", gap: 16,
-            boxShadow: "-4px 0 32px rgba(0,0,0,0.1)"
+            boxShadow: "-16px 0 48px rgba(30,64,124,.18)"
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 16, fontWeight: 800 }}>Tahrirlash</span>

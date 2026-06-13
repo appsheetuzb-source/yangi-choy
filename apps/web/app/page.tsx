@@ -9,7 +9,7 @@ import {
 } from "recharts";
 
 /* ── Interfaces ─────────────────────── */
-interface Sotuv { Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Mijoz_ID: string; Agent: string; Sotuv_Raqami: string; Vaqt: string; }
+interface Sotuv { Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Mijoz_ID: string; Agent: string; Sotuv_Raqami: string; Vaqt: string; Chek?: string; }
 interface SavatSom { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; }
 interface SavatDol { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; }
 interface STolov { Tolov_ID: string; Agent: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Summa: string; Summa_dollar: string; Vaqt: string; }
@@ -55,7 +55,7 @@ interface TipP { color?: string; name?: string|number; value?: string|number; }
 function ChartTip({ active, payload, label }: { active?: boolean; payload?: TipP[]; label?: string|number }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background:"var(--white)", border:"1px solid var(--border)", borderRadius:10, padding:"10px 14px", boxShadow:"0 4px 20px rgba(0,0,0,.3)" }}>
+    <div style={{ background:"var(--white)", border:"1px solid var(--border)", borderRadius:10, padding:"10px 14px", boxShadow:"0 8px 28px rgba(30,64,124,.18)" }}>
       <p style={{ fontSize:12, fontWeight:700, marginBottom:6, color:"var(--text)" }}>{label}</p>
       {payload.map((p,i)=>(<p key={i} style={{ fontSize:12, color:p.color, fontWeight:600 }}>{p.name}: {fmtS(Number(p.value))}</p>))}
     </div>
@@ -153,8 +153,9 @@ export default function Home() {
     const visMijIds = new Set(visibleMijoz.map(m=>m.Mijoz_ID));
     let qarzSom = 0, qarzDollar = 0;
     visibleMijoz.forEach(m=>{ qarzSom += num(m.Boshlangich_Balans_som); qarzDollar += num(m.Boshlangich_Balans_dollar); });
-    savatS.forEach(r=>{ const s=sotuvMap[r.Sotuv_ID]; if(s && visMijIds.has((s.Mijoz_ID||"").includes(".")?s.Mijoz_ID.split(".")[1]:s.Mijoz_ID)) qarzSom += num(r.Summa_som); });
-    savatD.forEach(r=>{ const s=sotuvMap[r.Sotuv_ID]; if(s && visMijIds.has((s.Mijoz_ID||"").includes(".")?s.Mijoz_ID.split(".")[1]:s.Mijoz_ID)) qarzDollar += num(r.Summa); });
+    const tasdiq=(s?:Sotuv)=>!!s && String(s.Chek||"").toUpperCase()==="TRUE";
+    savatS.forEach(r=>{ const s=sotuvMap[r.Sotuv_ID]; if(tasdiq(s) && visMijIds.has((s!.Mijoz_ID||"").includes(".")?s!.Mijoz_ID.split(".")[1]:s!.Mijoz_ID)) qarzSom += num(r.Summa_som); });
+    savatD.forEach(r=>{ const s=sotuvMap[r.Sotuv_ID]; if(tasdiq(s) && visMijIds.has((s!.Mijoz_ID||"").includes(".")?s!.Mijoz_ID.split(".")[1]:s!.Mijoz_ID)) qarzDollar += num(r.Summa); });
     myTolovlar.forEach(x=>{ qarzSom -= num(x.Summa); qarzDollar -= num(x.Summa_dollar); });
 
     return { oySom, oyDollar, oyFoyda, oyFoydaDollar, oyTolovSom, oyTolovDollar, gaznaSom, gaznaDollar, qarzSom, qarzDollar };
