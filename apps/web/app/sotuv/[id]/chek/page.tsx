@@ -484,17 +484,29 @@ function ChekContent() {
 
         @media print {
           .no-print { display: none !important; }
-          @page { margin: 0; }
-          body { background: #fff; }
+          @page { size: A4; margin: 0; }
+          html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           *, th, td, span, div, p, strong { font-weight: 700 !important; }
           .chek-table th, .chek-table td { font-weight: 700 !important; }
           .chek-info__label, .chek-info__value { font-weight: 700 !important; }
           .chek-balance__cell-label, .chek-balance__cell-val { font-weight: 700 !important; }
-          .chek-wrap { max-width: 100%; }
+          /* A4 enining roppa-rosa yarmiga (21sm/2 = 10.5sm) chiqadi, tepada bo'sh joysiz */
+          .chek-wrap { max-width: 10.5cm; width: 10.5cm; margin: 0; }
+          /* qattiq ustun enlarini bekor qilib, jadval 10.5sm'ga sig'sin */
+          .chek-table { table-layout: fixed !important; width: 100% !important; }
+          .chek-table th, .chek-table td { word-break: break-word; white-space: normal !important; }
+          /* Mahsulot nomi keng (to'liq), qolganlari kichik */
+          .chek-table th:nth-child(1), .chek-table td:nth-child(1) { width: 6% !important; }
+          .chek-table th:nth-child(2), .chek-table td:nth-child(2) { width: 42% !important; text-align: left !important; }
+          .chek-table th:nth-child(3), .chek-table td:nth-child(3) { width: 9% !important; }
+          .chek-table th:nth-child(4), .chek-table td:nth-child(4) { width: 15% !important; }
+          .chek-table th:nth-child(5), .chek-table td:nth-child(5) { width: 18% !important; }
+          .chek-table th:nth-child(6), .chek-table td:nth-child(6) { width: 10% !important; }
 
           .chek-header {
             justify-content: center;
-            padding: 10px 24px;
+            padding: 6px 10px;
           }
           .chek-header__left {
             align-items: center;
@@ -511,15 +523,15 @@ function ChekContent() {
           .chek-info__label { font-size: 10px; }
           .chek-info__value { font-size: 11px; }
 
-          .chek-section-title { padding: 5px 8px 3px; font-size: 9px; letter-spacing: 1px; }
-          .chek-table-wrap { padding: 0 0 6px; }
-          .chek-info { padding: 6px 8px; }
+          .chek-section-title { padding: 3px 8px 2px; font-size: 9px; letter-spacing: 1px; }
+          .chek-table-wrap { padding: 0 0 3px; }
+          .chek-info { padding: 5px 8px; }
           .chek-table { border: 1.2px solid #000 !important; }
-          .chek-table thead th { padding: 4px 8px; font-size: 8px; color: #000 !important; border: 0.8px solid #000 !important; }
-          .chek-table tbody td { padding: 3px 8px; font-size: 10px; border: 0.8px solid #555 !important; }
-          .chek-table tfoot td { padding: 4px 8px; font-size: 11px; border: 0.8px solid #000 !important; }
+          .chek-table thead th { padding: 3px 4px; font-size: 8px; color: #000 !important; border: 0.8px solid #000 !important; }
+          .chek-table tbody td { padding: 3px 4px; font-size: 9px; border: 0.8px solid #555 !important; }
+          .chek-table tfoot td { padding: 3px 4px; font-size: 10px; border: 0.8px solid #000 !important; }
 
-          .chek-balance { margin: 5px 0 10px; border-radius: 0; }
+          .chek-balance { margin: 4px 0 6px; border-radius: 0; }
           .chek-balance__header { padding: 5px 10px; font-size: 9px; color: #000 !important; }
           .chek-balance__header-cell { color: #000 !important; font-weight: 900 !important; }
           .chek-balance__cell { padding: 4px 10px; font-size: 10px; color: #000 !important; }

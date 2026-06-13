@@ -245,7 +245,7 @@ export default function GaznaPage() {
     <>
       <header className="header">
         <div className="header__inner" style={{ gap: 10, flexWrap: isMobile ? "wrap" : "nowrap" }}>
-          <h1 className="header__title">Gazna</h1>
+          <h1 className="header__title">Kassa</h1>
           <span style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600, whiteSpace: "nowrap" }}>
             Davr:
           </span>

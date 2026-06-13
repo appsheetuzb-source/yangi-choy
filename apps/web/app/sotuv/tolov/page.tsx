@@ -333,6 +333,8 @@ export default function SotuvTolovPage() {
   const [filterOy, setFilterOy]   = useState("");
   const [filterYil, setFilterYil] = useState(String(now.getFullYear()));
   const [filterM, setFilterM]     = useState<string[]>([]);
+  const [filterTuri, setFilterTuri] = useState("");
+  const [filterSana, setFilterSana] = useState(""); // DD.MM.YYYY
   const [page, setPage]           = useState(0);
 
   const [togglingId, setTogglingId]     = useState<string|null>(null);
@@ -608,15 +610,20 @@ export default function SotuvTolovPage() {
     const matchOy  = !filterOy  || String(parseInt(t.Oy || "0")) === filterOy;
     const matchYil = !filterYil || t.Yil === filterYil;
     const matchM   = filterM.length === 0 || filterM.includes(t.Mijoz_ID);
+    const matchTuri = !filterTuri || (t.Turi || "") === filterTuri;
+    const matchSana = !filterSana || (t.Sana || "") === filterSana;
     const mNomi = mijozNameMap[t.Mijoz_ID] || "";
     const matchSearch = !search ||
       mNomi.toLowerCase().includes(search.toLowerCase()) ||
       (t.Sana || "").includes(search) ||
       (t.Turi || "").toLowerCase().includes(search.toLowerCase());
-    return matchOy && matchYil && matchM && matchSearch;
-  }), [tolovlar, filterOy, filterYil, filterM, mijozNameMap, search, isSotuvchi, user]);
+    return matchOy && matchYil && matchM && matchTuri && matchSana && matchSearch;
+  }), [tolovlar, filterOy, filterYil, filterM, filterTuri, filterSana, mijozNameMap, search, isSotuvchi, user]);
 
-  useEffect(() => setPage(0), [filterOy, filterYil, filterM, search]);
+  // Filtr uchun mavjud to'lov turlari
+  const turilar = useMemo(() => Array.from(new Set(tolovlar.map(t => (t.Turi || "").trim()).filter(Boolean))).sort(), [tolovlar]);
+
+  useEffect(() => setPage(0), [filterOy, filterYil, filterM, filterTuri, filterSana, search]);
   const paged = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const totalSom     = useMemo(() => filtered.reduce((s, t) => s + (t.Valyuta !== "Dollar" ? num(t.Som) : 0), 0), [filtered]);
@@ -716,6 +723,15 @@ export default function SotuvTolovPage() {
                       {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                   </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select value={filterTuri} onChange={e => setFilterTuri(e.target.value)}
+                      style={{ flex: 1, padding: "8px 10px", border: `1px solid ${filterTuri?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
+                      <option value="">Barcha turlar</option>
+                      {turilar.map(tr => <option key={tr} value={tr}>{tr}</option>)}
+                    </select>
+                    <input type="date" value={filterSana ? filterSana.split(".").reverse().join("-") : ""} onChange={e => setFilterSana(e.target.value ? e.target.value.split("-").reverse().join(".") : "")}
+                      style={{ flex: 1, padding: "7px 10px", border: `1px solid ${filterSana?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", outline: "none" }}/>
+                  </div>
                   <div style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600 }}>Jami: {filtered.length} ta to&apos;lov</div>
                 </div>
               ) : (
@@ -741,6 +757,14 @@ export default function SotuvTolovPage() {
                       <option value="">Barcha yillar</option>
                       {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
+                    <select value={filterTuri} onChange={e => setFilterTuri(e.target.value)}
+                      style={{ padding: "8px 12px", border: `1px solid ${filterTuri?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
+                      <option value="">Barcha turlar</option>
+                      {turilar.map(tr => <option key={tr} value={tr}>{tr}</option>)}
+                    </select>
+                    <input type="date" value={filterSana ? filterSana.split(".").reverse().join("-") : ""} onChange={e => setFilterSana(e.target.value ? e.target.value.split("-").reverse().join(".") : "")}
+                      style={{ padding: "7px 10px", border: `1px solid ${filterSana?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}/>
+                    {filterSana && <button onClick={() => setFilterSana("")} style={{ padding: "7px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 12, color: "var(--text-3)" }}>Sana ✕</button>}
                     <button className="btn btn--primary" onClick={openAdd}>
                       <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                       Yangi to&apos;lov

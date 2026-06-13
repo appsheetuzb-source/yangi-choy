@@ -1,5 +1,6 @@
 "use client";
 import { fetchSheet } from "@/lib/sheet-cache";
+import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -44,6 +45,11 @@ export default function TaminotchiDetailPage() {
   const [error, setError]           = useState<string | null>(null);
   const [isMobile, setIsMobile]     = useState(false);
   const [tick, setTick]             = useState(0);
+  const [aktOpen, setAktOpen]       = useState(false);
+  const _y = new Date().getFullYear();
+  const _todayISO = `${_y}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`;
+  const [aktFrom, setAktFrom]       = useState(`${_y}-01-01`);
+  const [aktTo, setAktTo]           = useState(_todayISO);
 
   const [editOpen, setEditOpen]   = useState(false);
   const [form, setForm]           = useState<Partial<Taminotchi>>({});
@@ -103,6 +109,52 @@ export default function TaminotchiDetailPage() {
   const bUsd = num(taminotchi?.Boshlangich_Balans);
   const qarzSom = bSom + jamiXaridSom - jamiTolovSom;
   const qarzUsd = bUsd + jamiXaridUsd - jamiTolovUsd;
+
+  // ── Akt-sverka (so'm va $ alohida) ──────────────────────
+  function aktSection(cur: "som" | "dollar", fromISO: string, toISO: string): ExportSection | null {
+    const fmtA = (v: number) => cur === "som"
+      ? v.toLocaleString("ru-RU") + " so'm"
+      : v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $";
+    const dkey = (sana: string) => { const [d, m, y] = (sana || "").split("."); return `${y || "0000"}${(m || "00").padStart(2, "0")}${(d || "00").padStart(2, "0")}`; };
+    const fromKey = fromISO ? fromISO.replace(/-/g, "") : "";
+    const toKey   = toISO   ? toISO.replace(/-/g, "")   : "";
+    type Ev = { sana: string; vaqt: string; debit: number; credit: number; tavsif: string };
+    const events: Ev[] = [];
+    xaridlar.forEach(x => {
+      const amt = cur === "som"
+        ? (savatMap[x.Xarid_ID] || []).reduce((a, r) => a + num(r.Summa_Som), 0)
+        : (savatMap[x.Xarid_ID] || []).reduce((a, r) => a + num(r.Jami_Summa), 0);
+      if (amt > 0) events.push({ sana: x.Sana, vaqt: "", debit: amt, credit: 0, tavsif: `Xarid${x.Sotuv_Raqami ? " #" + x.Sotuv_Raqami : ""}` });
+    });
+    tolovlar.forEach(t => {
+      const amt = cur === "som" ? num(t.Summa) : num(t.Summa_dollar);
+      if (amt > 0) events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: 0, credit: amt, tavsif: `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}` });
+    });
+    events.sort((a, b) => (dkey(a.sana) + a.vaqt).localeCompare(dkey(b.sana) + b.vaqt));
+    const boshlangich = cur === "som" ? bSom : bUsd;
+    const opening = boshlangich + events.filter(e => fromKey && dkey(e.sana) < fromKey).reduce((a, e) => a + e.debit - e.credit, 0);
+    const inRange = events.filter(e => { const k = dkey(e.sana); return (!fromKey || k >= fromKey) && (!toKey || k <= toKey); });
+    if (opening === 0 && inRange.length === 0) return null;
+    let run = opening;
+    const rows: (string | number)[][] = [["—", "Boshlang'ich qoldiq", "", "", fmtA(opening)]];
+    inRange.forEach(e => { run += e.debit - e.credit; rows.push([e.sana, e.tavsif, e.debit ? fmtA(e.debit) : "", e.credit ? fmtA(e.credit) : "", fmtA(run)]); });
+    return {
+      heading: cur === "som" ? "SO'M HISOBVARAQA" : "DOLLAR ($) HISOBVARAQA",
+      headers: ["Sana", "Amaliyot", "Xarid (qarz)", "To'lov", "Qoldiq"],
+      rows,
+      foot: ["", "YAKUNIY QOLDIQ", "", "", fmtA(run)],
+    };
+  }
+  function buildAkt(): ExportOpts {
+    const ds = (iso: string) => iso ? iso.split("-").reverse().join(".") : "";
+    const secs = [aktSection("som", aktFrom, aktTo), aktSection("dollar", aktFrom, aktTo)].filter(Boolean) as ExportSection[];
+    return {
+      title: `Akt-sverka — ${taminotchi?.Ism || ""}`,
+      subtitle: `Davr: ${ds(aktFrom) || "boshidan"} — ${ds(aktTo) || "hozirgача"}`,
+      filename: `akt-sverka-${(taminotchi?.Ism || "firma").replace(/\s+/g, "_")}-${ds(aktTo).replace(/\./g, "-")}`,
+      sections: secs.length ? secs : [{ headers: ["Sana", "Amaliyot", "Xarid", "To'lov", "Qoldiq"], rows: [["", "Ma'lumot yo'q", "", "", ""]] }],
+    };
+  }
 
   async function handleToggleAkt(x: Xarid, val: string) {
     setToggling(p => ({ ...p, [x.Xarid_ID]: true }));
@@ -165,6 +217,11 @@ export default function TaminotchiDetailPage() {
             Orqaga
           </button>
           <div style={{ flex: 1 }} />
+          <button onClick={() => setAktOpen(true)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", background: "var(--primary-glow)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--primary)", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {!isMobile && "Akt-sverka"}
+          </button>
           <button onClick={() => { setForm({ ...taminotchi }); setEditOpen(true); }}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -172,6 +229,34 @@ export default function TaminotchiDetailPage() {
           </button>
         </div>
       </header>
+
+      {aktOpen && (
+        <div className="modal-overlay" onClick={() => setAktOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal__head">
+              <h2 className="modal__title">Akt-sverka — {taminotchi?.Ism || ""}</h2>
+              <button className="modal__close" onClick={() => setAktOpen(false)}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal__body">
+              <p style={{ fontSize: 13, color: "var(--text-2)" }}>Sana oralig&apos;ini tanlang. So&apos;m va $ alohida hisobvaraqada chiqariladi.</p>
+              <div className="grid-2">
+                <div className="field"><label>Dan</label><input type="date" value={aktFrom} onChange={e => setAktFrom(e.target.value)} /></div>
+                <div className="field"><label>Gacha</label><input type="date" value={aktTo} onChange={e => setAktTo(e.target.value)} /></div>
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => { exportExcel(buildAkt()); setAktOpen(false); }}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg> Excel
+              </button>
+              <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => { exportPDF(buildAkt()); setAktOpen(false); }}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 4h9l5 5v11H4V4z"/></svg> PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="page-content" style={{ maxWidth: 1100 }}>
 

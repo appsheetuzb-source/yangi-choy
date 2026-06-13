@@ -8,7 +8,7 @@ import { useParams, useRouter } from "next/navigation";
 interface Sotuv {
   Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Status: string;
   Sotuv_Raqami: string; Agent: string; Mijoz_ID: string;
-  Balans: string; Balans_dollar: string; Izoh: string; Vaqt: string;
+  Balans: string; Balans_dollar: string; Izoh: string; Vaqt: string; Chek?: string;
 }
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
@@ -156,27 +156,18 @@ export default function SotuvDetailPage() {
   const [deleteSomRow, setDeleteSomRow]     = useState<SotuvSavatRow|null>(null);
   const [deleteDollarRow, setDeleteDollarRow] = useState<SotuvSavatDollarRow|null>(null);
 
-  const [chekDone, setChekDone] = useState(false);
+  const [tasdiqSaving, setTasdiqSaving] = useState(false);
 
-  useEffect(()=>{
-    if(!id) return;
+  async function toggleTasdiq() {
+    if(!sotuv||tasdiqSaving) return;
+    const newChek = String(sotuv.Chek||"").toUpperCase()==="TRUE" ? "FALSE" : "TRUE";
+    setTasdiqSaving(true);
+    setSotuv(s=>s?{...s,Chek:newChek}:s);
     try {
-      const ids: string[] = JSON.parse(localStorage.getItem("sotuv_chek_done")||"[]");
-      setChekDone(ids.includes(id));
-    } catch {}
-  },[id]);
-
-  function toggleChekDoneDetail() {
-    setChekDone(prev=>{
-      const next=!prev;
-      try {
-        const ids: string[] = JSON.parse(localStorage.getItem("sotuv_chek_done")||"[]");
-        if(next){ if(!ids.includes(id)) ids.push(id); }
-        else { const i=ids.indexOf(id); if(i!==-1) ids.splice(i,1); }
-        localStorage.setItem("sotuv_chek_done",JSON.stringify(ids));
-      } catch {}
-      return next;
-    });
+      await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sotuv.Sotuv_ID,updates:{Chek:newChek}})});
+      afterWrite("Sotuv");
+    } finally { setTasdiqSaving(false); }
   }
 
   // Inline add rows
@@ -684,13 +675,15 @@ export default function SotuvDetailPage() {
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               Chek
             </button>
-          <button onClick={toggleChekDoneDetail}
-            style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:"var(--radius)",border:`1.5px solid ${chekDone?"#7c3aed":"#d4d4d8"}`,background:chekDone?"#7c3aed":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:700,color:chekDone?"#fff":"var(--text-3)",transition:"all .15s"}}>
-            {chekDone
-              ? <><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>Chiqarilgan</>
-              : <><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth={2}/></svg>Belgilash</>
+          {(() => { const td = String(sotuv.Chek||"").toUpperCase()==="TRUE"; return (
+          <button onClick={toggleTasdiq} disabled={tasdiqSaving} title={td?"Tasdiqlandi (bosib bekor qilish)":"Tasdiqlash (qarzga qo'shish)"}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:"var(--radius)",border:`1.5px solid ${td?"#16a34a":"#f59e0b"}`,background:td?"#16a34a":"#fffbeb",cursor:"pointer",fontSize:13,fontWeight:700,color:td?"#fff":"#b45309",transition:"all .15s",opacity:tasdiqSaving?.6:1}}>
+            {td
+              ? <><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>Tasdiqlandi</>
+              : <><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth={2}/></svg>Tasdiqlash</>
             }
           </button>
+          ); })()}
           <button onClick={()=>setDeleteOpen(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 16px",border:"1px solid #fecaca",borderRadius:"var(--radius)",background:"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:"#ef4444"}}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg> O&apos;chirish
           </button>
@@ -979,16 +972,22 @@ export default function SotuvDetailPage() {
         </div>
         )}
 
-        {/* Ommaviy tahrirlash — pastki saqlash paneli */}
-        {bulkMode&&(
-          <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:60,background:"var(--white)",borderTop:"1px solid var(--border)",boxShadow:"0 -4px 20px rgba(30,64,124,.14)",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:12,flexWrap:"wrap"}}>
+        {/* Ommaviy tahrirlash — pastki saqlash paneli (jonli jami summa bilan) */}
+        {bulkMode&&(()=>{
+          const bSom = savatSom.filter(r=>bulkSel.has(r.Savat_ID)).reduce((t,r)=>{const e=bulkEdits[r.Savat_ID]; return t+(e?num(e.Soni)*num(e.Narx):num(r.Summa_som));},0);
+          const bDol = savatDollar.filter(r=>bulkSel.has(r.Savat_ID)).reduce((t,r)=>{const e=bulkEdits[r.Savat_ID]; return t+(e?num(e.Soni)*num(e.Narx):num(r.Summa));},0);
+          return (
+          <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:60,background:"var(--white)",borderTop:"1px solid var(--border)",boxShadow:"0 -4px 20px rgba(30,64,124,.14)",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:700,color:"var(--text-2)"}}>{bulkSel.size} ta tanlandi</span>
+            {bSom>0&&<span style={{fontSize:14,fontWeight:800,color:"#16a34a"}}>Jami: {bSom.toLocaleString("ru-RU")} so&apos;m</span>}
+            {bDol>0&&<span style={{fontSize:14,fontWeight:800,color:"#2563eb"}}>Jami: {fmtUsd(bDol)}</span>}
             <button onClick={exitBulk} className="btn btn--outline" disabled={bulkSaving}>Bekor</button>
             <button onClick={handleBulkSave} className="btn btn--primary" disabled={bulkSaving||bulkSel.size===0}>
               {bulkSaving?<span className="spinner"/>:null}{bulkSaving?"Saqlanmoqda...":"Saqlash"}
             </button>
           </div>
-        )}
+          );
+        })()}
         {savatSom.length===0&&savatDollar.length===0&&!addSomOpen&&!addDollarOpen&&(
           <div style={{marginTop:24,background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:"32px 20px",textAlign:"center"}}>
             <p style={{color:"var(--text-3)",fontSize:13,marginBottom:12}}>Savat bo&apos;sh</p>

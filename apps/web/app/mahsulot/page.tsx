@@ -1,5 +1,6 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -41,6 +42,10 @@ export default function MahsulotPage() {
   const [jamiSotuvSom, setJamiSotuvSom]         = useState(0);
   const [jamiSotuvDollar, setJamiSotuvDollar]   = useState(0);
   const [balansMap, setBalansMap]               = useState<Record<string, number>>({});
+  // Klient (manba) bo'yicha filtr: mijoz qaysi mahsulotlarni olgan
+  const [mijMahMap, setMijMahMap]   = useState<Record<string, Set<string>>>({});
+  const [mijItems, setMijItems]     = useState<{ id: string; label: string }[]>([]);
+  const [filterMijoz, setFilterMijoz] = useState("");
   const [sortCol, setSortCol]   = useState<string | null>(null);
   const [sortDir, setSortDir]   = useState<"asc" | "desc">("asc");
 
@@ -79,7 +84,9 @@ export default function MahsulotPage() {
       fetchSheet("Sotuv_Savat"),
       fetchSheet("Sotuv_Savat_Dollar"),
       fetchSheet("Xarid_Savat"),
-    ]).then(([ssRes, ssdRes, xsRes]) => {
+      fetchSheet("Sotuv"),
+      fetchSheet("Mijozlar"),
+    ]).then(([ssRes, ssdRes, xsRes, sRes, mRes]) => {
       const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
       const som    = (ssRes.data  as Record<string, string>[]).reduce((s, r) => s + n(r.Summa_som), 0);
       const dollar = (ssdRes.data as Record<string, string>[]).reduce((s, r) => s + n(r.Summa),     0);
@@ -98,11 +105,33 @@ export default function MahsulotPage() {
         if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) - n(r.Soni);
       });
       setBalansMap(map);
+
+      // Klient (manba) → mahsulotlar xaritasi
+      const purifyMid = (raw: string) => { const v = String(raw || "").trim(); return v.includes(".") ? v.split(".")[1] : v; };
+      const sotuvMijoz: Record<string, string> = {};
+      (sRes.data as Record<string, string>[]).forEach(s => {
+        const sid = String(s.Sotuv_ID || "").trim();
+        if (sid) sotuvMijoz[sid] = purifyMid(s.Mijoz_ID);
+      });
+      const mm: Record<string, Set<string>> = {};
+      const addRow = (r: Record<string, string>) => {
+        const mid = sotuvMijoz[String(r.Sotuv_ID || "").trim()];
+        if (!mid || !r.Mahsulot_ID) return;
+        if (!mm[mid]) mm[mid] = new Set();
+        mm[mid].add(r.Mahsulot_ID);
+      };
+      (ssRes.data as Record<string, string>[]).forEach(addRow);
+      (ssdRes.data as Record<string, string>[]).forEach(addRow);
+      setMijMahMap(mm);
+      const mijNames: Record<string, string> = {};
+      (mRes.data as Record<string, string>[]).forEach(m => { if (m.Mijoz_ID) mijNames[m.Mijoz_ID] = m.Ism || m.Mijoz_ID; });
+      setMijItems(Object.keys(mm).map(id => ({ id, label: mijNames[id] || id })).sort((a, b) => a.label.localeCompare(b.label, "uz")));
     });
   }, [loadData]);
 
   const filtered = mahsulotlar.filter(m =>
-    String(m.Nomi || "").toLowerCase().includes(search.toLowerCase())
+    String(m.Nomi || "").toLowerCase().includes(search.toLowerCase()) &&
+    (!filterMijoz || (mijMahMap[filterMijoz]?.has(m.Mahsulot_ID) ?? false))
   );
 
   function toggleSort(col: string) {
@@ -123,6 +152,24 @@ export default function MahsulotPage() {
     if (sortCol === "hozirda_bor") { av = balansMap[a.Mahsulot_ID] ?? 0; bv = balansMap[b.Mahsulot_ID] ?? 0; }
     return sortDir === "asc" ? av - bv : bv - av;
   }) : filtered;
+
+  // ── Yuklash: mahsulot nomi + qoldiq (dona) + chiqarilgan sana ──
+  function buildMahsulotExport(): ExportOpts {
+    const d = new Date();
+    const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+    const rows = sorted.map((m, i) => [i+1, m.Nomi || "—", `${(balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU")} dona`]);
+    const jami = sorted.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0), 0);
+    return {
+      title: "Mahsulotlar — qoldiq",
+      subtitle: `Chiqarilgan sana: ${sana}  ·  Jami: ${sorted.length} ta mahsulot`,
+      filename: `mahsulotlar-qoldiq-${sana.replace(/\./g,"-")}`,
+      sections: [{
+        headers: ["№", "Mahsulot nomi", "Qoldiq (dona)"],
+        rows,
+        foot: ["", "JAMI", `${jami.toLocaleString("ru-RU")} dona`],
+      }],
+    };
+  }
 
   function openAdd() {
     setEditTarget(null);
@@ -206,7 +253,7 @@ export default function MahsulotPage() {
       {/* Header */}
       <header className="header">
         <div className="header__inner">
-          <h1 className="header__title" style={{ paddingLeft: 4 }}>Mahsulotlar</h1>
+          <h1 className="header__title" style={{ paddingLeft: 4 }}>Mahsulot va ombor</h1>
           <div className="search" style={{ maxWidth: 320 }}>
             <span className="search__icon">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,6 +271,12 @@ export default function MahsulotPage() {
             )}
           </div>
           <div className="header__spacer" />
+          {/* Klient (manba) filtri */}
+          <select value={filterMijoz} onChange={e => setFilterMijoz(e.target.value)} title="Qaysidir klient olgan mahsulotlar"
+            style={{ maxWidth: 200, padding: "8px 12px", border: `1px solid ${filterMijoz ? "var(--primary)" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: filterMijoz ? "var(--primary-glow)" : "var(--white)", color: filterMijoz ? "var(--primary)" : "var(--text-2)", cursor: "pointer", outline: "none" }}>
+            <option value="">Klient (manba)…</option>
+            {mijItems.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+          </select>
           {/* Currency toggle */}
           <div style={{ display: "flex", gap: 3, background: "var(--bg)", borderRadius: 10, padding: 3, border: "1px solid var(--border)" }}>
             {([["barchasi", "Barchasi"], ["som", "So'm"], ["dollar", "Dollar"]] as [string, string][]).map(([val, label]) => (
@@ -237,6 +290,14 @@ export default function MahsulotPage() {
               }}>{label}</button>
             ))}
           </div>
+          <button className="btn btn--outline" onClick={() => exportExcel(buildMahsulotExport())} title="Excel yuklash">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+            Excel
+          </button>
+          <button className="btn btn--outline" onClick={() => exportPDF(buildMahsulotExport())} title="PDF yuklash">
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 4h9l5 5v11a0 0 0 01 0 0H4a0 0 0 01 0 0V4z"/></svg>
+            PDF
+          </button>
           <button className="btn btn--primary" onClick={openAdd}>
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
@@ -273,15 +334,16 @@ export default function MahsulotPage() {
         {/* Summary cards */}
         {(() => {
           const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
-          const hozirdaBorKg = mahsulotlar.reduce((s, m) => s + n(m.Kg), 0);
           const fmt    = (v: number) => v.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
           const fmtUsd = (v: number) => v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          const hozirdaBorSom    = mahsulotlar.reduce((s, m) => s + n(m.Kg) * n(m.Sotuv_som),    0);
-          const hozirdaBorDollar = mahsulotlar.reduce((s, m) => s + n(m.Kg) * n(m.Sotuv_dollar), 0);
+          // Hozirda bor — DONA da (balansMap: xarid Soni - sotuv Soni)
+          const hozirdaBorDona   = mahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0), 0);
+          const hozirdaBorSom    = mahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_som),    0);
+          const hozirdaBorDollar = mahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_dollar), 0);
           return (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
-                { label: "HOZIRDA BOR (KG)", value: `${fmt(hozirdaBorKg)} kg`, color: "var(--primary)", bg: "#dcfce7",
+                { label: "HOZIRDA BOR (DONA)", value: `${fmt(hozirdaBorDona)} dona`, color: "var(--primary)", bg: "#dcfce7",
                   icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
                 { label: "HOZIRDA BOR", value: `${fmt(hozirdaBorSom)} so'm`, color: "#16a34a", bg: "#dcfce7",
                   icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
@@ -641,7 +703,7 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
       )}
       <div className="list-card__col">
         <p className="list-card__col-val" style={{ color: balans !== undefined && balans > 0 ? "var(--primary)" : balans !== undefined && balans < 0 ? "#ef4444" : "var(--text-3)", fontWeight: 700 }}>
-          {balans !== undefined ? `${balans.toLocaleString("ru-RU")} kg` : "—"}
+          {balans !== undefined ? `${balans.toLocaleString("ru-RU")} dona` : "—"}
         </p>
       </div>
       <div className="list-card__actions">

@@ -1,5 +1,6 @@
 "use client";
 import { fetchSheet } from "@/lib/sheet-cache";
+import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
 
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -62,6 +63,12 @@ export default function MijozDetailPage() {
   const [error, setError]           = useState<string | null>(null);
   const [isMobile, setIsMobile]     = useState(false);
   const [tick, setTick]             = useState(0);
+  const [aktOpen, setAktOpen]       = useState(false);
+  const [tgOpen, setTgOpen]         = useState(false);
+  const _y = new Date().getFullYear();
+  const _todayISO = `${_y}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`;
+  const [aktFrom, setAktFrom]       = useState(`${_y}-01-01`);
+  const [aktTo, setAktTo]           = useState(_todayISO);
 
   const [editOpen, setEditOpen]     = useState(false);
   const [form, setForm]             = useState<Partial<Mijoz>>({});
@@ -156,6 +163,111 @@ export default function MijozDetailPage() {
   const qarzSom    = boshlangichSom    + jamiSotuvSom    - tolovSom;
   const qarzDollar = boshlangichDollar + jamiSotuvDollar - tolovDollar;
 
+  // ── Akt-sverka (so'm va $ alohida) ──────────────────────
+  function aktSection(cur: "som" | "dollar", fromISO: string, toISO: string): ExportSection | null {
+    const fmtA = (v: number) => cur === "som"
+      ? v.toLocaleString("ru-RU") + " so'm"
+      : v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $";
+    const dkey = (sana: string) => { const [d, m, y] = (sana || "").split("."); return `${y || "0000"}${(m || "00").padStart(2, "0")}${(d || "00").padStart(2, "0")}`; };
+    const fromKey = fromISO ? fromISO.replace(/-/g, "") : "";
+    const toKey   = toISO   ? toISO.replace(/-/g, "")   : "";
+    type Ev = { sana: string; vaqt: string; debit: number; credit: number; tavsif: string };
+    const events: Ev[] = [];
+    sotuvlar.filter(s => String(s.Chek || "").toUpperCase() === "TRUE").forEach(s => {
+      const amt = cur === "som"
+        ? (savatMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa_som), 0)
+        : (savatDolMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa), 0);
+      if (amt > 0) events.push({ sana: s.Sana, vaqt: s.Vaqt || "", debit: amt, credit: 0, tavsif: `Sotuv${s.Sotuv_Raqami ? " #" + s.Sotuv_Raqami : ""}` });
+    });
+    tolovlar.forEach(t => {
+      const isD = isDollarValyuta(t.Valyuta);
+      const amt = cur === "som" ? (!isD ? num(t.Som) : 0) : (isD ? num(t.Summa_dollar) : 0);
+      if (amt > 0) events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: 0, credit: amt, tavsif: `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}` });
+    });
+    events.sort((a, b) => (dkey(a.sana) + a.vaqt).localeCompare(dkey(b.sana) + b.vaqt));
+    const boshlangich = cur === "som" ? boshlangichSom : boshlangichDollar;
+    const opening = boshlangich + events.filter(e => fromKey && dkey(e.sana) < fromKey).reduce((a, e) => a + e.debit - e.credit, 0);
+    const inRange = events.filter(e => { const k = dkey(e.sana); return (!fromKey || k >= fromKey) && (!toKey || k <= toKey); });
+    if (opening === 0 && inRange.length === 0) return null;
+    let run = opening;
+    const rows: (string | number)[][] = [["—", "Boshlang'ich qoldiq", "", "", fmtA(opening)]];
+    inRange.forEach(e => { run += e.debit - e.credit; rows.push([e.sana, e.tavsif, e.debit ? fmtA(e.debit) : "", e.credit ? fmtA(e.credit) : "", fmtA(run)]); });
+    return {
+      heading: cur === "som" ? "SO'M HISOBVARAQA" : "DOLLAR ($) HISOBVARAQA",
+      headers: ["Sana", "Amaliyot", "Sotuv (qarz)", "To'lov", "Qoldiq"],
+      rows,
+      foot: ["", "YAKUNIY QOLDIQ", "", "", fmtA(run)],
+    };
+  }
+  function buildAkt(): ExportOpts {
+    const ds = (iso: string) => iso ? iso.split("-").reverse().join(".") : "";
+    const secs = [aktSection("som", aktFrom, aktTo), aktSection("dollar", aktFrom, aktTo)].filter(Boolean) as ExportSection[];
+    return {
+      title: `Akt-sverka — ${mijoz?.Ism || ""}`,
+      subtitle: `Davr: ${ds(aktFrom) || "boshidan"} — ${ds(aktTo) || "hozirgача"}${mijoz?.Telefon ? "  ·  Tel: " + mijoz.Telefon : ""}`,
+      filename: `akt-sverka-${(mijoz?.Ism || "klient").replace(/\s+/g, "_")}-${ds(aktTo).replace(/\./g, "-")}`,
+      sections: secs.length ? secs : [{ headers: ["Sana", "Amaliyot", "Sotuv", "To'lov", "Qoldiq"], rows: [["", "Ma'lumot yo'q", "", "", ""]] }],
+    };
+  }
+
+  // ── Telegramga qarzdorlik ulashish ──────────────────────
+  function tgSana() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`; }
+  function tgMessage() {
+    const lines = ["📋 QARZDORLIK", `Sana: ${tgSana()}`, `Mijoz: ${mijoz?.Ism || ""}`];
+    if (qarzSom !== 0)    lines.push(`So'm: ${fmtSom(qarzSom)}`);
+    if (qarzDollar !== 0) lines.push(`Dollar: ${fmtUsd(qarzDollar)}`);
+    if (qarzSom === 0 && qarzDollar === 0) lines.push("Qarzdorlik yo'q ✅");
+    return lines.join("\n");
+  }
+  function shareTgText() {
+    window.open(`https://t.me/share/url?url=${encodeURIComponent("https://musaffotea.uz")}&text=${encodeURIComponent(tgMessage())}`, "_blank");
+    setTgOpen(false);
+  }
+  function buildDebtImage(): Promise<Blob | null> {
+    return new Promise(resolve => {
+      const W = 680, H = 420;
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const ctx = c.getContext("2d"); if (!ctx) { resolve(null); return; }
+      ctx.fillStyle = "#f0f4ff"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(24, 24, W - 48, H - 48);
+      ctx.fillStyle = "#1a2744"; ctx.fillRect(24, 24, W - 48, 70);
+      ctx.fillStyle = "#ffffff"; ctx.font = "bold 30px Arial"; ctx.textAlign = "center";
+      ctx.fillText("MUSAFFO TEA", W / 2, 68);
+      ctx.fillStyle = "#1a2744"; ctx.font = "bold 22px Arial"; ctx.textAlign = "left";
+      ctx.fillText("QARZDORLIK", 48, 140);
+      ctx.strokeStyle = "#e0e3ef"; ctx.beginPath(); ctx.moveTo(48, 155); ctx.lineTo(W - 48, 155); ctx.stroke();
+      let y = 200;
+      const row = (label: string, val: string, color: string) => {
+        ctx.fillStyle = "#5a6080"; ctx.font = "18px Arial"; ctx.fillText(label, 48, y);
+        ctx.fillStyle = color; ctx.font = "bold 24px Arial"; ctx.fillText(val, 230, y); y += 52;
+      };
+      row("Sana:", tgSana(), "#1a2744");
+      row("Mijoz:", mijoz?.Ism || "—", "#2f6bf7");
+      if (qarzSom !== 0) row("So'm:", fmtSom(qarzSom), qarzSom > 0 ? "#ef4444" : "#16a34a");
+      if (qarzDollar !== 0) row("Dollar:", fmtUsd(qarzDollar), qarzDollar > 0 ? "#ef4444" : "#2563eb");
+      if (qarzSom === 0 && qarzDollar === 0) row("Holat:", "Qarzdorlik yo'q", "#16a34a");
+      ctx.fillStyle = "#b0b8d0"; ctx.font = "14px Arial"; ctx.textAlign = "center";
+      ctx.fillText("musaffotea.uz", W / 2, H - 44);
+      c.toBlob(b => resolve(b), "image/png");
+    });
+  }
+  async function shareTgImage() {
+    const blob = await buildDebtImage();
+    if (!blob) return;
+    const file = new File([blob], `qarzdorlik-${(mijoz?.Ism || "klient").replace(/\s+/g,"_")}.png`, { type: "image/png" });
+    try {
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+      if (nav.canShare && nav.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], text: tgMessage() });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a"); a.href = url; a.download = file.name; a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch { /* foydalanuvchi bekor qildi */ }
+    setTgOpen(false);
+  }
+
   async function handleToggleCheck(t: STolov, val: string) {
     setToggling(p => ({ ...p, [t.Tolov_ID]: true }));
     setTolovlar(prev => prev.map(item => item.Tolov_ID === t.Tolov_ID ? { ...item, Check: val } : item));
@@ -211,6 +323,16 @@ export default function MijozDetailPage() {
             Orqaga
           </button>
           <div style={{ flex: 1 }}/>
+          <button onClick={() => setTgOpen(true)} title="Telegramga qarzdorlik yuborish"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1.5px solid #229ED9", borderRadius: "var(--radius)", background: "#e9f6fc", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#229ED9", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+            {!isMobile && "Telegram"}
+          </button>
+          <button onClick={() => setAktOpen(true)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", background: "var(--primary-glow)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--primary)", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            {!isMobile && "Akt-sverka"}
+          </button>
           <button onClick={() => { setForm({ ...mijoz }); setEditOpen(true); }}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -218,6 +340,65 @@ export default function MijozDetailPage() {
           </button>
         </div>
       </header>
+
+      {aktOpen && (
+        <div className="modal-overlay" onClick={() => setAktOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal__head">
+              <h2 className="modal__title">Akt-sverka — {mijoz?.Ism || ""}</h2>
+              <button className="modal__close" onClick={() => setAktOpen(false)}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal__body">
+              <p style={{ fontSize: 13, color: "var(--text-2)" }}>Sana oralig'ini tanlang. So&apos;m va $ alohida hisobvaraqada chiqariladi.</p>
+              <div className="grid-2">
+                <div className="field"><label>Dan</label><input type="date" value={aktFrom} onChange={e => setAktFrom(e.target.value)} /></div>
+                <div className="field"><label>Gacha</label><input type="date" value={aktTo} onChange={e => setAktTo(e.target.value)} /></div>
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => { exportExcel(buildAkt()); setAktOpen(false); }}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg> Excel
+              </button>
+              <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => { exportPDF(buildAkt()); setAktOpen(false); }}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 4h9l5 5v11H4V4z"/></svg> PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tgOpen && (
+        <div className="modal-overlay" onClick={() => setTgOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal__head">
+              <h2 className="modal__title">Telegramga yuborish</h2>
+              <button className="modal__close" onClick={() => setTgOpen(false)}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal__body">
+              <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 8 }}>QARZDORLIK</p>
+                <p style={{ fontSize: 13, color: "var(--text-2)" }}>Sana: <b style={{ color: "var(--text)" }}>{tgSana()}</b></p>
+                <p style={{ fontSize: 13, color: "var(--text-2)" }}>Mijoz: <b style={{ color: "var(--primary)" }}>{mijoz?.Ism || "—"}</b></p>
+                {qarzSom !== 0 && <p style={{ fontSize: 14, fontWeight: 800, color: qarzSom > 0 ? "#ef4444" : "#16a34a", marginTop: 4 }}>So&apos;m: {fmtSom(qarzSom)}</p>}
+                {qarzDollar !== 0 && <p style={{ fontSize: 14, fontWeight: 800, color: qarzDollar > 0 ? "#ef4444" : "#2563eb", marginTop: 2 }}>Dollar: {fmtUsd(qarzDollar)}</p>}
+                {qarzSom === 0 && qarzDollar === 0 && <p style={{ fontSize: 14, fontWeight: 800, color: "#16a34a", marginTop: 4 }}>Qarzdorlik yo&apos;q ✅</p>}
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={shareTgText}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z"/></svg> Matn
+              </button>
+              <button className="btn btn--primary" style={{ flex: 1 }} onClick={shareTgImage}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Surat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="page-content" style={{ maxWidth: 1100 }}>
 

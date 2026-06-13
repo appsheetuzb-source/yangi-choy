@@ -501,7 +501,7 @@ export default function XaridTolovPage() {
       <header className="header">
         <div className="header__inner">
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <h1 className="header__title" style={{ paddingLeft: 4 }}>Xarid to&apos;lovlari</h1>
+            <h1 className="header__title" style={{ paddingLeft: 4 }}>Firmadan pul ayirish</h1>
             <span style={{ fontSize: 11, color: "var(--text-3)", paddingLeft: 4 }}>Barcha to&apos;lovlar ro&apos;yxati</span>
           </div>
           <div className="header__spacer"/>
