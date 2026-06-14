@@ -178,7 +178,7 @@ export default function MijozlarPage() {
           if (isDollarValyuta(t.Valyuta)) {
             tUsd[id] = (tUsd[id] || 0) + num(t.Summa_dollar);
           } else {
-            tSom[id] = (tSom[id] || 0) + num(t.Som);
+            tSom[id] = (tSom[id] || 0) + num(t.Summa);
           }
         });
         setTolovSomMap(tSom);

@@ -152,7 +152,7 @@ export default function MijozDetailPage() {
     [sotuvlar, savatDolMap]);
 
   const tolovSom = useMemo(() =>
-    tolovlar.filter(t => !isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Som), 0),
+    tolovlar.filter(t => !isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Summa), 0),
     [tolovlar]);
   const tolovDollar = useMemo(() =>
     tolovlar.filter(t => isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Summa_dollar), 0),
@@ -181,7 +181,7 @@ export default function MijozDetailPage() {
     });
     tolovlar.forEach(t => {
       const isD = isDollarValyuta(t.Valyuta);
-      const amt = cur === "som" ? (!isD ? num(t.Som) : 0) : (isD ? num(t.Summa_dollar) : 0);
+      const amt = cur === "som" ? (!isD ? num(t.Summa) : 0) : (isD ? num(t.Summa_dollar) : 0);
       if (amt > 0) events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: 0, credit: amt, tavsif: `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}` });
     });
     events.sort((a, b) => (dkey(a.sana) + a.vaqt).localeCompare(dkey(b.sana) + b.vaqt));

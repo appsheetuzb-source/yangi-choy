@@ -229,7 +229,7 @@ export default function SotuvDetailPage() {
       const sotuvSomJami    = (ssR.data as SotuvSavatRow[]).filter(r=>allSotuvIds.has(r.Sotuv_ID)).reduce((s,r)=>s+num(r.Summa_som),0);
       const sotuvDollarJami = (sdR.data as SotuvSavatDollarRow[]).filter(r=>allSotuvIds.has(r.Sotuv_ID)).reduce((s,r)=>s+num(r.Summa),0);
       const mijozTolovlar   = (stR.data as STolov[]).filter(r=>r.Mijoz_ID===mijozId && r.Sotuv_ID!==id);
-      const tolovSomJami    = mijozTolovlar.reduce((s,t)=>s+(!isDollar(t.Valyuta)?num(t.Som):0),0);
+      const tolovSomJami    = mijozTolovlar.reduce((s,t)=>s+(!isDollar(t.Valyuta)?num(t.Summa):0),0);
       const tolovDollarJami = mijozTolovlar.reduce((s,t)=>s+(isDollar(t.Valyuta)?num(t.Summa_dollar):0),0);
       setMijozQarzSom(bSom + sotuvSomJami - tolovSomJami);
       setMijozQarzDollar(bDollar + sotuvDollarJami - tolovDollarJami);
@@ -640,8 +640,8 @@ export default function SotuvDetailPage() {
   const jamiDollar = useMemo(()=>savatDollar.reduce((s,r)=>s+num(r.Summa),0),[savatDollar]);
   const editJamiSom    = useMemo(()=>editSavatItems.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0),[editSavatItems]);
   const editJamiDollar = useMemo(()=>editSavatItems.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0),[editSavatItems]);
-  const tolovJamiSom    = useMemo(()=>stolovlar.reduce((s,t)=>s+(t.Valyuta!=="Dollar"?num(t.Som):0),0),[stolovlar]);
-  const tolovJamiDollar = useMemo(()=>stolovlar.reduce((s,t)=>s+num(t.Dollar),0),[stolovlar]);
+  const tolovJamiSom    = useMemo(()=>stolovlar.reduce((s,t)=>s+(t.Valyuta!=="Dollar"?num(t.Summa):0),0),[stolovlar]);
+  const tolovJamiDollar = useMemo(()=>stolovlar.reduce((s,t)=>s+(t.Valyuta==="Dollar"?num(t.Summa_dollar):0),0),[stolovlar]);
 
   if(loading) return <div className="page-content" style={{display:"flex",justifyContent:"center",paddingTop:80}}><div className="spinner--page"/></div>;
   if(!sotuv) return (

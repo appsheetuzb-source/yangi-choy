@@ -753,7 +753,7 @@ export default function SotuvPage() {
     sotuvlar.filter(s=>s.Mijoz_ID===addMijoz && isTasdiq(s)).forEach(s=>{
       (savatSomMap[s.Sotuv_ID]||[]).forEach(r=>{ som+=num(r.Summa_som); });
       (savatDollarMap[s.Sotuv_ID]||[]).forEach(r=>{ dollar+=num(r.Summa); });
-      (stolovMap[s.Sotuv_ID]||[]).forEach(r=>{ const isD=String(r.Valyuta||"").toLowerCase().includes("dollar"); som-=(!isD?num(r.Som):0); dollar-=(isD?num(r.Summa_dollar):0); });
+      (stolovMap[s.Sotuv_ID]||[]).forEach(r=>{ const isD=String(r.Valyuta||"").toLowerCase().includes("dollar"); som-=(!isD?num(r.Summa):0); dollar-=(isD?num(r.Summa_dollar):0); });
     });
     return { som, dollar };
   },[addMijoz, mijozlar, sotuvlar, savatSomMap, savatDollarMap, stolovMap]);
@@ -897,8 +897,8 @@ export default function SotuvPage() {
                     const jS=(savatSomMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
                     const jD=(savatDollarMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa),0);
                     const stRows = stolovMap[s.Sotuv_ID] || [];
-                    const paidSom = stRows.reduce((t,r) => t + num(r.Som), 0);
-                    const paidDollar = stRows.reduce((t,r) => t + num(r.Dollar), 0);
+                    const paidSom = stRows.reduce((t,r) => t + num(r.Summa), 0);
+                    const paidDollar = stRows.reduce((t,r) => t + num(r.Summa_dollar), 0);
                     const qarzSom = jS - paidSom;
                     const qarzDollar = jD - paidDollar;
                     return (
@@ -1088,7 +1088,7 @@ export default function SotuvPage() {
                               const somJami=allIds.flatMap(id=>savatSomMap[id]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
                               const dollarJami=allIds.flatMap(id=>savatDollarMap[id]||[]).reduce((t,r)=>t+num(r.Summa),0);
                               const pays=allIds.flatMap(id=>stolovMap[id]||[]);
-                              const tolovSom=pays.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Som):0),0);
+                              const tolovSom=pays.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Summa):0),0);
                               const tolovDollar=pays.reduce((t,r)=>t+(isDollar(r.Valyuta)?num(r.Summa_dollar):0),0);
                               const bSom=num(mj?.Boshlangich_Balans_som);
                               const bDollar=num(mj?.Boshlangich_Balans_dollar);
