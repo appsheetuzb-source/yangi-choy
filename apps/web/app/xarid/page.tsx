@@ -106,23 +106,29 @@ function SearchSelect({ items, value, onChange, placeholder }: {
   items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
+  const [pos,setPos]=useState<{top:number;left:number;width:number}|null>(null);
   const selected=items.find(i=>i.id===value);
+  const place=()=>{ const el=ref.current; if(!el) return; const r=el.getBoundingClientRect(); setPos({top:r.bottom+4,left:r.left,width:r.width}); };
   useEffect(()=>{
+    if(!open) return;
     const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown",h); return ()=>document.removeEventListener("mousedown",h);
-  },[]);
+    const re=()=>place();
+    document.addEventListener("mousedown",h);
+    window.addEventListener("resize",re); window.addEventListener("scroll",re,true);
+    return ()=>{ document.removeEventListener("mousedown",h); window.removeEventListener("resize",re); window.removeEventListener("scroll",re,true); };
+  },[open]);
   const list=items.filter(i=>i.label.toLowerCase().includes(q.toLowerCase())).slice(0,60);
   return (
     <div ref={ref} style={{position:"relative"}}>
-      <div onClick={()=>{setOpen(o=>!o);setQ("");}}
+      <div onClick={()=>{ if(!open) place(); setOpen(o=>!o); setQ(""); }}
         style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,color:selected?"var(--text)":"var(--text-3)"}}>
         <span>{selected?selected.label:placeholder||"Tanlang..."}</span>
         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
         </svg>
       </div>
-      {open&&(
-        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:200,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
+      {open&&pos&&(
+        <div style={{position:"fixed",top:pos.top,left:pos.left,width:pos.width,zIndex:1000,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
           <div style={{padding:"8px",borderBottom:"1px solid var(--border)"}}>
             <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Qidirish..."
               style={{width:"100%",padding:"7px 10px",border:"1px solid var(--border)",borderRadius:8,fontSize:13,outline:"none"}}/>
@@ -257,8 +263,8 @@ export default function XaridPage() {
 
   async function toggleAkt(x: Xarid) {
     setTogglingId(x.Xarid_ID);
-    const isActive = x.Akt_sverka==="True"||x.Akt_sverka==="true"||x.Akt_sverka==="TRUE";
-    const newVal = isActive ? "False" : "True";
+    const isActive = String(x.Akt_sverka||"").toUpperCase()==="TRUE";
+    const newVal = isActive ? "FALSE" : "TRUE";
     await fetch("/api/sheets", { method:"PUT", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ sheet:"Xarid", idColumn:"Xarid_ID", idValue:x.Xarid_ID,
         row: {...x, Akt_sverka: newVal} }) });
@@ -335,7 +341,7 @@ export default function XaridPage() {
       const nextRaqam=String(Math.max(...xaridlar.map(x=>num(x.Sotuv_Raqami)),0)+1);
       const [,mo,y]=s.split(".");
       await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({sheet:"Xarid",row:{Xarid_ID:xaridId,Yil:y,Oy:mo.replace(/^0/,""),Sana:s,Sotuv_Raqami:nextRaqam,Taminotchi_ID:taminotchiId,Vaqt:v,Izoh:izoh,Akt_sverka:"False",Change:"1",Foiz_som:"",Foiz_summa_som:"0",Foiz_dollar:"",Foiz_summasi_dollar:"0"}})});
+        body:JSON.stringify({sheet:"Xarid",row:{Xarid_ID:xaridId,Yil:y,Oy:mo.replace(/^0/,""),Sana:s,Sotuv_Raqami:nextRaqam,Taminotchi_ID:taminotchiId,Vaqt:v,Izoh:izoh,Akt_sverka:"FALSE",Change:"1",Foiz_som:"",Foiz_summa_som:"0",Foiz_dollar:"",Foiz_summasi_dollar:"0"}})});
       for(let i=0;i<savat.length;i++){
         const r=savat[i]; if(!r.Mahsulot_ID||!r.Soni) continue;
         const m=mMap[r.Mahsulot_ID];
@@ -432,10 +438,10 @@ export default function XaridPage() {
   };
   const modalBox: React.CSSProperties = {
     background:"var(--white)", width:"100%",
-    maxWidth: isMobile ? "100%" : 900,
+    maxWidth: isMobile ? "100%" : 1100,
     borderRadius: isMobile ? "20px 20px 0 0" : 16,
     display:"flex", flexDirection:"column",
-    maxHeight: isMobile ? "95dvh" : "92vh",
+    maxHeight: isMobile ? "95dvh" : "94vh",
   };
 
   // Mobile product row for add/edit
@@ -608,7 +614,7 @@ export default function XaridPage() {
                     const tNomi=tMap[x.Taminotchi_ID]||"—";
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
-                    const isHa=x.Akt_sverka==="True"||x.Akt_sverka==="true"||x.Akt_sverka==="TRUE";
+                    const isHa=String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                     return (
                       <div key={x.Xarid_ID}
                         style={{padding:"14px",borderBottom:idx<filtered.length-1?"1px solid var(--border)":"none",background:"var(--white)",borderLeft:`3px solid ${isHa?"#16a34a":"#ef4444"}`}}>
@@ -664,8 +670,7 @@ export default function XaridPage() {
                     const tNomi=tMap[x.Taminotchi_ID]||"—";
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
-                    const akt=x.Akt_sverka;
-                    const isHa=akt==="True"||akt==="true";
+                    const isHa=String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                     const rowBg=isHa?"#dcfce7":"#fee2e2";
                     const rowBgHover=isHa?"#bbf7d0":"#fecaca";
                     return (
@@ -872,25 +877,18 @@ export default function XaridPage() {
               </button>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-              <div style={{display:"grid",gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",gap:12,marginBottom:14}}>
-                <div>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
-                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Ta&apos;minotchi *</label>
-                    {taminotchiId && tEski && (
-                      <span style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-                        <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
-                        {(tEski.som!==0||tEski.usd===0)&&<span style={{fontSize:12,fontWeight:800,color:tEski.som>0?"#ef4444":tEski.som<0?"#2563eb":"#16a34a"}}>{tEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
-                        {tEski.usd!==0&&<span style={{fontSize:12,fontWeight:800,color:tEski.usd>0?"#ef4444":"#2563eb"}}>{fmtUsd(tEski.usd)}</span>}
-                      </span>
-                    )}
-                  </div>
-                  <SearchSelect items={tItems} value={taminotchiId} onChange={setTaminotchiId} placeholder="Ta'minotchi tanlang..."/>
+              <div style={{marginBottom:14,maxWidth:560,width:"100%"}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Ta&apos;minotchi *</label>
+                  {taminotchiId && tEski && (
+                    <span style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
+                      <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
+                      {(tEski.som!==0||tEski.usd===0)&&<span style={{fontSize:12,fontWeight:800,color:tEski.som>0?"#ef4444":tEski.som<0?"#2563eb":"#16a34a"}}>{tEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
+                      {tEski.usd!==0&&<span style={{fontSize:12,fontWeight:800,color:tEski.usd>0?"#ef4444":"#2563eb"}}>{fmtUsd(tEski.usd)}</span>}
+                    </span>
+                  )}
                 </div>
-                <div>
-                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
-                  <input value={izoh} onChange={e=>setIzoh(e.target.value)} placeholder="Qo'shimcha izoh..."
-                    style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-                </div>
+                <SearchSelect items={tItems} value={taminotchiId} onChange={setTaminotchiId} placeholder="Ta'minotchi tanlang..."/>
               </div>
 
               {/* Xariddan keyingi qoldiq — faqat savatda summa bo'lsa */}
@@ -1004,6 +1002,11 @@ export default function XaridPage() {
                   </div>
                 );
               })()}
+              <div style={{marginTop:16}}>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
+                <input value={izoh} onChange={e=>setIzoh(e.target.value)} placeholder="Qo'shimcha izoh..."
+                  style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
             </div>
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setAddOpen(false)}>Bekor</button>

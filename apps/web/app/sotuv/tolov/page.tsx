@@ -23,7 +23,7 @@ function GaznaButtons({ turi, shakli, value, onChange, disabled }: {
   const byTuri = turi === "Dollar" ? visible.filter(g => g.Turi === "Dollar") : visible.filter(g => g.Turi !== "Dollar");
   // Admin emas — faqat tanlangan gazna ko'rinadi (o'zgartirib bo'lmaydi)
   const shown = disabled ? byTuri.filter(g => g.Gazna_ID === value) : byTuri;
-  const filtered = shakli ? shown.filter(g => !g.Shakli || g.Shakli === "Barchasi" || g.Shakli === shakli) : shown;
+  const filtered = shakli ? shown.filter(g => !g.Shakli || g.Shakli === "Barchasi" || g.Shakli.toLowerCase() === shakli.toLowerCase()) : shown;
   const color = turi === "Dollar" ? "#2563eb" : "var(--primary)";
   const bg    = turi === "Dollar" ? "#eff6ff"  : "#f0fdf4";
   if (fetching) return <span style={{ fontSize: 13, color: "var(--text-3)" }}>Yuklanmoqda...</span>;
@@ -441,6 +441,7 @@ export default function SotuvTolovPage() {
   }
   function selectAddTuri(turi: string) {
     setAddTuri(turi);
+    setAddGazna(""); setAddGaznaDollar(""); // eski tanlovni tozalab, yangi turiga mosini avtomatik tanlaymiz
     if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setAddGazna, setAddGaznaDollar);
   }
   function selectEditTuri(turi: string) {
@@ -467,7 +468,9 @@ export default function SotuvTolovPage() {
     if (!addMijoz) return;
     const somVal = num(addSumma), usdVal = num(addDollar);
     if (somVal === 0 && usdVal === 0) return;
-    if (num(addKurs) < 11000) return;
+    if (usdVal > 0 && num(addKurs) < 11000) return;      // Dollar bo'lsa kurs majburiy
+    if (!addTuri) return;                                  // To'lov turi majburiy
+    if (addValyuta === "Som" ? !addGazna : !addGaznaDollar) return; // Hisob majburiy
     setSaving(true);
     const { sana, oy, yil, vaqt } = nowStr();
     const kurs = num(addKurs);
@@ -475,17 +478,40 @@ export default function SotuvTolovPage() {
     const summa       = isSom ? String(somVal + usdVal * kurs) : "";
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
     const valyuta     = isSom ? "So'm" : "Dollar";
+    // Ostatka = to'lovdan oldingi qarz (MijozBalans)
+    const ost = balansMap[addMijoz];
+    const ostatkaSom = num(ost?.Qoldi_som), ostatkaDollar = num(ost?.Qoldi_dollar);
     try {
       await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", row: {
           Tolov_ID: uid(), Sotuv_ID: addSotuvId, Mijoz_ID: addMijoz, Agent: user?.id || "",
           Yil: yil, Oy: oy, Sana: sana, Valyuta: valyuta, Turi: addTuri,
+          Qarz_som: String(ostatkaSom), Qarz_dollar: String(ostatkaDollar),
           Som: String(somVal), Dollar: String(usdVal),
           Summa: summa, Summa_dollar: summaDollar,
           Dollar_Kursi: addKurs, Izoh: addIzoh, Vaqt: vaqt, Check: "False",
           Gazna_ID: addGazna, Gazna_dollar_ID: addGaznaDollar,
         } }) });
       localStorage.setItem("dollar_kurs", addKurs);
+
+      // Telegram bot xabari — sotuvga to'lov qilindi (ma'lumotlar S_tolov qatoridan)
+      const nS = (v: number) => String(Math.round(v));
+      const nU = (v: number) => String(Math.round(v * 100) / 100);
+      const msg =
+        `💲✅ Sotuvga to'lov qilindi\n\n` +
+        `📅 Sana: ${sana}\n` +
+        `👤 Mijoz: ${mijozNameMap[addMijoz] || "—"}\n` +
+        `📅 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
+        `📅 Ostatka(Dollar): ${nU(ostatkaDollar)}\n` +
+        `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
+        `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
+        `💵 Jami so'm: ${nS(num(summa))}\n` +
+        `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
+        `💵 Qoldiq (so'm): ${nS(ostatkaSom - somVal)}\n` +
+        `💵 Qoldiq ($): ${nU(ostatkaDollar - usdVal)}\n` +
+        `📌 Izoh: ${addIzoh && addIzoh.trim() ? addIzoh : "null"}`;
+      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+
       const qoldiA = balansMap[addMijoz];
       if (qoldiA) {
         try {
@@ -1028,9 +1054,9 @@ export default function SotuvTolovPage() {
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #2563eb", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", color: "#2563eb", boxSizing: "border-box" }}/>
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: num(addKurs) < 11000 ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi <span style={{ color: "#ef4444" }}>*</span>{num(addKurs) > 0 && num(addKurs) < 11000 && <span style={{ fontWeight: 400, marginLeft: 6 }}>min: 11 000</span>}</label>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: (num(addDollar) > 0 && num(addKurs) < 11000) ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi {num(addDollar) > 0 && <span style={{ color: "#ef4444" }}>*</span>}{num(addDollar) > 0 && num(addKurs) > 0 && num(addKurs) < 11000 && <span style={{ fontWeight: 400, marginLeft: 6 }}>min: 11 000</span>}</label>
                   <input value={addKurs} onChange={e => setAddKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
-                    style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${num(addKurs) < 11000 ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
+                    style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${(num(addDollar) > 0 && num(addKurs) < 11000) ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
                 </div>
               </div>
               {/* Preview */}
@@ -1087,18 +1113,20 @@ export default function SotuvTolovPage() {
               </div>
               {addValyuta !== "Dollar" && (
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Hisob (So&apos;m)</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: !addGazna ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 8 }}>Hisob (So&apos;m) <span style={{ color: "#ef4444" }}>*</span></label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <GaznaButtons turi="Som" shakli={addTuri} value={addGazna} onChange={setAddGazna} disabled={!isAdmin} />
                 </div>
+                {!addGazna && <p style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", marginTop: 6 }}>Hisob tanlang</p>}
               </div>
               )}
               {addValyuta !== "Som" && (
               <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 8 }}>Hisob (Dollar)</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: !addGaznaDollar ? "#ef4444" : "#2563eb", display: "block", marginBottom: 8 }}>Hisob (Dollar) <span style={{ color: "#ef4444" }}>*</span></label>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   <GaznaButtons turi="Dollar" shakli={addTuri} value={addGaznaDollar} onChange={setAddGaznaDollar} disabled={!isAdmin} />
                 </div>
+                {!addGaznaDollar && <p style={{ fontSize: 11, fontWeight: 600, color: "#ef4444", marginTop: 6 }}>Hisob tanlang</p>}
               </div>
               )}
               <div>
@@ -1110,7 +1138,7 @@ export default function SotuvTolovPage() {
             <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16 }}>
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setAddOpen(false)}>Bekor</button>
               <button className="btn btn--primary" style={{ flex: 2 }} onClick={handleSave}
-                disabled={saving || !addMijoz || (!num(addSumma) && !num(addDollar)) || num(addKurs) < 11000}>
+                disabled={saving || !addMijoz || (!num(addSumma) && !num(addDollar)) || (num(addDollar) > 0 && num(addKurs) < 11000) || !addTuri || (addValyuta === "Som" ? !addGazna : !addGaznaDollar)}>
                 {saving && <span className="spinner"/>} Saqlash
               </button>
             </div>

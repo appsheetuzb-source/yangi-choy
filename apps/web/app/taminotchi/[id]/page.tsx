@@ -307,7 +307,7 @@ export default function TaminotchiDetailPage() {
                 const sv = savatMap[x.Xarid_ID] || [];
                 const som = sv.reduce((s, r) => s + num(r.Summa_Som), 0);
                 const usd = sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
-                const isHa = x.Akt_sverka === "True" || x.Akt_sverka === "true";
+                const isHa = String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                 return (
                   <div key={x.Xarid_ID} onClick={() => router.push(`/xarid/${x.Xarid_ID}`)}
                     style={{ background: isHa ? "#dcfce7" : "#fee2e2", borderRadius: "var(--radius)", padding: "12px 14px", cursor: "pointer", border: `1px solid ${isHa ? "#86efac" : "#fca5a5"}` }}>
@@ -351,7 +351,7 @@ export default function TaminotchiDetailPage() {
                 const sv = savatMap[x.Xarid_ID] || [];
                 const som = sv.reduce((s, r) => s + num(r.Summa_Som), 0);
                 const usd = sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
-                const isHa = x.Akt_sverka === "True" || x.Akt_sverka === "true";
+                const isHa = String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                 return (
                   <div key={x.Xarid_ID} onClick={() => router.push(`/xarid/${x.Xarid_ID}`)}
                     style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "12px 20px", alignItems: "center", borderBottom: i < xaridlar.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isHa ? "#dcfce7" : "#fee2e2" }}
@@ -397,7 +397,7 @@ export default function TaminotchiDetailPage() {
                 const somVal = num(t.Som);
                 const usdVal = num(t.Dollar);
                 const jamiSom = num(t.Summa);
-                const tIsHa = t.Check === "True" || t.Check === "true";
+                const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
                   <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
                     style={{ background: tIsHa ? "#dcfce7" : "#fee2e2", borderRadius: "var(--radius)", padding: "12px 14px", border: `1px solid ${tIsHa ? "#86efac" : "#fca5a5"}`, cursor: "pointer" }}>
@@ -410,7 +410,7 @@ export default function TaminotchiDetailPage() {
                       </div>
                       <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                         {["True","False"].map(val => {
-                          const isHa = t.Check === "True" || t.Check === "true";
+                          const isHa = String(t.Check||"").toUpperCase()==="TRUE";
                           const isActive = val === "True" ? isHa : !isHa;
                           return (
                             <button key={val} disabled={toggling[t.X_Tolov_ID]}
@@ -445,7 +445,7 @@ export default function TaminotchiDetailPage() {
                 const somVal = num(t.Som);
                 const usdVal = num(t.Dollar);
                 const jamiSom = num(t.Summa);
-                const tIsHa = t.Check === "True" || t.Check === "true";
+                const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
                   <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
                     style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "12px 20px", alignItems: "center", borderBottom: i < tolovlar.length - 1 ? "1px solid var(--border)" : "none", background: tIsHa ? "#dcfce7" : "#fee2e2", cursor: "pointer" }}
@@ -462,7 +462,7 @@ export default function TaminotchiDetailPage() {
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                       {["True","False"].map(val => {
-                        const isActive = val === "True" ? (t.Check === "True" || t.Check === "true") : (t.Check !== "True" && t.Check !== "true");
+                        const tHa = String(t.Check||"").toUpperCase()==="TRUE"; const isActive = val === "True" ? tHa : !tHa;
                         return (
                           <button key={val} disabled={toggling[t.X_Tolov_ID]}
                             onClick={() => handleToggleCheck(t, val)}
