@@ -479,8 +479,9 @@ export default function SotuvTolovPage() {
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
     const valyuta     = isSom ? "So'm" : "Dollar";
     // Ostatka = to'lovdan oldingi qarz (MijozBalans)
-    const ost = balansMap[addMijoz];
-    const ostatkaSom = num(ost?.Qoldi_som), ostatkaDollar = num(ost?.Qoldi_dollar);
+    // Ostatka = to'lovdan oldingi qarz (formadagi QOLDIQ — xom ma'lumotdan hisoblangan, balansMap emas)
+    const ostatkaSom = mijozQoldi ? mijozQoldi.som : 0;
+    const ostatkaDollar = mijozQoldi ? mijozQoldi.usd : 0;
     try {
       await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", row: {

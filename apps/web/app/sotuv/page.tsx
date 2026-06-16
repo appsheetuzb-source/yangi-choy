@@ -59,23 +59,29 @@ function SearchSelect({ items, value, onChange, placeholder, borderColor }: {
   items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; borderColor?:string;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
+  const [pos,setPos]=useState<{top:number;left:number;width:number}|null>(null);
   const selected=items.find(i=>i.id===value);
+  const place=()=>{ const el=ref.current; if(!el) return; const r=el.getBoundingClientRect(); setPos({top:r.bottom+4,left:r.left,width:r.width}); };
   useEffect(()=>{
+    if(!open) return;
     const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown",h); return ()=>document.removeEventListener("mousedown",h);
-  },[]);
-  const list=items.filter(i=>i.label.toLowerCase().includes(q.toLowerCase())).slice(0,60);
+    const re=()=>place();
+    document.addEventListener("mousedown",h);
+    window.addEventListener("resize",re); window.addEventListener("scroll",re,true);
+    return ()=>{ document.removeEventListener("mousedown",h); window.removeEventListener("resize",re); window.removeEventListener("scroll",re,true); };
+  },[open]);
+  const list=items.filter(i=>i.id&&(i.label||"").trim()&&i.label.toLowerCase().includes(q.toLowerCase())).slice(0,60);
   return (
     <div ref={ref} style={{position:"relative"}}>
-      <div onClick={()=>{setOpen(o=>!o);setQ("");}}
-        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:`1px solid ${borderColor||"var(--border)"}`,borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,color:selected?"var(--text)":"var(--text-3)"}}>
-        <span>{selected?selected.label:placeholder||"Tanlang..."}</span>
-        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>
+      <div onClick={()=>{ if(!open) place(); setOpen(o=>!o); setQ(""); }}
+        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:`1px solid ${borderColor||"var(--border)"}`,borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,fontWeight:selected?400:600,color:selected?"var(--text)":"var(--text-2)"}}>
+        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selected?selected.label:placeholder||"Tanlang..."}</span>
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s",flexShrink:0}}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
         </svg>
       </div>
-      {open&&(
-        <div style={{position:"absolute",top:"calc(100% + 4px)",left:0,right:0,zIndex:200,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
+      {open&&pos&&(
+        <div style={{position:"fixed",top:pos.top,left:pos.left,width:pos.width,zIndex:1000,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
           <div style={{padding:"8px",borderBottom:"1px solid var(--border)"}}>
             <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Qidirish..."
               style={{width:"100%",padding:"7px 10px",border:"1px solid var(--border)",borderRadius:8,fontSize:13,outline:"none"}}/>
@@ -176,14 +182,6 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
   const dollarRows = items.filter(i=>i.valyuta==="dollar");
   return (
     <div>
-      {/* Kurs */}
-      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-        <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em",flex:1}}>SAVAT</span>
-        <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
-        <input value={kursVal} onChange={e=>onKursChange(e.target.value)} placeholder="12800" inputMode="numeric"
-          style={{width:100,padding:"6px 10px",border:`1px solid ${num(kursVal)>0&&num(kursVal)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-      </div>
-
       {/* So'm section */}
       <div style={{marginBottom:16}}>
         <span style={{fontSize:11,fontWeight:700,color:"#16a34a",letterSpacing:".05em",display:"block",marginBottom:8}}>SO&apos;M SAVAT</span>
@@ -692,7 +690,7 @@ export default function SotuvPage() {
     const hasDollar = (savatDollarMap[s.Sotuv_ID]||[]).length > 0;
     if (viewTab === "som")     return hasSom;
     if (viewTab === "dollar")  return hasDollar;
-    if (viewTab === "bosh")    return !hasSom && !hasDollar;
+    if (viewTab === "bosh")    return String(s.Chek||"").trim()==="";
     if (viewTab === "bugungi") return s.Sana === todaySana;
     if (viewTab === "berilmagan") {
       const somRows = savatSomMap[s.Sotuv_ID] || [];
@@ -806,7 +804,7 @@ export default function SotuvPage() {
                 {key:"all",    label:"Barchasi",       count: filtered.length},
                 {key:"som",    label:"So'm",           count: filtered.filter(s=>(savatSomMap[s.Sotuv_ID]||[]).length>0).length},
                 {key:"dollar", label:"Dollar ($)",     count: filtered.filter(s=>(savatDollarMap[s.Sotuv_ID]||[]).length>0).length},
-                {key:"bosh",   label:"Bo'sh",          count: filtered.filter(s=>!(savatSomMap[s.Sotuv_ID]||[]).length&&!(savatDollarMap[s.Sotuv_ID]||[]).length).length},
+                {key:"bosh",   label:"Bo'sh",          count: filtered.filter(s=>String(s.Chek||"").trim()==="").length},
                 {key:"bugungi",    label:"Bugungi",    count: filtered.filter(s=>s.Sana===todaySana).length},
                 {key:"berilmagan", label:"Berilmagan", count: filtered.filter(s=>[...(savatSomMap[s.Sotuv_ID]||[]),...(savatDollarMap[s.Sotuv_ID]||[])].some(r=>(r.Check??"").toString().toUpperCase()==="FALSE")).length},
               ] as const).map(tab=>{
@@ -1137,16 +1135,41 @@ export default function SotuvPage() {
               <div style={{width:40,height:40,borderRadius:12,background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <svg width="18" height="18" fill="none" stroke="#16a34a" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
               </div>
-              <div style={{flex:1}}>
+              <div style={{flexShrink:0}}>
                 <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi sotuv</h2>
                 <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
               </div>
-              <button onClick={()=>setAddOpen(false)} style={{width:34,height:34,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              {!isMobile && (
+                <div style={{width:240,flexShrink:1,minWidth:0}}>
+                  <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz" borderColor={!addMijoz?"#ef4444":undefined}/>
+                  {addMijoz && addMijozEski && (
+                    <div style={{display:"flex",gap:8,alignItems:"center",marginTop:4,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
+                      {(addMijozEski.som!==0||addMijozEski.dollar===0)&&<span style={{fontSize:12,fontWeight:800,color:addMijozEski.som>0?"#ef4444":addMijozEski.som<0?"#2563eb":"#16a34a"}}>{addMijozEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
+                      {addMijozEski.dollar!==0&&<span style={{fontSize:12,fontWeight:800,color:addMijozEski.dollar>0?"#ef4444":"#2563eb"}}>{fmtUsd(addMijozEski.dollar)}</span>}
+                    </div>
+                  )}
+                </div>
+              )}
+              {!isMobile && isAdmin && (
+                <div style={{width:200,flexShrink:1,minWidth:0}}>
+                  <SearchSelect items={aItems} value={addAgent} onChange={v=>{setAddAgent(v);setAddMijoz("");}} placeholder="Agent" borderColor={!addAgent?"#ef4444":undefined}/>
+                </div>
+              )}
+              {!isMobile && (
+                <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
+                  <input value={addKurs} onChange={e=>setAddKurs(e.target.value)} placeholder="12800" inputMode="numeric"
+                    style={{width:90,padding:"8px 10px",border:`1px solid ${num(addKurs)>0&&num(addKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                </div>
+              )}
+              <button onClick={()=>setAddOpen(false)} style={{width:34,height:34,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:"auto"}}>
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,overflowY:"auto",flex:1}}>
-              <div style={{display:"grid",gridTemplateColumns:(isMobile||!isAdmin)?"1fr":"1fr 1fr",gap:12}}>
+              {isMobile && (
+              <div style={{display:"grid",gridTemplateColumns:"1fr",gap:12}}>
                 <div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
                     <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Mijoz *</label>
@@ -1167,6 +1190,7 @@ export default function SotuvPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {/* Sotuvdan keyingi qoldiq — faqat savatda summa bo'lsa */}
               {addMijoz && addMijozEski && (jamiSom>0 || jamiDollar>0) && (
@@ -1180,6 +1204,13 @@ export default function SotuvPage() {
               )}
 
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
+                {isMobile && (
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,marginBottom:12}}>
+                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
+                    <input value={addKurs} onChange={e=>setAddKurs(e.target.value)} placeholder="12800" inputMode="numeric"
+                      style={{width:100,padding:"6px 10px",border:`1px solid ${num(addKurs)>0&&num(addKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                  </div>
+                )}
                 <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
               <div>

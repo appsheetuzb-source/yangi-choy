@@ -193,7 +193,8 @@ export default function SotuvTolovDetailPage() {
     </div>
   );
 
-  const mNomi    = mijozlar.find(m => m.Mijoz_ID === tolov.Mijoz_ID)?.Ism || "—";
+  const mijozRec = mijozlar.find(m => m.Mijoz_ID === tolov.Mijoz_ID);
+  const mNomi    = mijozRec?.Ism || "—";
   const agentNomi = agentlar.find(f => f.Foydalanuvchi_ID === tolov.Agent)?.Nomi || tolov.Agent || "";
   const sRaqam   = tolov.Sotuv_ID ? sotuvlar.find(s => s.Sotuv_ID === tolov.Sotuv_ID)?.Sotuv_Raqami : null;
   const gaznaNomi = tolov.Gazna_ID ? (gaznalar.find(g => g.Gazna_ID === tolov.Gazna_ID)?.Nomi || tolov.Gazna_ID) : null;
@@ -249,7 +250,7 @@ export default function SotuvTolovDetailPage() {
       <div className="page-content" style={{ maxWidth: 900 }}>
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 10 : 16, marginBottom: 24 }}>
-          <div onClick={() => router.push(`/mijozlar`)}
+          <div onClick={() => mijozRec && router.push(`/mijozlar/${mijozRec.Mijoz_ID}`)}
             style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "14px 16px" : "20px 24px", cursor: "pointer" }}
             onMouseEnter={e => (e.currentTarget.style.boxShadow = "var(--shadow)")}
             onMouseLeave={e => (e.currentTarget.style.boxShadow = "var(--shadow-sm)")}>

@@ -102,8 +102,8 @@ function MultiSelect({ items, value, onChange, placeholder, fullWidth }: {
   );
 }
 
-function SearchSelect({ items, value, onChange, placeholder }: {
-  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string;
+function SearchSelect({ items, value, onChange, placeholder, clearable }: {
+  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; clearable?:boolean;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
   const [pos,setPos]=useState<{top:number;left:number;width:number}|null>(null);
@@ -117,15 +117,24 @@ function SearchSelect({ items, value, onChange, placeholder }: {
     window.addEventListener("resize",re); window.addEventListener("scroll",re,true);
     return ()=>{ document.removeEventListener("mousedown",h); window.removeEventListener("resize",re); window.removeEventListener("scroll",re,true); };
   },[open]);
-  const list=items.filter(i=>i.label.toLowerCase().includes(q.toLowerCase())).slice(0,60);
+  const list=items.filter(i=>i.id&&(i.label||"").trim()&&i.label.toLowerCase().includes(q.toLowerCase())).slice(0,60);
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div onClick={()=>{ if(!open) place(); setOpen(o=>!o); setQ(""); }}
-        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,color:selected?"var(--text)":"var(--text-3)"}}>
-        <span>{selected?selected.label:placeholder||"Tanlang..."}</span>
-        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
-        </svg>
+        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,fontWeight:selected?400:600,color:selected?"var(--text)":"var(--text-2)"}}>
+        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selected?selected.label:placeholder||"Tanlang..."}</span>
+        <span style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+          {clearable&&value&&(
+            <span onClick={e=>{e.stopPropagation();onChange("");setOpen(false);}} title="Bekor qilish"
+              style={{display:"flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:4,cursor:"pointer",color:"var(--text-3)"}}
+              onMouseEnter={e=>(e.currentTarget.style.background="var(--border)")} onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
+              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+            </span>
+          )}
+          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
+          </svg>
+        </span>
       </div>
       {open&&pos&&(
         <div style={{position:"fixed",top:pos.top,left:pos.left,width:pos.width,zIndex:1000,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
@@ -415,7 +424,7 @@ export default function XaridPage() {
   const jamiSom=savat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx_som),0);
   const editJamiUsd=editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narxi),0);
   const editJamiSom=editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx_som),0);
-  const tItems=useMemo(()=>taminotchilar.map(t=>({id:t.Taminotchi_ID,label:t.Ism})),[taminotchilar]);
+  const tItems=useMemo(()=>taminotchilar.filter(t=>t.Taminotchi_ID&&(t.Ism||"").trim()).map(t=>({id:t.Taminotchi_ID,label:t.Ism})),[taminotchilar]);
   const mItems=useMemo(()=>mahsulotlar.map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
 
   // Tanlangan ta'minotchining eski qoldig'i (boshlang'ich + jami xarid - jami to'lov)
@@ -868,28 +877,40 @@ export default function XaridPage() {
               <div style={{width:40,height:40,borderRadius:12,background:"#fff7ed",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <svg width="18" height="18" fill="none" stroke="#f97316" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
               </div>
-              <div style={{flex:1}}>
+              <div style={{flexShrink:0}}>
                 <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi xarid</h2>
                 <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
               </div>
-              <button onClick={()=>setAddOpen(false)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <div style={{width:260,flexShrink:1,minWidth:0}}>
+                <SearchSelect items={tItems} value={taminotchiId} onChange={setTaminotchiId} placeholder="Ta'minotchi" clearable/>
+                {taminotchiId && tEski && (
+                  <div style={{display:"flex",gap:8,alignItems:"center",marginTop:4,flexWrap:"wrap"}}>
+                    <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
+                    {(tEski.som!==0||tEski.usd===0)&&<span style={{fontSize:12,fontWeight:800,color:tEski.som>0?"#ef4444":tEski.som<0?"#2563eb":"#16a34a"}}>{tEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
+                    {tEski.usd!==0&&<span style={{fontSize:12,fontWeight:800,color:tEski.usd>0?"#ef4444":"#2563eb"}}>{fmtUsd(tEski.usd)}</span>}
+                  </div>
+                )}
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+                <span style={{fontSize:12,fontWeight:600,color:"var(--text-2)",whiteSpace:"nowrap"}}>Chegirma bormi?</span>
+                <div style={{display:"inline-flex",borderRadius:20,overflow:"hidden",border:"1.5px solid var(--border)"}}>
+                  <button onClick={()=>{setChegirmaHa(true);}} style={{padding:"7px 16px",fontSize:13,fontWeight:700,border:"none",borderRight:"1.5px solid var(--border)",cursor:"pointer",background:chegirmaHa?"var(--primary)":"var(--white)",color:chegirmaHa?"#fff":"var(--text-3)"}}>Ha</button>
+                  <button onClick={()=>{setChegirmaHa(false);setChegirmaFoiz("");setSavat(p=>p.map(r=>({...r,Foiz:""})));}} style={{padding:"7px 16px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:!chegirmaHa?"var(--primary)":"var(--white)",color:!chegirmaHa?"#fff":"var(--text-3)"}}>Yo&apos;q</button>
+                </div>
+                {chegirmaHa&&(
+                  <div style={{display:"flex",alignItems:"center",gap:4}}>
+                    <input value={chegirmaFoiz} onChange={e=>{setChegirmaFoiz(e.target.value);setSavat(p=>p.map(r=>({...r,Foiz:e.target.value})));}}
+                      placeholder="0" inputMode="decimal"
+                      style={{width:70,padding:"7px 10px",border:"1.5px solid #fde68a",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",color:"#d97706",textAlign:"center"}}/>
+                    <span style={{fontSize:14,fontWeight:700,color:"#d97706"}}>%</span>
+                  </div>
+                )}
+              </div>
+              <button onClick={()=>setAddOpen(false)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:"auto"}}>
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
             <div style={{flex:1,overflowY:"auto",padding:"16px 20px"}}>
-              <div style={{marginBottom:14,maxWidth:560,width:"100%"}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
-                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Ta&apos;minotchi *</label>
-                  {taminotchiId && tEski && (
-                    <span style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"}}>
-                      <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
-                      {(tEski.som!==0||tEski.usd===0)&&<span style={{fontSize:12,fontWeight:800,color:tEski.som>0?"#ef4444":tEski.som<0?"#2563eb":"#16a34a"}}>{tEski.som.toLocaleString("ru-RU")} so&apos;m</span>}
-                      {tEski.usd!==0&&<span style={{fontSize:12,fontWeight:800,color:tEski.usd>0?"#ef4444":"#2563eb"}}>{fmtUsd(tEski.usd)}</span>}
-                    </span>
-                  )}
-                </div>
-                <SearchSelect items={tItems} value={taminotchiId} onChange={setTaminotchiId} placeholder="Ta'minotchi tanlang..."/>
-              </div>
 
               {/* Xariddan keyingi qoldiq — faqat savatda summa bo'lsa */}
               {taminotchiId && tEski && (jamiSom>0 || jamiUsd>0) && (
@@ -902,23 +923,6 @@ export default function XaridPage() {
                 </div>
               )}
 
-              <div style={{marginBottom:16}}>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:8}}>Chegirma bormi?</label>
-                <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
-                  <div style={{display:"inline-flex",borderRadius:20,overflow:"hidden",border:"1.5px solid var(--border)"}}>
-                    <button onClick={()=>{setChegirmaHa(true);}} style={{padding:"7px 20px",fontSize:13,fontWeight:700,border:"none",borderRight:"1.5px solid var(--border)",cursor:"pointer",background:chegirmaHa?"var(--primary)":"var(--white)",color:chegirmaHa?"#fff":"var(--text-3)"}}>Ha</button>
-                    <button onClick={()=>{setChegirmaHa(false);setChegirmaFoiz("");setSavat(p=>p.map(r=>({...r,Foiz:""})));}} style={{padding:"7px 20px",fontSize:13,fontWeight:700,border:"none",cursor:"pointer",background:!chegirmaHa?"var(--primary)":"var(--white)",color:!chegirmaHa?"#fff":"var(--text-3)"}}>Yo&apos;q</button>
-                  </div>
-                  {chegirmaHa&&(
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <input value={chegirmaFoiz} onChange={e=>{setChegirmaFoiz(e.target.value);setSavat(p=>p.map(r=>({...r,Foiz:e.target.value})));}}
-                        placeholder="0" inputMode="decimal"
-                        style={{width:90,padding:"7px 12px",border:"1.5px solid #fde68a",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",color:"#d97706",textAlign:"center"}}/>
-                      <span style={{fontSize:14,fontWeight:700,color:"#d97706"}}>%</span>
-                    </div>
-                  )}
-                </div>
-              </div>
               <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10}}>
                 <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em"}}>MAHSULOTLAR</span>
               </div>
