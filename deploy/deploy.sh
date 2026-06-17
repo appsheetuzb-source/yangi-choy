@@ -26,7 +26,9 @@ echo "==> [2/5] Bog'liqliklar (o'zgargan bo'lsa o'rnatiladi)"
 npm install --no-audit --no-fund
 
 echo "==> [3/5] Build (past prioritet — jonli sayt ishlab turadi)"
-rm -rf "$BUILD/$APP/.next"
+# .next/cache (Turbopack inkremental kesh) SAQLANADI — keyingi buildlar tezroq.
+# Eski build chiqishini tozalaymiz, lekin keshni emas:
+find "$BUILD/$APP/.next" -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf {} + 2>/dev/null || true
 NODE_OPTIONS=--max-old-space-size=2048 nice -n 19 ionice -c3 \
   npm run build --workspace=web
 
