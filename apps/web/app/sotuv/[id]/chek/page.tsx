@@ -513,7 +513,8 @@ function ChekContent() {
             text-align: center;
           }
           .chek-header__sub { display: none; }
-          .chek-header__logo { font-size: 18px; }
+          .chek-header { background-color: #1a2744 !important; }
+          .chek-header__logo, .chek-header__logo span { font-size: 18px; color: #fff !important; }
 
           .chek-info {
             padding: 6px 24px;
@@ -527,13 +528,13 @@ function ChekContent() {
           .chek-table-wrap { padding: 0 0 3px; }
           .chek-info { padding: 5px 8px; }
           .chek-table { border: 1.2px solid #000 !important; }
-          .chek-table thead th { padding: 3px 4px; font-size: 8px; color: #000 !important; border: 0.8px solid #000 !important; }
+          .chek-table thead th { padding: 3px 4px; font-size: 8px; color: #fff !important; background-color: #1a2744 !important; border: 0.8px solid #2d3a5c !important; }
           .chek-table tbody td { padding: 3px 4px; font-size: 9px; border: 0.8px solid #555 !important; }
           .chek-table tfoot td { padding: 3px 4px; font-size: 10px; border: 0.8px solid #000 !important; }
 
           .chek-balance { margin: 4px 0 6px; border-radius: 0; }
-          .chek-balance__header { padding: 5px 10px; font-size: 9px; color: #000 !important; }
-          .chek-balance__header-cell { color: #000 !important; font-weight: 900 !important; }
+          .chek-balance__header { padding: 5px 10px; font-size: 9px; color: #fff !important; background-color: #1a2744 !important; }
+          .chek-balance__header-cell { color: #fff !important; font-weight: 900 !important; }
           .chek-balance__cell { padding: 4px 10px; font-size: 10px; color: #000 !important; }
           .chek-balance__cell-label { font-size: 10px; color: #000 !important; font-weight: 800 !important; }
           .chek-balance__cell-val { color: #000 !important; font-weight: 800 !important; }
