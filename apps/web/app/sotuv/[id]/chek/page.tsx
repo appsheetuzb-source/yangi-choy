@@ -491,8 +491,9 @@ function ChekContent() {
           .chek-table th, .chek-table td { font-weight: 700 !important; }
           .chek-info__label, .chek-info__value { font-weight: 700 !important; }
           .chek-balance__cell-label, .chek-balance__cell-val { font-weight: 700 !important; }
-          /* A4 enining roppa-rosa yarmiga (21sm/2 = 10.5sm) chiqadi, tepada bo'sh joysiz */
-          .chek-wrap { max-width: 10.5cm; width: 10.5cm; margin: 0; }
+          /* A4 enining roppa-rosa yarmiga (21sm/2 = 10.5sm) chiqadi.
+             Chap chetga 8mm bo'shliq — printer chekkadagi harflarni kesib qo'ymasin. */
+          .chek-wrap { max-width: 10.5cm; width: 10.5cm; margin: 4mm 0 0 8mm; }
           /* qattiq ustun enlarini bekor qilib, jadval 10.5sm'ga sig'sin */
           .chek-table { table-layout: fixed !important; width: 100% !important; }
           .chek-table th, .chek-table td { word-break: break-word; white-space: normal !important; }
