@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -196,6 +198,9 @@ export default function XaridPage() {
   const [triedSave, setTriedSave]             = useState(false);
   const [editTriedSave, setEditTriedSave]     = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState<Xarid|null>(null);
+
+  // Modal ochilganda orqa fon scroll'i qulflanadi (faqat forma ichi scroll bo'ladi)
+  useScrollLock(addOpen || !!detailXarid || !!deleteTarget);
   const [deleting, setDeleting]           = useState(false);
 
   useEffect(()=>{
@@ -519,13 +524,10 @@ export default function XaridPage() {
             <span style={{fontSize:11,color:"var(--text-3)",paddingLeft:4}}>Barcha xaridlar ro&apos;yxati</span>
           </div>
           <div className="header__spacer"/>
-          {isMobile&&(
-            <button className="btn btn--primary" style={{flexShrink:0}} onClick={()=>{setTaminotchiId("");setIzoh("");setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            </button>
-          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={()=>{setTaminotchiId("");setIzoh("");setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}} />}
 
       <div className="page-content">
         {loading&&<div className="spinner--page"/>}
@@ -873,15 +875,17 @@ export default function XaridPage() {
         <div style={modalOverlay} onClick={()=>setAddOpen(false)}>
           <div style={modalBox} onClick={e=>e.stopPropagation()}>
             {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
-            <div style={{display:"flex",alignItems:"center",gap:16,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
-              <div style={{width:40,height:40,borderRadius:12,background:"#fff7ed",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-                <svg width="18" height="18" fill="none" stroke="#f97316" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            <div style={{display:"flex",flexDirection:isMobile?"column":"row",alignItems:isMobile?"stretch":"center",gap:isMobile?12:16,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
+              <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+                <div style={{width:40,height:40,borderRadius:12,background:"#fff7ed",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                  <svg width="18" height="18" fill="none" stroke="#f97316" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                </div>
+                <div>
+                  <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi xarid</h2>
+                  <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
+                </div>
               </div>
-              <div style={{flexShrink:0}}>
-                <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi xarid</h2>
-                <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
-              </div>
-              <div style={{width:260,flexShrink:1,minWidth:0}}>
+              <div style={{width:isMobile?"100%":260,flexShrink:1,minWidth:0}}>
                 <SearchSelect items={tItems} value={taminotchiId} onChange={setTaminotchiId} placeholder="Ta'minotchi" clearable/>
                 {taminotchiId && tEski && (
                   <div style={{display:"flex",gap:8,alignItems:"center",marginTop:4,flexWrap:"wrap"}}>

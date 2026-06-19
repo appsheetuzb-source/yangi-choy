@@ -1,6 +1,8 @@
 "use client";
 
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useCallback } from "react";
@@ -60,6 +62,9 @@ export default function XarajatPage() {
   const [saving, setSaving]   = useState(false);
   const [delTarget, setDelTarget] = useState<Xarajat | null>(null);
   const [deleting, setDeleting]   = useState(false);
+  const [isMobile, setIsMobile]   = useState(false);
+  useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
+  useScrollLock(open || !!delTarget);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -202,12 +207,16 @@ export default function XarajatPage() {
             {yillar.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
           <div className="header__spacer" />
-          <button className="btn btn--primary" onClick={openAdd}>
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            Qo&apos;shish
-          </button>
+          {!isMobile && (
+            <button className="btn btn--primary" onClick={openAdd}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              Qo&apos;shish
+            </button>
+          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       <div className="page-content">
         {/* Stats */}

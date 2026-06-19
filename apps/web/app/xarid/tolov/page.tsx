@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 
@@ -208,6 +210,7 @@ export default function XaridTolovPage() {
 
   // Add modal
   const [addOpen, setAddOpen]       = useState(false);
+  useScrollLock(addOpen || !!editTarget || !!deleteTarget);
   const [saving, setSaving]         = useState(false);
   const [addT, setAddT]             = useState("");
   const [addValyuta, setAddValyuta] = useState<"Som"|"Dollar">("Som");
@@ -505,13 +508,10 @@ export default function XaridTolovPage() {
             <span style={{ fontSize: 11, color: "var(--text-3)", paddingLeft: 4 }}>Barcha to&apos;lovlar ro&apos;yxati</span>
           </div>
           <div className="header__spacer"/>
-          {isMobile && (
-            <button className="btn btn--primary" onClick={openAdd} style={{ flexShrink: 0 }}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            </button>
-          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       <div className="page-content">
         {loading && <div className="spinner--page"/>}

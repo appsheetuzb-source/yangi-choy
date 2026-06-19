@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -82,6 +84,7 @@ export default function TaminotchiPage() {
   const [form, setForm]                   = useState<Taminotchi>(EMPTY);
   const [saving, setSaving]               = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState<Taminotchi | null>(null);
+  useScrollLock(drawerOpen || !!deleteTarget);
   const [deleting, setDeleting]           = useState(false);
 
   useEffect(() => {
@@ -101,7 +104,8 @@ export default function TaminotchiPage() {
         fetchSheet("X_Tolov").catch(() => ({ data: [] })),
       ]).then(([tR, xR, xsR, tolvR]) => {
         if (tR.error) throw new Error(tR.error);
-        setTaminotchilar(tR.data as Taminotchi[]);
+        // Bo'sh (Ism'siz) qatorlar — Google Sheet'dagi bo'sh satrlar, aslida ta'minotchi emas — chiqarib tashlanadi
+        setTaminotchilar((tR.data as Taminotchi[]).filter(t => String(t.Ism || "").trim() !== ""));
         const xToT: Record<string, string> = {};
         (xR.data as Xarid[]).forEach(x => { xToT[String(x.Xarid_ID).trim()] = x.Taminotchi_ID; });
         const xByT: Record<string, { som: number; usd: number }> = {};
@@ -196,11 +200,7 @@ export default function TaminotchiPage() {
             </div>
           )}
           <div className="header__spacer"/>
-          {isMobile ? (
-            <button className="btn btn--primary" style={{ flexShrink: 0 }} onClick={openAdd}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            </button>
-          ) : (
+          {!isMobile && (
             <button className="btn btn--primary" onClick={openAdd}>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
               Qo&apos;shish
@@ -208,6 +208,8 @@ export default function TaminotchiPage() {
           )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       <div className="page-content">
         {loading && <div className="spinner--page"/>}

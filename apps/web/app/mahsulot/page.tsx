@@ -1,6 +1,8 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -59,6 +61,9 @@ export default function MahsulotPage() {
   const [saving, setSaving]           = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
+  const [isMobile, setIsMobile]       = useState(false);
+  useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
+  useScrollLock(drawerOpen || !!deleteTarget);
   const [imgPreview, setImgPreview]   = useState<string | null>(null);
   const [uploading, setUploading]     = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -298,14 +303,18 @@ export default function MahsulotPage() {
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 4h9l5 5v11a0 0 0 01 0 0H4a0 0 0 01 0 0V4z"/></svg>
             PDF
           </button>
-          <button className="btn btn--primary" onClick={openAdd}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-            </svg>
-            Qo&apos;shish
-          </button>
+          {!isMobile && (
+            <button className="btn btn--primary" onClick={openAdd}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+              </svg>
+              Qo&apos;shish
+            </button>
+          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       {/* Toolbar */}
       <div className="toolbar">

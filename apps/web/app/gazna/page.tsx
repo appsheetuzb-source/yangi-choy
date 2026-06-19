@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -112,6 +114,7 @@ export default function GaznaPage() {
   const [editItem, setEditItem]   = useState<Gazna | null>(null);
   const [saving, setSaving]       = useState(false);
   const [deleting, setDeleting]   = useState<string | null>(null);
+  useScrollLock(showForm);
   const [form, setForm]           = useState({ ...BLANK_FORM });
 
   useEffect(() => {
@@ -267,14 +270,18 @@ export default function GaznaPage() {
             </svg>
           </button>
           <div className="header__spacer"/>
-          <button className="btn btn--primary" onClick={openCreate} style={{ flexShrink: 0 }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-            </svg>
-            Hisob
-          </button>
+          {!isMobile && (
+            <button className="btn btn--primary" onClick={openCreate} style={{ flexShrink: 0 }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+              </svg>
+              Hisob
+            </button>
+          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openCreate} label="Hisob qo'shish" />}
 
       <div className="page-content">
         {loading && <div className="spinner--page"/>}

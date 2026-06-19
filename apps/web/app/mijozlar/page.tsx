@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 
 import { useEffect, useState, useCallback } from "react";
@@ -108,6 +110,7 @@ export default function MijozlarPage() {
   const [form, setForm]                 = useState<Mijoz>(EMPTY);
   const [saving, setSaving]             = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Mijoz | null>(null);
+  useScrollLock(drawerOpen || !!deleteTarget);
   const [deleting, setDeleting]         = useState(false);
 
   useEffect(() => {
@@ -274,11 +277,7 @@ export default function MijozlarPage() {
             </div>
           )}
           <div className="header__spacer"/>
-          {isMobile ? (
-            <button className="btn btn--primary" style={{ flexShrink: 0 }} onClick={openAdd}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            </button>
-          ) : (
+          {!isMobile && (
             <button className="btn btn--primary" onClick={openAdd}>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
               Qo&apos;shish
@@ -286,6 +285,8 @@ export default function MijozlarPage() {
           )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       <div className="page-content">
         {loading && <div className="spinner--page"/>}

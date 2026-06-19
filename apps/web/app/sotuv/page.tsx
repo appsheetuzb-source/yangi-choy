@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, fetchSheets, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -341,6 +343,7 @@ export default function SotuvPage() {
   const [editSaving, setEditSaving]     = useState(false);
 
   const [deleteTarget, setDeleteTarget] = useState<Sotuv|null>(null);
+  useScrollLock(addOpen || !!detailSotuv || !!deleteTarget);
   const [deleting, setDeleting]         = useState(false);
   const [checkSaving, setCheckSaving]   = useState("");
   const [tasdiqSaving, setTasdiqSaving] = useState("");
@@ -768,13 +771,10 @@ export default function SotuvPage() {
             <span style={{fontSize:11,color:"var(--text-3)",paddingLeft:4}}>Barcha sotuvlar ro&apos;yxati</span>
           </div>
           <div className="header__spacer"/>
-          {isMobile&&(
-            <button className="btn btn--primary" onClick={openAdd} style={{flexShrink:0}}>
-              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            </button>
-          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       <div className="page-content">
         {loading&&<div className="spinner--page"/>}

@@ -1,5 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { useScrollLock } from "@/lib/use-scroll-lock";
+import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -59,6 +61,9 @@ export default function FoydalanuvchiPage() {
   const [showParol, setShowParol]       = useState(false);
   const [saving, setSaving]             = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Foydalanuvchi | null>(null);
+  const [isMobile, setIsMobile]         = useState(false);
+  useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
+  useScrollLock(drawerOpen || !!deleteTarget);
   const [deleting, setDeleting]         = useState(false);
 
   const loadData = useCallback((delay = 0) => {
@@ -157,14 +162,18 @@ export default function FoydalanuvchiPage() {
             )}
           </div>
           <div className="header__spacer" />
-          <button className="btn btn--primary" onClick={openAdd}>
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
-            </svg>
-            Qo&apos;shish
-          </button>
+          {!isMobile && (
+            <button className="btn btn--primary" onClick={openAdd}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/>
+              </svg>
+              Qo&apos;shish
+            </button>
+          )}
         </div>
       </header>
+
+      {isMobile && <FabAdd onClick={openAdd} />}
 
       <div className="page-content">
         {loading && <div className="spinner--page" />}
