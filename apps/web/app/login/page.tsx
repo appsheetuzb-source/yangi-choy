@@ -30,12 +30,34 @@ export default function LoginPage() {
   if (loading) return null;
 
   return (
+    <>
+      <style>{`
+        @keyframes teaDrift {
+          0%   { transform: translate(0,0) scale(1); }
+          50%  { transform: translate(30px,-26px) scale(1.12); }
+          100% { transform: translate(0,0) scale(1); }
+        }
+        @keyframes teaLeaf {
+          0%   { transform: translateY(0) rotate(0deg); }
+          50%  { transform: translateY(-16px) rotate(12deg); }
+          100% { transform: translateY(0) rotate(0deg); }
+        }
+      `}</style>
     <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
-      background: "var(--bg)",
-      backgroundImage: "radial-gradient(ellipse at 20% 50%, rgba(47,129,247,.08) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(63,185,80,.06) 0%, transparent 50%)",
+      minHeight: "100vh", position: "relative", overflow: "hidden",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: "linear-gradient(135deg, #eef6ee 0%, #e6f1e8 45%, #f5efe2 100%)",
     }}>
+      {/* Choy ranglaridagi harakatlanuvchi yumshoq doiralar */}
+      <div style={{ position:"absolute", width:340, height:340, top:-80, left:-60, borderRadius:"50%", background:"radial-gradient(circle, rgba(122,176,108,.40), transparent 70%)", filter:"blur(8px)", animation:"teaDrift 14s ease-in-out infinite" }} />
+      <div style={{ position:"absolute", width:300, height:300, bottom:-70, right:-50, borderRadius:"50%", background:"radial-gradient(circle, rgba(212,165,116,.38), transparent 70%)", filter:"blur(8px)", animation:"teaDrift 18s ease-in-out infinite reverse" }} />
+      <div style={{ position:"absolute", width:240, height:240, top:"42%", right:"12%", borderRadius:"50%", background:"radial-gradient(circle, rgba(99,170,140,.30), transparent 70%)", filter:"blur(10px)", animation:"teaDrift 22s ease-in-out infinite" }} />
+      {/* Suzuvchi choy barglari */}
+      <svg style={{ position:"absolute", top:"17%", left:"14%", opacity:.5, animation:"teaLeaf 7s ease-in-out infinite" }} width="34" height="34" viewBox="0 0 24 24" fill="#5f9e6b"><path d="M4 20s2-9 9-13c4-2 7-3 7-3s-1 3-3 7c-4 9-13 9-13 9z"/></svg>
+      <svg style={{ position:"absolute", bottom:"21%", left:"22%", opacity:.45, animation:"teaLeaf 9s ease-in-out infinite 1s" }} width="26" height="26" viewBox="0 0 24 24" fill="#7ab06c"><path d="M4 20s2-9 9-13c4-2 7-3 7-3s-1 3-3 7c-4 9-13 9-13 9z"/></svg>
+      <svg style={{ position:"absolute", top:"30%", right:"9%", opacity:.4, animation:"teaLeaf 8s ease-in-out infinite .5s" }} width="30" height="30" viewBox="0 0 24 24" fill="#9bbf86"><path d="M4 20s2-9 9-13c4-2 7-3 7-3s-1 3-3 7c-4 9-13 9-13 9z"/></svg>
       <div style={{
+        position: "relative", zIndex: 1,
         width: "100%", maxWidth: 400, padding: "0 20px",
         animation: "fadeIn .3s ease",
       }}>
@@ -48,13 +70,15 @@ export default function LoginPage() {
             boxShadow: "0 8px 24px rgba(47,129,247,.4)",
             marginBottom: 16,
           }}>
-            <svg width="26" height="26" fill="none" stroke="#fff" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+            <svg width="28" height="28" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24">
+              {/* Choy piyolasi (tea cup) + bug' */}
+              <path d="M18 8h1a3 3 0 010 6h-1"/>
+              <path d="M4 8h14v6a5 5 0 01-5 5H9a5 5 0 01-5-5V8z"/>
+              <path d="M7 1.5c-.6 1 .6 1.6 0 2.6M11 1.5c-.6 1 .6 1.6 0 2.6M15 1.5c-.6 1 .6 1.6 0 2.6"/>
             </svg>
           </div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", marginBottom: 6 }}>
-            Yangi Choy
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--text)", marginBottom: 6 }}>
+            Musaffo Tea
           </h1>
           <p style={{ fontSize: 13, color: "var(--text-2)" }}>Boshqaruv tizimiga kirish</p>
         </div>
@@ -163,5 +187,6 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+    </>
   );
 }

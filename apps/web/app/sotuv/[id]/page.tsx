@@ -166,7 +166,7 @@ export default function SotuvDetailPage() {
     setSotuv(s=>s?{...s,Chek:newChek}:s);
     try {
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sotuv.Sotuv_ID,updates:{Chek:newChek}})});
+        body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sotuv.Sotuv_ID,updates:{Chek:newChek, Status:newChek?"Tasdiqlandi":"Tasdiqlashga"}})});
       afterWrite("Sotuv");
     } finally { setTasdiqSaving(false); }
   }

@@ -376,7 +376,7 @@ export default function SotuvPage() {
     setSotuvlar(prev => prev.map(x => x.Sotuv_ID===s.Sotuv_ID ? {...x, Chek:newChek} : x));
     try {
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({sheet:"Sotuv", idColumn:"Sotuv_ID", idValue:s.Sotuv_ID, updates:{Chek:newChek}})});
+        body:JSON.stringify({sheet:"Sotuv", idColumn:"Sotuv_ID", idValue:s.Sotuv_ID, updates:{Chek:newChek, Status:newChek?"Tasdiqlandi":"Tasdiqlashga"}})});
       afterWrite("Sotuv");
     } finally { setTasdiqSaving(""); }
   }
@@ -515,13 +515,13 @@ export default function SotuvPage() {
     try {
       await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",row:{
-          Sotuv_ID:sotuvId,Yil:yil,Oy:oy,Sana:snStr,Status:"Tasdiqlandi",
+          Sotuv_ID:sotuvId,Yil:yil,Oy:oy,Sana:snStr,Status:"Tasdiqlashga",
           Sotuv_Raqami:raqam,Agent:addAgent,Mijoz_ID:addMijoz,
           Balans:String(totalSom),Balans_dollar:String(totalUsd),
           Izoh:addIzoh,Vaqt:vaqt,Foiz_som:"",Foiz_summa_som:"0",
           Foiz_dollar:"",Foiz_summasi_dollar:"0",Qoshdi:"",
           Qoshilgan_Vaqt:"",Ozgartirdi:"",Oxirgi_ozgarish:"",
-          Chek:"FALSE",Chek_file:"",Chek_file_phone:"",Chek_phone:"",Change:"",Change_phone:"",
+          Chek:"",Chek_file:"",Chek_file_phone:"",Chek_phone:"",Change:"",Change_phone:"",
         }})});
       let savatIdx=1;
       for(const r of valid){
