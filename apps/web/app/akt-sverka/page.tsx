@@ -91,7 +91,7 @@ export default function AktSverkaPage() {
     const fromK = isoKey(fromISO), toK = isoKey(toISO);
     const bSom = num(selected.Boshlangich_Balans_som), bUsd = num(selected.Boshlangich_Balans_dollar);
 
-    // sotuvlar — barchasi ko'rinadi; faqat tasdiqlangan (Chek=TRUE) summaga qo'shiladi
+    // sotuvlar — barchasi ko'rinadi; qarzga/summaga faqat Chek=TRUE qo'shiladi (eski dasturga mos)
     const mySot = sotuvlar.filter(s => mid(s.Mijoz_ID) === selMijoz);
     let eskiSom = bSom, eskiUsd = bUsd, sotuvSom = 0, sotuvUsd = 0;
     const salesList: { id: string; raqam: string; sana: string; som: number; usd: number; chek: boolean; k: string }[] = [];

@@ -309,6 +309,8 @@ export default function SotuvPage() {
   const [mahsulotlar, setMahsulotlar]       = useState<Mahsulot[]>([]);
   const [mMap, setMMap]                     = useState<Record<string,Mahsulot>>({});
   const [stolovMap, setStolovMap]           = useState<Record<string,STolov[]>>({});
+  // Mijoz_ID bo'yicha to'lovlar (Sotuv_ID bo'sh — umumiy to'lovlar ham hisoblanadi)
+  const [stolovByMijoz, setStolovByMijoz]   = useState<Record<string,{som:number,dollar:number}>>({});
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string|null>(null);
   const [search, setSearch]                 = useState("");
@@ -361,11 +363,15 @@ export default function SotuvPage() {
   },[]);
 
   // Sotuv "Belgilangan" (tasdiqlangan) holati — Chek ustuni TRUE bo'lsa qarzga ta'sir qiladi
-  const isTasdiq = (s: Sotuv) => String(s.Chek||"").toUpperCase()==="TRUE";
+  // STATUS (badge): Chek bo'sh => "Tasdiqlash"; TRUE yoki FALSE => "Tasdiqlandi"
+  const isTasdiq = (s: Sotuv) => String(s.Chek||"").trim() !== "";
+  // QARZ hisobiga FAQAT Chek=TRUE qo'shiladi (eski dasturga mos; FALSE qarzga kirmaydi)
+  const qarzTrue = (s: Sotuv) => String(s.Chek||"").toUpperCase() === "TRUE";
 
   async function toggleTasdiq(s: Sotuv) {
     if (tasdiqSaving) return;
-    const newChek = isTasdiq(s) ? "FALSE" : "TRUE";
+    // Tasdiqlanganni bekor qilsa Chek bo'sh bo'ladi (qayta "Tasdiqlash"ga tushadi); aks holda TRUE
+    const newChek = isTasdiq(s) ? "" : "TRUE";
     setTasdiqSaving(s.Sotuv_ID);
     setSotuvlar(prev => prev.map(x => x.Sotuv_ID===s.Sotuv_ID ? {...x, Chek:newChek} : x));
     try {
@@ -382,11 +388,9 @@ export default function SotuvPage() {
       .then((rr)=>{
         const sR=rr["Sotuv"], ssR=rr["Sotuv_Savat"], sdR=rr["Sotuv_savat_dollar"], fR=rr["Foydalanuvchi"], mzR=rr["Mijozlar"], mhR=rr["Mahsulot"], kR=rr["Kurs"];
         if(sR.error) throw new Error(sR.error);
-        const pDate=(s:string)=>{const[d,mo,y]=(s||"").split(".").map(Number);return(y||0)*10000+(mo||0)*100+(d||0);};
-        const pTime=(v:string)=>{const[h,m,s]=(v||"").split(":").map(Number);return(h||0)*3600+(m||0)*60+(s||0);};
-        const sorted=[...(sR.data as Sotuv[])].filter(s=>s.Sotuv_ID).sort((a,b)=>{
-          const dd=pDate(b.Sana)-pDate(a.Sana); return dd!==0?dd:pTime(b.Vaqt)-pTime(a.Vaqt);
-        });
+        // Eski dasturdagidek: sheet'dagi yaratilish tartibi bo'yicha, eng yangi qator (oxirgi qo'shilgan) tepada.
+        // Ko'rsatilgan sana/vaqt yoki № emas — aynan sheet qatorlari teskari tartibda.
+        const sorted=[...(sR.data as Sotuv[])].filter(s=>s.Sotuv_ID).reverse();
         setSotuvlar(sorted);
 
         const sm:Record<string,SotuvSavatRow[]>={};
@@ -427,11 +431,19 @@ export default function SotuvPage() {
           // S_tolov katta bo'lgani uchun alohida, fonda yuklanadi
           fetchSheet("S_tolov").then(stR=>{
             const stm: Record<string,STolov[]> = {};
-            ((stR.data||[]) as STolov[]).filter((r:STolov)=>r.Sotuv_ID).forEach((r:STolov)=>{
-              const k=String(r.Sotuv_ID).trim(); if(!k) return;
-              if(!stm[k]) stm[k]=[]; stm[k].push(r);
+            const sbm: Record<string,{som:number,dollar:number}> = {};
+            ((stR.data||[]) as STolov[]).forEach((r:STolov)=>{
+              const k=String(r.Sotuv_ID||"").trim();
+              if(k){ if(!stm[k]) stm[k]=[]; stm[k].push(r); }
+              // Mijoz_ID bo'yicha barcha to'lovlar (Sotuv_ID bo'sh bo'lsa ham)
+              const mid=String(r.Mijoz_ID||"").trim(); if(!mid) return;
+              if(!sbm[mid]) sbm[mid]={som:0,dollar:0};
+              const isD=String(r.Valyuta||"").toLowerCase().includes("dollar");
+              sbm[mid].som    += (!isD?num(r.Summa):0);
+              sbm[mid].dollar += (isD?num(r.Summa_dollar):0);
             });
             setStolovMap(stm);
+            setStolovByMijoz(sbm);
           }).catch(()=>{});
         });
     }, delay);
@@ -673,22 +685,29 @@ export default function SotuvPage() {
     } finally { setDeleting(false); }
   }
 
-  const filtered = useMemo(()=>sotuvlar.filter(s=>{
+  // Sana (oy/yil) filtrisiz baza — agent/qidiruv/sotuvchi bo'yicha. "Bo'sh" tab shundan oladi.
+  const filteredNoDate = useMemo(()=>sotuvlar.filter(s=>{
     if(!s.Sotuv_ID) return false;
     // Sotuvchi faqat o'z sotuvlarini ko'radi
     if(isSotuvchi && user?.id && s.Agent !== user.id) return false;
-    const matchOy=!filterOy||String(parseInt(s.Oy||"0"))===filterOy;
-    const matchYil=!filterYil||s.Yil===filterYil;
     const matchAgent=filterAgent.length===0||filterAgent.includes(s.Agent);
     const mJozIsi=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID)?.Ism||"";
     const matchSearch=!search||
       mJozIsi.toLowerCase().includes(search.toLowerCase())||
       (s.Sotuv_Raqami||"").includes(search)||
       (s.Izoh||"").toLowerCase().includes(search.toLowerCase());
-    return matchOy&&matchYil&&matchAgent&&matchSearch;
-  }),[sotuvlar,filterOy,filterYil,filterAgent,search,mijozlar,isSotuvchi,user]);
+    return matchAgent&&matchSearch;
+  }),[sotuvlar,filterAgent,search,mijozlar,isSotuvchi,user]);
 
-  const viewFiltered = filtered.filter(s => {
+  // Sana filtri qo'llangan baza (qolgan tablar uchun)
+  const filtered = useMemo(()=>filteredNoDate.filter(s=>{
+    const matchOy=!filterOy||String(parseInt(s.Oy||"0"))===filterOy;
+    const matchYil=!filterYil||s.Yil===filterYil;
+    return matchOy&&matchYil;
+  }),[filteredNoDate,filterOy,filterYil]);
+
+  // "Bo'sh" tab — barcha davrlardagi tasdiqlanmagan (Chek bo'sh) sotuvlar (sana filtridan qat'i nazar)
+  const viewFiltered = (viewTab === "bosh" ? filteredNoDate : filtered).filter(s => {
     const hasSom = (savatSomMap[s.Sotuv_ID]||[]).length > 0;
     const hasDollar = (savatDollarMap[s.Sotuv_ID]||[]).length > 0;
     if (viewTab === "som")     return hasSom;
@@ -751,13 +770,14 @@ export default function SotuvPage() {
     if(!addMijoz) return null;
     const mj=mijozlar.find(m=>m.Mijoz_ID===addMijoz);
     let som=num(mj?.Boshlangich_Balans_som), dollar=num(mj?.Boshlangich_Balans_dollar);
-    sotuvlar.filter(s=>s.Mijoz_ID===addMijoz && isTasdiq(s)).forEach(s=>{
+    sotuvlar.filter(s=>s.Mijoz_ID===addMijoz && qarzTrue(s)).forEach(s=>{
       (savatSomMap[s.Sotuv_ID]||[]).forEach(r=>{ som+=num(r.Summa_som); });
       (savatDollarMap[s.Sotuv_ID]||[]).forEach(r=>{ dollar+=num(r.Summa); });
-      (stolovMap[s.Sotuv_ID]||[]).forEach(r=>{ const isD=String(r.Valyuta||"").toLowerCase().includes("dollar"); som-=(!isD?num(r.Summa):0); dollar-=(isD?num(r.Summa_dollar):0); });
     });
+    // Barcha to'lovlar (Mijoz_ID bo'yicha — umumiy/Sotuv_ID'siz to'lovlar ham) ayriladi
+    const tl=stolovByMijoz[addMijoz]; if(tl){ som-=tl.som; dollar-=tl.dollar; }
     return { som, dollar };
-  },[addMijoz, mijozlar, sotuvlar, savatSomMap, savatDollarMap, stolovMap]);
+  },[addMijoz, mijozlar, sotuvlar, savatSomMap, savatDollarMap, stolovByMijoz]);
 
   const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
@@ -804,7 +824,7 @@ export default function SotuvPage() {
                 {key:"all",    label:"Barchasi",       count: filtered.length},
                 {key:"som",    label:"So'm",           count: filtered.filter(s=>(savatSomMap[s.Sotuv_ID]||[]).length>0).length},
                 {key:"dollar", label:"Dollar ($)",     count: filtered.filter(s=>(savatDollarMap[s.Sotuv_ID]||[]).length>0).length},
-                {key:"bosh",   label:"Bo'sh",          count: filtered.filter(s=>String(s.Chek||"").trim()==="").length},
+                {key:"bosh",   label:"Bo'sh",          count: filteredNoDate.filter(s=>String(s.Chek||"").trim()==="").length},
                 {key:"bugungi",    label:"Bugungi",    count: filtered.filter(s=>s.Sana===todaySana).length},
                 {key:"berilmagan", label:"Berilmagan", count: filtered.filter(s=>[...(savatSomMap[s.Sotuv_ID]||[]),...(savatDollarMap[s.Sotuv_ID]||[])].some(r=>(r.Check??"").toString().toUpperCase()==="FALSE")).length},
               ] as const).map(tab=>{
@@ -1081,13 +1101,15 @@ export default function SotuvPage() {
                               const mj=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID);
                               const ag=aMap[s.Agent]||"";
                               // Mijozning eski qarzi (detail sahifasidagi kabi)
-                              const allIds=sotuvlar.filter(sv=>sv.Mijoz_ID===s.Mijoz_ID&&sv.Sotuv_ID!==s.Sotuv_ID&&isTasdiq(sv)).map(sv=>sv.Sotuv_ID);
+                              const allIds=sotuvlar.filter(sv=>sv.Mijoz_ID===s.Mijoz_ID&&sv.Sotuv_ID!==s.Sotuv_ID&&qarzTrue(sv)).map(sv=>sv.Sotuv_ID);
                               const isDollar=(v:string)=>String(v||"").toLowerCase().includes("dollar")||v.trim()==="$";
                               const somJami=allIds.flatMap(id=>savatSomMap[id]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
                               const dollarJami=allIds.flatMap(id=>savatDollarMap[id]||[]).reduce((t,r)=>t+num(r.Summa),0);
-                              const pays=allIds.flatMap(id=>stolovMap[id]||[]);
-                              const tolovSom=pays.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Summa):0),0);
-                              const tolovDollar=pays.reduce((t,r)=>t+(isDollar(r.Valyuta)?num(r.Summa_dollar):0),0);
+                              // Barcha to'lovlar (Mijoz_ID bo'yicha, umumiy to'lovlar ham) minus shu sotuvning to'lovlari
+                              const curPay=stolovMap[s.Sotuv_ID]||[];
+                              const allP=stolovByMijoz[s.Mijoz_ID]||{som:0,dollar:0};
+                              const tolovSom=allP.som - curPay.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Summa):0),0);
+                              const tolovDollar=allP.dollar - curPay.reduce((t,r)=>t+(isDollar(r.Valyuta)?num(r.Summa_dollar):0),0);
                               const bSom=num(mj?.Boshlangich_Balans_som);
                               const bDollar=num(mj?.Boshlangich_Balans_dollar);
                               const eskiSom=bSom+somJami-tolovSom;

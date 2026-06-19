@@ -160,7 +160,8 @@ export default function SotuvDetailPage() {
 
   async function toggleTasdiq() {
     if(!sotuv||tasdiqSaving) return;
-    const newChek = String(sotuv.Chek||"").toUpperCase()==="TRUE" ? "FALSE" : "TRUE";
+    // Tasdiqlangan (Chek bo'sh emas) bo'lsa bekor => bo'sh; aks holda tasdiqlash => TRUE
+    const newChek = String(sotuv.Chek||"").trim()!=="" ? "" : "TRUE";
     setTasdiqSaving(true);
     setSotuv(s=>s?{...s,Chek:newChek}:s);
     try {
@@ -222,8 +223,9 @@ export default function SotuvDetailPage() {
       const mijozRec = (mzR.data as Mijoz[]).find(m=>m.Mijoz_ID===mijozId);
       const bSom    = num(mijozRec?.Boshlangich_Balans_som);
       const bDollar = num(mijozRec?.Boshlangich_Balans_dollar);
+      // Qarzga FAQAT Chek=TRUE sotuvlar qo'shiladi (eski dasturga mos)
       const allSotuvIds = new Set(
-        (sR.data as Sotuv[]).filter(sv=>sv.Mijoz_ID===mijozId && sv.Sotuv_ID!==id).map(sv=>sv.Sotuv_ID)
+        (sR.data as Sotuv[]).filter(sv=>sv.Mijoz_ID===mijozId && sv.Sotuv_ID!==id && String(sv.Chek||"").toUpperCase()==="TRUE").map(sv=>sv.Sotuv_ID)
       );
       const isDollar=(v:string)=>{const lv=String(v||"").toLowerCase().trim();return lv.includes("dollar")||lv==="$"||lv.includes("usd");};
       const sotuvSomJami    = (ssR.data as SotuvSavatRow[]).filter(r=>allSotuvIds.has(r.Sotuv_ID)).reduce((s,r)=>s+num(r.Summa_som),0);
@@ -675,7 +677,7 @@ export default function SotuvDetailPage() {
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               Chek
             </button>
-          {(() => { const td = String(sotuv.Chek||"").toUpperCase()==="TRUE"; return (
+          {(() => { const td = String(sotuv.Chek||"").trim()!==""; return (
           <button onClick={toggleTasdiq} disabled={tasdiqSaving} title={td?"Tasdiqlandi (bosib bekor qilish)":"Tasdiqlash (qarzga qo'shish)"}
             style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:"var(--radius)",border:`1.5px solid ${td?"#16a34a":"#f59e0b"}`,background:td?"#16a34a":"#fffbeb",cursor:"pointer",fontSize:13,fontWeight:700,color:td?"#fff":"#b45309",transition:"all .15s",opacity:tasdiqSaving?.6:1}}>
             {td
@@ -706,7 +708,8 @@ export default function SotuvDetailPage() {
             {[
               {label:"Mijoz balansi", val:mijozQarzSom, color:mijozQarzSom>0?"#ef4444":"#16a34a"},
               {label:"Sotuv summasi", val:jamiSom, color:"var(--text)"},
-              {label:"Yakuniy qoldiq", val:jamiSom+mijozQarzSom, color:"var(--text)", bold:true},
+              // Yakuniy qoldiq: shu sotuv FAQAT Chek=TRUE bo'lsa qarzga qo'shiladi (eski dasturga mos)
+              {label:"Yakuniy qoldiq", val:mijozQarzSom+(String(sotuv?.Chek||"").toUpperCase()==="TRUE"?jamiSom:0), color:"var(--text)", bold:true},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
                 <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
@@ -722,7 +725,8 @@ export default function SotuvDetailPage() {
             {[
               {label:"Mijoz balansi", val:mijozQarzDollar, color:mijozQarzDollar>0?"#ef4444":"#16a34a"},
               {label:"Sotuv summasi", val:jamiDollar, color:"var(--text)"},
-              {label:"Yakuniy qoldiq", val:jamiDollar+mijozQarzDollar, color:"var(--text)", bold:true},
+              // Yakuniy qoldiq: shu sotuv FAQAT Chek=TRUE bo'lsa qarzga qo'shiladi (eski dasturga mos)
+              {label:"Yakuniy qoldiq", val:mijozQarzDollar+(String(sotuv?.Chek||"").toUpperCase()==="TRUE"?jamiDollar:0), color:"var(--text)", bold:true},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
                 <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>

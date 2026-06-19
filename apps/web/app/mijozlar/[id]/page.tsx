@@ -139,7 +139,7 @@ export default function MijozDetailPage() {
     .finally(() => setLoading(false));
   }, [id, tick]);
 
-  // Stats — faqat tasdiqlangan (Chek=TRUE) sotuvlar qarzga qo'shiladi
+  // Stats — qarzga FAQAT Chek=TRUE sotuvlar qo'shiladi (eski dasturga mos)
   const tasdiqSotuv = (sv: Sotuv) => String(sv.Chek||"").toUpperCase()==="TRUE";
   const jamiSotuvSom = useMemo(() =>
     sotuvlar.filter(tasdiqSotuv).reduce((s, sv) =>
@@ -461,7 +461,7 @@ export default function MijozDetailPage() {
                 const sdRows  = savatDolMap[s.Sotuv_ID] || [];
                 const somAmt  = svRows.reduce((acc, r) => acc + num(r.Summa_som), 0);
                 const usdAmt  = sdRows.reduce((acc, r) => acc + num(r.Summa), 0);
-                const isTasdiqlandi = String(s.Chek||"").toUpperCase()==="TRUE";
+                const isTasdiqlandi = String(s.Chek||"").trim()!=="";
                 return (
                   <div key={s.Sotuv_ID} onClick={() => router.push(`/sotuv/${s.Sotuv_ID}`)}
                     style={{ background: isTasdiqlandi ? "#dcfce7" : "#fef9c3", borderRadius: "var(--radius)", padding: "12px 14px", cursor: "pointer", border: `1px solid ${isTasdiqlandi ? "#86efac" : "#fde68a"}` }}>
@@ -498,7 +498,7 @@ export default function MijozDetailPage() {
                 const sdRows  = savatDolMap[s.Sotuv_ID] || [];
                 const somAmt  = svRows.reduce((acc, r) => acc + num(r.Summa_som), 0);
                 const usdAmt  = sdRows.reduce((acc, r) => acc + num(r.Summa), 0);
-                const isTasdiqlandi = String(s.Chek||"").toUpperCase()==="TRUE";
+                const isTasdiqlandi = String(s.Chek||"").trim()!=="";
                 return (
                   <div key={s.Sotuv_ID} onClick={() => router.push(`/sotuv/${s.Sotuv_ID}`)}
                     style={{ display: "grid", gridTemplateColumns: COLS_S, padding: "12px 20px", alignItems: "center", borderBottom: i < sotuvlar.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isTasdiqlandi ? "#dcfce7" : "#fef9c3" }}

@@ -52,7 +52,7 @@ interface XTolov {
   Izoh: string; Dollar_Kursi: string; Qoshdi: string; Vaqt: string;
   Check?: string; Gazna_ID?: string; Gazna_dollar_ID?: string;
 }
-interface Taminotchi { Taminotchi_ID: string; Ism: string; Boshlangich_som: string; Boshlangich_Balans: string; Qoldi_som?: string; Qoldi_dollar?: string; }
+interface Taminotchi { Taminotchi_ID: string; Ism: string; Telefon?: string; Boshlangich_som: string; Boshlangich_Balans: string; Qoldi_som?: string; Qoldi_dollar?: string; }
 interface Xarid { Xarid_ID: string; Sotuv_Raqami: string; Taminotchi_ID: string; Sana: string; }
 interface XaridSavat { Xarid_ID: string; Summa_Som: string; Jami_Summa: string; }
 
@@ -363,6 +363,27 @@ export default function XaridTolovPage() {
               row: { Qoldi_som: String(num(taminotchiA.Qoldi_som) - somVal), Qoldi_dollar: String(num(taminotchiA.Qoldi_dollar) - usdVal) } }) });
         } catch {}
       }
+
+      // Telegram bot xabari — firmaga (ta'minotchiga) to'lov qilindi
+      const nS = (v: number) => String(Math.round(v));
+      const nU = (v: number) => String(Math.round(v * 100) / 100);
+      const ostatkaSom = tQoldiq ? tQoldiq.som : 0;
+      const ostatkaDollar = tQoldiq ? tQoldiq.usd : 0;
+      const tgMsg =
+        `✅ TO'LOV UCHUN RAHMAT!\n\n` +
+        `📅 Sana: ${sana}\n` +
+        `👤 Taminotchi: ${taminotchiA?.Ism || "—"}${taminotchiA?.Telefon ? " | " + taminotchiA.Telefon : ""}\n` +
+        `💰 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
+        `💰 Ostatka($): ${nU(ostatkaDollar)}\n` +
+        `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
+        `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
+        `💵 Jami so'm: ${nS(num(summa))}\n` +
+        `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
+        `💵 Qoldiq (so'm): ${nS(ostatkaSom - somVal)}\n` +
+        `💵 Qoldiq ($): ${nU(ostatkaDollar - usdVal)}\n` +
+        `📝 Izoh: ${addIzoh && addIzoh.trim() ? addIzoh : "null"}`;
+      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
+
       setAddOpen(false);
       setTimeout(() => loadData(), 800);
     } finally { setSaving(false); }
