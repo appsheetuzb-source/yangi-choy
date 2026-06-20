@@ -264,6 +264,8 @@ export default function XaridDetailPage() {
   }
 
   const [togglingAkt, setTogglingAkt] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
   async function toggleAkt() {
     if (!xarid) return;
@@ -314,9 +316,12 @@ export default function XaridDetailPage() {
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
             Orqaga
           </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>Xarid #{raqam}</h1>
-            <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{xarid.Sana} — {tNomi}</p>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <div style={{ minWidth: 0 }}>
+              <h1 style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>Xarid #{raqam}</h1>
+              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{xarid.Sana}</p>
+            </div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "55%" }}>{tNomi}</p>
           </div>
           <button onClick={openEdit}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)" }}>
@@ -334,7 +339,7 @@ export default function XaridDetailPage() {
       <div className="page-content" style={{ maxWidth: 1000 }}>
 
         {/* ── Stats ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 16 : 24 }}>
           <div onClick={() => router.push(`/taminotchi/${xarid.Taminotchi_ID}`)}
             style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px", cursor: "pointer", transition: "box-shadow .15s" }}
             onMouseEnter={e => (e.currentTarget.style.boxShadow = "var(--shadow)")}
@@ -361,7 +366,7 @@ export default function XaridDetailPage() {
         </div>
 
         {/* ── Mahsulotlar ── */}
-        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
+        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden", overflowX: isMobile ? "auto" : "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Mahsulotlar</span>
             <button onClick={openAddItem}
@@ -370,7 +375,7 @@ export default function XaridDetailPage() {
               Yangi mahsulot
             </button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 120px 140px 160px 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ display: "grid", minWidth: isMobile ? 660 : undefined, gridTemplateColumns: "48px 1fr 120px 140px 160px 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
             {["#", "MAHSULOT", "SONI", "NARX", "JAMI", ""].map(h => (
               <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{h}</span>
             ))}
@@ -387,7 +392,7 @@ export default function XaridDetailPage() {
             const narx = num(s.Narx_som) > 0 ? num(s.Narx_som) : num(s.Narxi);
             return (
               <div key={s.X_Savat || i} style={{
-                display: "grid", gridTemplateColumns: "48px 1fr 120px 140px 160px 72px",
+                display: "grid", minWidth: isMobile ? 660 : undefined, gridTemplateColumns: "48px 1fr 120px 140px 160px 72px",
                 padding: isEditing ? "8px 20px" : "13px 20px", alignItems: "center",
                 borderBottom: i < savat.length - 1 ? "1px solid var(--border)" : "none",
                 background: isEditing ? "#f0f9ff" : "transparent",

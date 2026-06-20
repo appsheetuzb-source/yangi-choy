@@ -76,7 +76,7 @@ export default function AktSverkaFirmaPage() {
     const fromK = isoKey(fromISO), toK = isoKey(toISO);
     const bSom = num(selected.Boshlangich_som), bUsd = num(selected.Boshlangich_Balans);
 
-    // Faqat Akt_sverka=TRUE bo'lgan xaridlar summaga qo'shiladi (Klient'dagi Chek=TRUE kabi)
+    // Barcha xaridlar summaga qo'shiladi (Akt_sverka filtri YO'Q — firma xaridlari har doim qarzga kiradi, eski dasturga mos)
     const myX = xaridlar.filter(x => String(x.Taminotchi_ID || "").trim() === sel);
     let eskiSom = bSom, eskiUsd = bUsd, xaridSom = 0, xaridUsd = 0;
     const buyList: { id: string; raqam: string; sana: string; som: number; usd: number; akt: boolean; k: string }[] = [];
@@ -85,9 +85,9 @@ export default function AktSverkaFirmaPage() {
       const som = somByX[xid] || 0, usd = dolByX[xid] || 0;
       const aktT = String(x.Akt_sverka || "").toUpperCase() === "TRUE";
       const k = dkey(x.Sana);
-      if (fromK && k < fromK) { if (aktT) { eskiSom += som; eskiUsd += usd; } return; }
+      if (fromK && k < fromK) { eskiSom += som; eskiUsd += usd; return; }
       if (toK && k > toK) return;
-      if (aktT) { xaridSom += som; xaridUsd += usd; }
+      xaridSom += som; xaridUsd += usd;
       buyList.push({ id: xid, raqam: x.Sotuv_Raqami || "", sana: x.Sana, som, usd, akt: aktT, k: k + (x.Vaqt || "") });
     });
 
