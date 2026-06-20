@@ -1,19 +1,14 @@
 "use client";
 import { fetchSheets, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { getPushStatus, enablePush, disablePush, testLocalNotification, ensureFreshSW, type PushStatus } from "@/lib/push-client";
 
-interface Mijoz { Mijoz_ID: string; Ism: string; Telefon?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
-interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Chek?: string; }
-interface SavatSom { Sotuv_ID: string; Summa_som: string; }
-interface SavatDollar { Sotuv_ID: string; Summa: string; }
-interface STolov { Mijoz_ID: string; Valyuta: string; Summa: string; Summa_dollar: string; }
-interface Ogoh { Ogoh_ID: string; Mijoz_ID: string; Sana?: string; Vaqt?: string; }
+interface Mijoz { Mijoz_ID: string; Ism: string; Telefon?: string; }
+interface Ogoh { Ogoh_ID: string; Mijoz_ID: string; Sana?: string; Vaqt?: string; Status?: string; Izoh?: string; Qoshilgan_vaqt?: string; }
 
-function num(v: unknown) { return parseFloat(String(v ?? "0").replace(/\s/g, "").replace(",", ".")) || 0; }
 function uid() { return Math.random().toString(36).slice(2, 10); }
-function isDollarV(v?: string) { const lv = String(v || "").toLowerCase().trim(); return lv.includes("dollar") || lv === "$"; }
-function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
-function fmtUsd(v: number) { return "$" + v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function parseIds(v?: string) { return String(v || "").split(/\s*,\s*/).map(s => s.trim()).filter(Boolean); }
 function nowStr() {
   const t = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tashkent" }));
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -22,189 +17,159 @@ function nowStr() {
   return { sana, vaqt };
 }
 
+const STATUS_COLOR: Record<string, { bg: string; fg: string }> = {
+  "Jarayonda": { bg: "#dbeafe", fg: "#1d4ed8" },
+  "Kechiktirildi": { bg: "#fef3c7", fg: "#b45309" },
+  "Yakunlandi": { bg: "#dcfce7", fg: "#15803d" },
+};
+
 export default function OgohlantirishPage() {
+  const router = useRouter();
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
-  const [somMap, setSomMap] = useState<Record<string, number>>({});
-  const [usdMap, setUsdMap] = useState<Record<string, number>>({});
-  const [tSomMap, setTSomMap] = useState<Record<string, number>>({});
-  const [tUsdMap, setTUsdMap] = useState<Record<string, number>>({});
   const [ogoh, setOgoh] = useState<Ogoh[]>([]);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [adding, setAdding] = useState("");
-  const [showAdd, setShowAdd] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushStatus>("default");
+  const [pushBusy, setPushBusy] = useState(false);
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
+  useEffect(() => { ensureFreshSW(); getPushStatus().then(setPushStatus).catch(() => {}); }, []);
+
+  async function togglePush() {
+    if (pushBusy) return;
+    setPushBusy(true);
+    try {
+      if (pushStatus === "subscribed") {
+        await disablePush();
+        setPushStatus("default");
+      } else {
+        await enablePush(typeof window !== "undefined" ? (localStorage.getItem("yc_user") || "") : "");
+        setPushStatus("subscribed");
+        try { await testLocalNotification(); } catch {}
+      }
+    } catch (e) {
+      alert((e as Error)?.message || "Push xatosi");
+      setPushStatus(await getPushStatus());
+    } finally { setPushBusy(false); }
+  }
 
   function loadData() {
     setLoading(true);
-    fetchSheets(["Mijozlar", "Sotuv", "Sotuv_Savat", "Sotuv_savat_dollar", "S_tolov", "Ogohlantirish"]).then(rr => {
-      const mz = ((rr["Mijozlar"].data || []) as Mijoz[]).filter(m => m.Mijoz_ID && (m.Ism || "").trim());
-      setMijozlar(mz);
-      const sotuvMijoz: Record<string, string> = {};
-      ((rr["Sotuv"].data || []) as Sotuv[]).forEach(s => { if (String(s.Chek || "").toUpperCase() === "TRUE") { const id = String(s.Sotuv_ID || "").trim(); if (id) sotuvMijoz[id] = s.Mijoz_ID; } });
-      const sSom: Record<string, number> = {};
-      ((rr["Sotuv_Savat"].data || []) as SavatSom[]).forEach(r => { const mid = sotuvMijoz[String(r.Sotuv_ID || "").trim()]; if (mid) sSom[mid] = (sSom[mid] || 0) + num(r.Summa_som); });
-      const sUsd: Record<string, number> = {};
-      ((rr["Sotuv_savat_dollar"].data || []) as SavatDollar[]).forEach(r => { const mid = sotuvMijoz[String(r.Sotuv_ID || "").trim()]; if (mid) sUsd[mid] = (sUsd[mid] || 0) + num(r.Summa); });
-      const tSom: Record<string, number> = {}, tUsd: Record<string, number> = {};
-      ((rr["S_tolov"].data || []) as STolov[]).forEach(t => { const id = String(t.Mijoz_ID || "").trim(); if (!id) return; if (isDollarV(t.Valyuta)) tUsd[id] = (tUsd[id] || 0) + num(t.Summa_dollar); else tSom[id] = (tSom[id] || 0) + num(t.Summa); });
-      setSomMap(sSom); setUsdMap(sUsd); setTSomMap(tSom); setTUsdMap(tUsd);
-      setOgoh(((rr["Ogohlantirish"].data || []) as Ogoh[]).filter(o => o.Ogoh_ID && o.Mijoz_ID));
+    fetchSheets(["Mijozlar", "Ogohlantirish"]).then(rr => {
+      setMijozlar(((rr["Mijozlar"].data || []) as Mijoz[]).filter(m => m.Mijoz_ID && (m.Ism || "").trim()));
+      setOgoh(((rr["Ogohlantirish"].data || []) as Ogoh[]).filter(o => (o.Ogoh_ID || "").trim()));
     }).finally(() => setLoading(false));
   }
   useEffect(() => { loadData(); }, []);
 
   const mMap = useMemo(() => { const m: Record<string, Mijoz> = {}; mijozlar.forEach(x => m[x.Mijoz_ID] = x); return m; }, [mijozlar]);
-  const balanceOf = useMemo(() => (mid: string) => {
-    const m = mMap[mid];
-    return {
-      som: num(m?.Boshlangich_Balans_som) + (somMap[mid] || 0) - (tSomMap[mid] || 0),
-      usd: num(m?.Boshlangich_Balans_dollar) + (usdMap[mid] || 0) - (tUsdMap[mid] || 0),
-    };
-  }, [mMap, somMap, usdMap, tSomMap, tUsdMap]);
 
-  const watchedIds = useMemo(() => new Set(ogoh.map(o => o.Mijoz_ID)), [ogoh]);
-  const watched = useMemo(() => ogoh.map(o => ({ ogohId: o.Ogoh_ID, mijoz: mMap[o.Mijoz_ID], bal: balanceOf(o.Mijoz_ID) }))
-    .filter((x): x is { ogohId: string; mijoz: Mijoz; bal: { som: number; usd: number } } => !!x.mijoz)
-    .sort((a, b) => (a.mijoz.Ism || "").localeCompare(b.mijoz.Ism || "", "uz")), [ogoh, mMap, balanceOf]);
+  // Eng yangi tepada
+  const list = useMemo(() => [...ogoh].reverse(), [ogoh]);
 
-  const addable = useMemo(() => mijozlar.filter(m => !watchedIds.has(m.Mijoz_ID) &&
-    ((m.Ism || "").toLowerCase().includes(search.toLowerCase()) || (m.Telefon || "").includes(search)))
-    .sort((a, b) => (a.Ism || "").localeCompare(b.Ism || "", "uz")), [mijozlar, watchedIds, search]);
-
-  async function addMijoz(mid: string) {
-    setAdding(mid);
+  async function createNew() {
+    setCreating(true);
     const { sana, vaqt } = nowStr();
+    const id = uid();
     try {
       await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "Ogohlantirish", row: { Ogoh_ID: uid(), Mijoz_ID: mid, Sana: sana, Vaqt: vaqt, Status: "", Izoh: "", Qoshilgan_vaqt: `${sana} ${vaqt}`, Chek_file: "", Chek: "", Change: "" } }) });
+        body: JSON.stringify({ sheet: "Ogohlantirish", row: { Ogoh_ID: id, Mijoz_ID: "", Sana: sana, Vaqt: vaqt, Status: "Jarayonda", Izoh: "", Qoshilgan_vaqt: `${sana} ${vaqt}`, Chek_file: "", Chek: "", Change: "" } }) });
       afterWrite("Ogohlantirish");
-      setTimeout(loadData, 600);
-    } finally { setAdding(""); }
+      router.push(`/ogohlantirish/${id}`);
+    } catch { setCreating(false); }
   }
-  async function removeOgoh(ogohId: string) {
-    setOgoh(prev => prev.filter(o => o.Ogoh_ID !== ogohId));
-    try {
-      await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "Ogohlantirish", idColumn: "Ogoh_ID", idValue: ogohId }) });
-      afterWrite("Ogohlantirish");
-    } catch {}
+
+  function namesPreview(o: Ogoh) {
+    const ids = parseIds(o.Mijoz_ID);
+    const names = ids.map(id => mMap[id]?.Ism).filter(Boolean);
+    const shown = names.slice(0, 3).join(", ");
+    const extra = names.length - 3;
+    return { count: ids.length, text: shown + (extra > 0 ? ` +${extra}` : "") };
   }
 
   return (
     <>
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          .ogoh-print-only { display: block !important; }
-          body { background: #fff !important; }
-        }
-        .ogoh-print-only { display: none; }
-        .ogoh-row { display: grid; grid-template-columns: 32px 1fr 160px 160px 40px; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-        @media (max-width: 767px) { .ogoh-row { grid-template-columns: 24px 1fr 40px; row-gap: 4px; } .ogoh-row .ogoh-bal { grid-column: 2 / 4; } }
-      `}</style>
-
       <header className="header">
         <div className="header__inner">
           <h1 className="header__title" style={{ paddingLeft: 4 }}>Ogohlantirish</h1>
-          <span style={{ fontSize: 11, color: "var(--text-3)", paddingLeft: 4 }}>Kuzatiladigan mijozlar ostatkasi</span>
+          <span style={{ fontSize: 11, color: "var(--text-3)", paddingLeft: 4 }}>Mijozlar ostatkasi bo&apos;yicha ogohlantirishlar</span>
           <div className="header__spacer" />
-          <button className="btn btn--outline no-print" onClick={() => window.print()} style={{ flexShrink: 0 }}>
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
-            Chop etish
-          </button>
-          <button className="btn btn--primary no-print" onClick={() => setShowAdd(true)} style={{ flexShrink: 0 }}>
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
-            Mijoz qo&apos;shish
-          </button>
+          {pushStatus !== "unsupported" && (
+            <button onClick={pushStatus === "denied" ? undefined : togglePush} disabled={pushBusy || pushStatus === "denied"}
+              title={pushStatus === "denied" ? "Brauzerda bloklangan — sozlamalardan ruxsat bering" : pushStatus === "subscribed" ? "Push yoqilgan — o'chirish" : "Push bildirishnomani yoqish"}
+              className="btn btn--outline" style={{ flexShrink: 0, gap: 6,
+                color: pushStatus === "subscribed" ? "#15803d" : pushStatus === "denied" ? "var(--text-3)" : "var(--text-2)",
+                borderColor: pushStatus === "subscribed" ? "#bbf7d0" : "var(--border)",
+                background: pushStatus === "subscribed" ? "#f0fdf4" : "var(--white)" }}>
+              {pushStatus === "subscribed" ? (
+                <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2a6 6 0 00-6 6v3.6L4.3 15.4A1 1 0 005.2 17h13.6a1 1 0 00.9-1.6L18 11.6V8a6 6 0 00-6-6zm0 20a2.5 2.5 0 002.45-2h-4.9A2.5 2.5 0 0012 22z"/></svg>
+              ) : (
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+              )}
+              {!isMobile && (pushBusy ? "..." : pushStatus === "subscribed" ? "Push yoqilgan" : pushStatus === "denied" ? "Push bloklangan" : "Push yoqish")}
+            </button>
+          )}
+          {!isMobile && (
+            <button className="btn btn--primary" onClick={createNew} disabled={creating} style={{ flexShrink: 0 }}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              Yangi ogohlantirish
+            </button>
+          )}
         </div>
       </header>
 
-      <div className="page-content" style={{ maxWidth: 880 }}>
+      <div className="page-content" style={{ maxWidth: 760 }}>
         {loading && <div className="spinner--page" />}
 
         {!loading && (
           <>
-            {/* Print sarlavhasi */}
-            <div className="ogoh-print-only" style={{ marginBottom: 12 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800 }}>Ogohlantirish — mijozlar ostatkasi</h2>
-              <p style={{ fontSize: 12, color: "#555" }}>{nowStr().sana} {nowStr().vaqt}</p>
-            </div>
-
-            <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
-              <p className="count-label no-print" style={{ padding: "12px 16px 0" }}>{watched.length} ta kuzatiladigan mijoz</p>
-              {/* Sarlavha (desktop) */}
-              {!isMobile && watched.length > 0 && (
-                <div className="ogoh-row" style={{ background: "var(--bg)", fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", borderTop: "1px solid var(--border)" }}>
-                  <span>#</span><span>MIJOZ</span><span style={{ textAlign: "right" }}>OSTATKA (SO&apos;M)</span><span style={{ textAlign: "right" }}>OSTATKA ($)</span><span />
-                </div>
-              )}
-              {watched.length === 0 ? (
-                <div className="empty" style={{ padding: 32 }}>
-                  <p className="empty__title">Hech qanday mijoz tanlanmagan</p>
-                  <button className="btn btn--primary no-print" onClick={() => setShowAdd(true)}>+ Mijoz qo&apos;shish</button>
-                </div>
-              ) : watched.map((w, i) => (
-                <div key={w.ogohId} className="ogoh-row">
-                  <span style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 700 }}>{i + 1}</span>
-                  <span style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {w.mijoz.Ism}{w.mijoz.Telefon ? <span style={{ color: "var(--text-3)", fontWeight: 500, fontSize: 12 }}> · {w.mijoz.Telefon}</span> : null}
-                  </span>
-                  <span className="ogoh-bal" style={{ textAlign: isMobile ? "left" : "right", fontSize: 13, fontWeight: 800, color: w.bal.som > 0 ? "#ef4444" : w.bal.som < 0 ? "#2563eb" : "#16a34a", display: "flex", gap: 12, justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-                    <span>{fmtSom(w.bal.som)}</span>
-                    {isMobile && <span style={{ color: w.bal.usd > 0 ? "#ef4444" : w.bal.usd < 0 ? "#2563eb" : "#16a34a" }}>{fmtUsd(w.bal.usd)}</span>}
-                  </span>
-                  {!isMobile && <span style={{ textAlign: "right", fontSize: 13, fontWeight: 800, color: w.bal.usd > 0 ? "#ef4444" : w.bal.usd < 0 ? "#2563eb" : "#16a34a" }}>{fmtUsd(w.bal.usd)}</span>}
-                  <button className="no-print" onClick={() => removeOgoh(w.ogohId)} title="O'chirish"
-                    style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: "transparent", cursor: "pointer", color: "#ef4444", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
-              ))}
-            </div>
+            <p className="count-label" style={{ marginBottom: 10 }}>{list.length} ta ogohlantirish</p>
+            {list.length === 0 ? (
+              <div className="empty" style={{ padding: 40, textAlign: "center" }}>
+                <p className="empty__title">Hali ogohlantirish yo&apos;q</p>
+                <button className="btn btn--primary" onClick={createNew} disabled={creating}>+ Yangi ogohlantirish</button>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {list.map(o => {
+                  const p = namesPreview(o);
+                  const sc = STATUS_COLOR[o.Status || ""] || { bg: "var(--bg)", fg: "var(--text-3)" };
+                  return (
+                    <button key={o.Ogoh_ID} onClick={() => router.push(`/ogohlantirish/${o.Ogoh_ID}`)}
+                      style={{ textAlign: "left", background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "14px 16px", cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ width: 42, height: 42, borderRadius: 12, background: "var(--primary-soft, #eef2ff)", color: "var(--primary)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontWeight: 800, fontSize: 15 }}>
+                        {p.count}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 3 }}>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: "var(--text)" }}>{p.count} ta mijoz</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: sc.bg, color: sc.fg }}>{o.Status || "—"}</span>
+                        </div>
+                        <div style={{ fontSize: 12.5, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {p.text || "Mijoz tanlanmagan"}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right", flexShrink: 0 }}>
+                        <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--text-2)" }}>{o.Sana}</div>
+                        <div style={{ fontSize: 11, color: "var(--text-3)" }}>{o.Vaqt}</div>
+                      </div>
+                      <svg width="18" height="18" fill="none" stroke="var(--text-3)" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </>
         )}
       </div>
 
-      {/* Mijoz qo'shish oynasi */}
-      {showAdd && (
-        <div className="no-print" onClick={() => setShowAdd(false)}
-          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 20 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background: "var(--white)", width: "100%", maxWidth: isMobile ? "100%" : 440, borderRadius: isMobile ? "20px 20px 0 0" : 16, display: "flex", flexDirection: "column", maxHeight: isMobile ? "85dvh" : "80vh" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-              <h2 style={{ fontSize: 16, fontWeight: 800 }}>Mijoz qo&apos;shish</h2>
-              <button onClick={() => setShowAdd(false)} style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-            <div style={{ padding: "12px 20px" }}>
-              <input className="search__input" placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)} autoFocus
-                style={{ width: "100%", padding: "10px 14px", background: "var(--bg-2)", border: "1px solid var(--border-2)", borderRadius: 10, fontSize: 14, outline: "none" }} />
-            </div>
-            <div style={{ flex: 1, overflowY: "auto", padding: "0 12px 12px" }}>
-              {addable.length === 0 ? <p style={{ textAlign: "center", color: "var(--text-3)", padding: 20, fontSize: 13 }}>Mijoz topilmadi</p>
-                : addable.slice(0, 100).map(m => {
-                  const b = balanceOf(m.Mijoz_ID);
-                  return (
-                    <button key={m.Mijoz_ID} disabled={adding === m.Mijoz_ID} onClick={() => addMijoz(m.Mijoz_ID)}
-                      style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 12px", border: "none", borderRadius: 10, background: "transparent", cursor: "pointer", textAlign: "left", opacity: adding === m.Mijoz_ID ? .5 : 1 }}
-                      onMouseEnter={e => (e.currentTarget.style.background = "var(--bg)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>{m.Ism}</span>
-                        {m.Telefon ? <span style={{ fontSize: 12, color: "var(--text-3)" }}> · {m.Telefon}</span> : null}
-                      </span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: (b.som > 0 || b.usd > 0) ? "#ef4444" : "var(--text-3)", whiteSpace: "nowrap", flexShrink: 0 }}>
-                        {b.som !== 0 ? fmtSom(b.som) : ""}{b.som !== 0 && b.usd !== 0 ? " · " : ""}{b.usd !== 0 ? fmtUsd(b.usd) : (b.som === 0 ? "0" : "")}
-                      </span>
-                    </button>
-                  );
-                })}
-            </div>
-          </div>
-        </div>
+      {/* Mobil FAB */}
+      {isMobile && (
+        <button onClick={createNew} disabled={creating} aria-label="Yangi ogohlantirish"
+          style={{ position: "fixed", right: 18, bottom: 24, zIndex: 40, width: 56, height: 56, borderRadius: "50%", border: "none", background: "var(--primary)", color: "#fff", boxShadow: "0 6px 18px rgba(15,42,76,.35)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.4} d="M12 4v16m8-8H4"/></svg>
+        </button>
       )}
     </>
   );
