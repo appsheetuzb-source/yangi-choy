@@ -208,25 +208,24 @@ export default function XaridTolovDetailPage() {
     <>
       {/* ── Header ── */}
       <header className="header" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="header__inner" style={{ gap: 14 }}>
+        <div className="header__inner" style={{ gap: isMobile ? 8 : 14, flexWrap: "nowrap" }}>
           <button onClick={() => router.back()}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "6px 10px" : "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
             Orqaga
           </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>{tNomi}</h1>
-            <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{tolov.Sana}{tolov.Vaqt ? ` — ${tolov.Vaqt}` : ""}</p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: isMobile ? 15 : 20, fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Firmadan pul ayirish</h1>
           </div>
-          <button onClick={openEdit}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Tahrirlash
+          <button onClick={openEdit} title="Tahrirlash"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            {!isMobile && "Tahrirlash"}
           </button>
-          <button onClick={() => setConfirmDelete(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid #fecaca", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            O&apos;chirish
+          <button onClick={() => setConfirmDelete(true)} title="O'chirish"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 16px", border: "1px solid #fecaca", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            {!isMobile && "O’chirish"}
           </button>
         </div>
       </header>
@@ -234,13 +233,14 @@ export default function XaridTolovDetailPage() {
       <div className="page-content" style={{ maxWidth: 900 }}>
 
         {/* ── Stats ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 24 }}>
           <div onClick={() => router.push(`/taminotchi/${tolov.Taminotchi_ID}`)}
             style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px", cursor: "pointer", transition: "box-shadow .15s" }}
             onMouseEnter={e => (e.currentTarget.style.boxShadow = "var(--shadow)")}
             onMouseLeave={e => (e.currentTarget.style.boxShadow = "var(--shadow-sm)")}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>TA&apos;MINOTCHI</p>
             <p style={{ fontSize: 18, fontWeight: 800, color: "var(--primary)" }}>{tNomi}</p>
+            <p style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 6, fontWeight: 600 }}>{tolov.Sana}{tolov.Vaqt ? ` · ${tolov.Vaqt}` : ""}</p>
           </div>
           <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px" }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>SO&apos;M</p>
@@ -261,20 +261,19 @@ export default function XaridTolovDetailPage() {
         {/* ── Info card ── */}
         <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
           {/* Card header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 15, fontWeight: 800, color: "#2563eb" }}>To&apos;lov ma&apos;lumotlari</span>
-            <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb", background: "#eff6ff", padding: "4px 12px", borderRadius: "var(--radius)", border: "1px solid #bfdbfe" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: isMobile ? 8 : 12, flexWrap: "nowrap", padding: "12px 14px", borderBottom: "1px solid var(--border)" }}>
+            <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb", background: "#eff6ff", padding: "4px 10px", borderRadius: "var(--radius)", border: "1px solid #bfdbfe", flexShrink: 0, whiteSpace: "nowrap" }}>
               Kurs: {kurs > 0 ? kurs.toLocaleString("ru-RU") : "0"}
             </span>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>Akt sverka qilindimi?</span>
+            <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flexShrink: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb", whiteSpace: "nowrap" }}>{isMobile ? "Akt sverka" : "Akt sverka qilindimi?"}</span>
             <div style={{ display: "inline-flex", borderRadius: 20, overflow: "hidden", border: "1.5px solid var(--border)", opacity: toggling ? 0.5 : 1, pointerEvents: toggling ? "none" : "auto" }}>
               <button onClick={() => !isHa && toggleAkt()}
-                style={{ padding: "5px 14px", fontSize: 12, fontWeight: 700, border: "none", borderRight: "1.5px solid var(--border)", cursor: isHa ? "default" : "pointer", background: isHa ? "#16a34a" : "var(--white)", color: isHa ? "#fff" : "var(--text-3)" }}>
+                style={{ padding: isMobile ? "5px 11px" : "5px 14px", fontSize: 12, fontWeight: 700, border: "none", borderRight: "1.5px solid var(--border)", cursor: isHa ? "default" : "pointer", background: isHa ? "#16a34a" : "var(--white)", color: isHa ? "#fff" : "var(--text-3)" }}>
                 Ha
               </button>
               <button onClick={() => isHa && toggleAkt()}
-                style={{ padding: "5px 14px", fontSize: 12, fontWeight: 700, border: "none", cursor: isHa ? "pointer" : "default", background: !isHa ? "#ef4444" : "var(--white)", color: !isHa ? "#fff" : "var(--text-3)" }}>
+                style={{ padding: isMobile ? "5px 11px" : "5px 14px", fontSize: 12, fontWeight: 700, border: "none", cursor: isHa ? "pointer" : "default", background: !isHa ? "#ef4444" : "var(--white)", color: !isHa ? "#fff" : "var(--text-3)" }}>
                 Yo&apos;q
               </button>
             </div>
@@ -282,9 +281,9 @@ export default function XaridTolovDetailPage() {
           </div>
 
           {/* Column header */}
-          <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 1fr 1fr 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-            {["#","MAYDON","QIYMAT","JAMI",""].map(h => (
-              <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{h}</span>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "48px 1fr 1fr 1fr 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+            {(isMobile ? ["To'lov ma'lumotlari","QIYMAT"] : ["#","To'lov ma'lumotlari","QIYMAT","JAMI",""]).map((h, hi) => (
+              <span key={h || hi} style={{ fontSize: isMobile && hi === 0 ? 12 : 10, fontWeight: isMobile && hi === 0 ? 800 : 700, color: isMobile && hi === 0 ? "#2563eb" : "var(--text-3)", letterSpacing: ".04em", textAlign: isMobile && hi === 1 ? "right" : "left" }}>{h}</span>
             ))}
           </div>
 
@@ -300,20 +299,22 @@ export default function XaridTolovDetailPage() {
             ...(tolov.Izoh ? [{ label: "Izoh",        value: tolov.Izoh,                  extra: "" }] : []),
           ].map((row, i, arr) => (
             <div key={row.label} style={{
-              display: "grid", gridTemplateColumns: "48px 1fr 1fr 1fr 72px",
+              display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "48px 1fr 1fr 1fr 72px",
+              gap: isMobile ? 10 : 0,
               padding: "13px 20px", alignItems: "center",
               borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
             }}>
-              <span style={{ fontSize: 13, color: "var(--text-3)" }}>{i + 1}</span>
+              {!isMobile && <span style={{ fontSize: 13, color: "var(--text-3)" }}>{i + 1}</span>}
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)" }}>{row.label}</span>
               <div
                 onClick={row.label === "Ta'minotchi" ? () => router.push(`/taminotchi/${tolov.Taminotchi_ID}`) : undefined}
-                style={row.label === "Ta'minotchi" ? { cursor: "pointer" } : {}}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: row.color || "var(--text)" }}>{row.value}</span>
+                style={{ minWidth: 0, ...(row.label === "Ta'minotchi" ? { cursor: "pointer" } : {}), ...(isMobile ? { textAlign: "right" } : {}) }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: row.color || "var(--text)", wordBreak: isMobile ? "break-word" : undefined }}>{row.value}</span>
                 {row.extra && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>{row.extra}</p>}
+                {isMobile && (row as { jami?: string }).jami && <p style={{ fontSize: 12, fontWeight: 800, color: row.color || "var(--text)", marginTop: 2 }}>{(row as { jami?: string }).jami}</p>}
               </div>
-              <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "var(--text)" }}>{(row as { jami?: string }).jami || ""}</span>
-              <span/>
+              {!isMobile && <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "var(--text)" }}>{(row as { jami?: string }).jami || ""}</span>}
+              {!isMobile && <span/>}
             </div>
           ))}
         </div>

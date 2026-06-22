@@ -256,10 +256,10 @@ export default function MahsulotPage() {
   return (
     <>
       {/* Header */}
-      <header className="header">
-        <div className="header__inner">
+      <header className="header" style={{ height: isMobile ? "auto" : undefined }}>
+        <div className="header__inner" style={{ flexWrap: isMobile ? "wrap" : "nowrap", height: isMobile ? "auto" : undefined, padding: isMobile ? "9px 14px 9px 52px" : undefined, rowGap: isMobile ? 8 : undefined }}>
           <h1 className="header__title" style={{ paddingLeft: 4 }}>Mahsulot va ombor</h1>
-          <div className="search" style={{ maxWidth: 320 }}>
+          <div className="search" style={{ maxWidth: isMobile ? "100%" : 320, flexBasis: isMobile ? "100%" : undefined }}>
             <span className="search__icon">
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
@@ -275,34 +275,30 @@ export default function MahsulotPage() {
               </button>
             )}
           </div>
-          <div className="header__spacer" />
-          {/* Klient (manba) filtri */}
-          <select value={filterMijoz} onChange={e => setFilterMijoz(e.target.value)} title="Qaysidir klient olgan mahsulotlar"
-            style={{ maxWidth: 200, padding: "8px 12px", border: `1px solid ${filterMijoz ? "var(--primary)" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: filterMijoz ? "var(--primary-glow)" : "var(--white)", color: filterMijoz ? "var(--primary)" : "var(--text-2)", cursor: "pointer", outline: "none" }}>
-            <option value="">Klient (manba)…</option>
-            {mijItems.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-          {/* Currency toggle */}
-          <div style={{ display: "flex", gap: 3, background: "var(--bg)", borderRadius: 10, padding: 3, border: "1px solid var(--border)" }}>
-            {([["barchasi", "Barchasi"], ["som", "So'm"], ["dollar", "Dollar"]] as [string, string][]).map(([val, label]) => (
-              <button key={val} onClick={() => setCurrency(val as "barchasi" | "som" | "dollar")} style={{
-                padding: "5px 14px", borderRadius: 7, border: "none", cursor: "pointer",
-                fontSize: 12, fontWeight: 700,
-                background: currency === val ? "var(--white)" : "transparent",
-                color: currency === val ? "var(--primary)" : "var(--text-3)",
-                boxShadow: currency === val ? "0 1px 4px rgba(0,0,0,.08)" : "none",
-                transition: "all .15s",
-              }}>{label}</button>
-            ))}
-          </div>
-          <button className="btn btn--outline" onClick={() => exportExcel(buildMahsulotExport())} title="Excel yuklash">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-            Excel
-          </button>
-          <button className="btn btn--outline" onClick={() => exportPDF(buildMahsulotExport())} title="PDF yuklash">
-            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 4h9l5 5v11a0 0 0 01 0 0H4a0 0 0 01 0 0V4z"/></svg>
-            PDF
-          </button>
+          {!isMobile && <div className="header__spacer" />}
+          {!isMobile && (<>
+            {/* Currency toggle */}
+            <div style={{ display: "flex", gap: 3, background: "var(--bg)", borderRadius: 10, padding: 3, border: "1px solid var(--border)" }}>
+              {([["barchasi", "Barchasi"], ["som", "So'm"], ["dollar", "Dollar"]] as [string, string][]).map(([val, label]) => (
+                <button key={val} onClick={() => setCurrency(val as "barchasi" | "som" | "dollar")} style={{
+                  padding: "5px 14px", borderRadius: 7, border: "none", cursor: "pointer",
+                  fontSize: 12, fontWeight: 700,
+                  background: currency === val ? "var(--white)" : "transparent",
+                  color: currency === val ? "var(--primary)" : "var(--text-3)",
+                  boxShadow: currency === val ? "0 1px 4px rgba(0,0,0,.08)" : "none",
+                  transition: "all .15s",
+                }}>{label}</button>
+              ))}
+            </div>
+            <button className="btn btn--outline" onClick={() => exportExcel(buildMahsulotExport())} title="Excel yuklash">
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#1d7c4d"/><path d="M8.6 8.2l6.8 7.6M15.4 8.2l-6.8 7.6" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/></svg>
+              Excel
+            </button>
+            <button className="btn btn--outline" onClick={() => exportPDF(buildMahsulotExport())} title="PDF yuklash">
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#e23b34"/><text x="12" y="15.7" fontSize="6.6" fontWeight="800" fill="#fff" textAnchor="middle" fontFamily="Arial, sans-serif">PDF</text></svg>
+              PDF
+            </button>
+          </>)}
           {!isMobile && (
             <button className="btn btn--primary" onClick={openAdd}>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -319,6 +315,16 @@ export default function MahsulotPage() {
       {/* Toolbar */}
       <div className="toolbar">
         <div className="toolbar__inner">
+          {isMobile && (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button className="btn btn--outline" onClick={() => exportExcel(buildMahsulotExport())} title="Excel" style={{ padding: "7px 11px" }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#1d7c4d"/><path d="M8.6 8.2l6.8 7.6M15.4 8.2l-6.8 7.6" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/></svg>
+              </button>
+              <button className="btn btn--outline" onClick={() => exportPDF(buildMahsulotExport())} title="PDF" style={{ padding: "7px 11px" }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#e23b34"/><text x="12" y="15.7" fontSize="6.6" fontWeight="800" fill="#fff" textAnchor="middle" fontFamily="Arial, sans-serif">PDF</text></svg>
+              </button>
+            </div>
+          )}
           <div className="toolbar__divider toolbar__divider--auto" />
           <div className="toggle-group">
             <button className={`toggle-group__btn ${view === "grid" ? "toggle-group__btn--active" : ""}`}
@@ -339,6 +345,23 @@ export default function MahsulotPage() {
 
       {/* Main */}
       <div className="page-content">
+
+        {/* Mobil: Barchasi/So'm/Dollar — karta */}
+        {isMobile && (
+          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "8px 10px", marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 3, background: "var(--bg)", borderRadius: 10, padding: 3, border: "1px solid var(--border)" }}>
+              {([["barchasi", "Barchasi"], ["som", "So'm"], ["dollar", "Dollar"]] as [string, string][]).map(([val, label]) => (
+                <button key={val} onClick={() => setCurrency(val as "barchasi" | "som" | "dollar")} style={{
+                  flex: 1, padding: "7px 4px", borderRadius: 7, border: "none", cursor: "pointer",
+                  fontSize: 12, fontWeight: 700,
+                  background: currency === val ? "var(--white)" : "transparent",
+                  color: currency === val ? "var(--primary)" : "var(--text-3)",
+                  boxShadow: currency === val ? "0 1px 4px rgba(0,0,0,.08)" : "none",
+                }}>{label}</button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Summary cards */}
         {(() => {
@@ -421,6 +444,7 @@ export default function MahsulotPage() {
               <GridCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
                 omborNomi={omborNomi(m.Ombor_ID)}
+                balans={balansMap[m.Mahsulot_ID]}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
@@ -655,9 +679,9 @@ export default function MahsulotPage() {
 /* ── Price Line ─────────────────────────────── */
 function PriceLine({ label, value, blue, dim }: { label: string; value: string; blue?: boolean; dim?: boolean }) {
   return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-      <span style={{ fontSize: 11, fontWeight: 700, color: dim ? "var(--text-2)" : "var(--text-2)" }}>{label}</span>
-      <span style={{ fontSize: 12, fontWeight: 700, color: blue ? "#2563eb" : "var(--text)" }}>{value}</span>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+      <span style={{ fontSize: 11, fontWeight: 600, color: dim ? "var(--text-3)" : "var(--text-2)", whiteSpace: "nowrap" }}>{label}</span>
+      <span style={{ fontSize: dim ? 11.5 : 12.5, fontWeight: dim ? 600 : 800, color: dim ? "var(--text-3)" : (blue ? "#2563eb" : "var(--text)"), whiteSpace: "nowrap" }}>{value}</span>
     </div>
   );
 }
@@ -744,8 +768,8 @@ function Field({ label, value, onChange, placeholder }: {
 }
 
 /* ── Grid Card ──────────────────────────────── */
-function GridCard({ mahsulot: m, currency, omborNomi, onEdit, onDelete }: {
-  mahsulot: Mahsulot; currency: string; omborNomi: string; onEdit: () => void; onDelete: () => void;
+function GridCard({ mahsulot: m, currency, omborNomi, balans, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; omborNomi: string; balans?: number; onEdit: () => void; onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
@@ -779,22 +803,31 @@ function GridCard({ mahsulot: m, currency, omborNomi, onEdit, onDelete }: {
 
       <div className="card__body">
         <p className="card__name">{m.Nomi || "—"}</p>
-        {omborNomi && (
-          <p style={{ fontSize: 10, fontWeight: 600, color: "var(--green)", marginBottom: 6 }}>{omborNomi}</p>
-        )}
 
-        {/* Narxlar */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {/* Ombor + zaxira chiplari */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+          {omborNomi && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: "#15803d", background: "#dcfce7", padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{omborNomi}</span>
+          )}
+          {balans !== undefined && (
+            <span style={{ fontSize: 10.5, fontWeight: 800, color: balans < 0 ? "#dc2626" : balans === 0 ? "var(--text-3)" : "#15803d", background: balans < 0 ? "#fef2f2" : balans === 0 ? "var(--bg)" : "#f0fdf4", padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
+              {balans.toLocaleString("ru-RU")} dona
+            </span>
+          )}
+        </div>
+
+        {/* Narxlar bloki */}
+        <div style={{ background: "var(--bg-2)", borderRadius: 10, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 5 }}>
           {showSom && hasSom && (<>
-            <PriceLine label="Sotuv narxi (so'm)" value={Number(m.Sotuv_som).toLocaleString("ru-RU")} />
+            <PriceLine label="Sotuv (so'm)" value={Number(m.Sotuv_som).toLocaleString("ru-RU")} />
             {m.Tan_som && String(m.Tan_som).trim() !== "" && String(m.Tan_som).trim() !== "0" && (
-              <PriceLine label="Tan narxi (so'm)" value={Number(m.Tan_som).toLocaleString("ru-RU")} dim />
+              <PriceLine label="Tan (so'm)" value={Number(m.Tan_som).toLocaleString("ru-RU")} dim />
             )}
           </>)}
           {showDollar && hasDollar && (<>
-            <PriceLine label="Sotuv narxi ($)" value={Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} blue />
+            <PriceLine label="Sotuv ($)" value={Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} blue />
             {m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0" && (
-              <PriceLine label="Tan narxi ($)" value={Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} dim />
+              <PriceLine label="Tan ($)" value={Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} dim />
             )}
           </>)}
           {!hasSom && !hasDollar && (

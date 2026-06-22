@@ -195,7 +195,7 @@ export default function AktSverkaFirmaPage() {
             <div style={{ ...panel, maxHeight: isMobile ? undefined : "calc(100vh - 120px)" }}>
               <div style={panelHead}>Xaridlar <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "var(--bg)", color: "var(--text-2)" }}>{data?.buyCount ?? 0}</span></div>
               <div style={{ overflowY: "auto", flex: 1 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 18px", padding: "8px 18px", background: "var(--bg)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 96px 70px 14px" : "1fr 120px 120px 18px", padding: "8px 18px", background: "var(--bg)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0 }}>
                   {["SANA", "SO'M", "$"].map(h => <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", textAlign: h === "SANA" ? "left" : "right" }}>{h}</span>)}
                   <span />
                 </div>
@@ -205,7 +205,7 @@ export default function AktSverkaFirmaPage() {
                     return (
                     <div key={s.id || i} onClick={() => s.id && goDetail(`/xarid/${s.id}`)}
                       title={s.akt ? "Akt-sverka qilingan" : "Akt-sverka qilinmagan — summaga qo'shilmaydi"}
-                      style={{ display: "grid", gridTemplateColumns: "1fr 120px 120px 18px", padding: "10px 18px", borderBottom: "1px solid var(--border)", alignItems: "center", cursor: "pointer" }}
+                      style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 96px 70px 14px" : "1fr 120px 120px 18px", padding: "10px 18px", borderBottom: "1px solid var(--border)", alignItems: "center", cursor: "pointer" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{s.sana}{s.raqam ? ` · #${s.raqam}` : ""}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, textAlign: "right", color: s.som ? col : "var(--text-3)" }}>{s.som ? fmtSom(s.som) : "—"}</span>
@@ -220,7 +220,7 @@ export default function AktSverkaFirmaPage() {
             <div style={{ ...panel, maxHeight: isMobile ? undefined : "calc(100vh - 120px)" }}>
               <div style={panelHead}>Xarid to&apos;lovlari <span style={{ fontSize: 12, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "var(--bg)", color: "var(--text-2)" }}>{data?.payCount ?? 0}</span></div>
               <div style={{ overflowY: "auto", flex: 1 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 130px 18px", padding: "8px 18px", background: "var(--bg)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0 }}>
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "76px 1fr 96px 14px" : "100px 1fr 130px 18px", padding: "8px 18px", background: "var(--bg)", borderBottom: "1px solid var(--border)", position: "sticky", top: 0 }}>
                   {["SANA", "TURI", "SUMMA"].map(h => <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", textAlign: h === "SUMMA" ? "right" : "left" }}>{h}</span>)}
                   <span />
                 </div>
@@ -230,7 +230,7 @@ export default function AktSverkaFirmaPage() {
                     return (
                     <div key={p.id || i} onClick={() => p.id && goDetail(`/xarid/tolov/${p.id}`)}
                       title={p.chk ? "Akt-sverka qilingan" : "Akt-sverka qilinmagan"}
-                      style={{ display: "grid", gridTemplateColumns: "100px 1fr 130px 18px", padding: "10px 18px", borderBottom: "1px solid var(--border)", alignItems: "center", cursor: "pointer" }}
+                      style={{ display: "grid", gridTemplateColumns: isMobile ? "76px 1fr 96px 14px" : "100px 1fr 130px 18px", padding: "10px 18px", borderBottom: "1px solid var(--border)", alignItems: "center", cursor: "pointer" }}
                       onMouseEnter={e => (e.currentTarget.style.background = "var(--bg)")} onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: col }}>{p.sana}</span>
                       <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)" }}>{p.turi}</span>

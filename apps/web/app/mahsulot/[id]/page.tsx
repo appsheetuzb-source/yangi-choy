@@ -85,6 +85,7 @@ export default function MahsulotDetailPage() {
   const [avgSotuvUsd, setAvgSotuvUsd] = useState(0);
   const [loading, setLoading]         = useState(true);
   const [imgErr, setImgErr]     = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [prices, setPrices]     = useState<Record<PriceField, string>>({
     Sotuv_som: "", Sotuv_dollar: "", Tan_som: "", Tan_dollar: "",
   });
@@ -92,6 +93,8 @@ export default function MahsulotDetailPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState(todayISO());
   const [activeTur, setActiveTur] = useState("Barchasi");
+
+  useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -401,10 +404,10 @@ export default function MahsulotDetailPage() {
           const chiqimCount = txAll.filter(t => t.linkType === "sotuv").length;
 
           const Card = ({ label, value, sub, color, bg, border }: { label: string; value: string; sub?: string; color: string; bg: string; border?: string }) => (
-            <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", border: border || "1px solid var(--border)", padding: "16px 20px", minWidth: 0 }}>
+            <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", border: border || "1px solid var(--border)", padding: isMobile ? "11px 12px" : "16px 20px", minWidth: 0 }}>
               <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 8 }}>{label}</p>
-              <p style={{ fontSize: 17, fontWeight: 800, color, lineHeight: 1.2 }}>{value}</p>
-              {sub && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4, fontWeight: 600 }}>{sub}</p>}
+              <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800, color, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis" }}>{value}</p>
+              {sub && <p style={{ fontSize: isMobile ? 10 : 11, color: "var(--text-3)", marginTop: 4, fontWeight: 600 }}>{sub}</p>}
             </div>
           );
 
@@ -412,7 +415,7 @@ export default function MahsulotDetailPage() {
             <>
               {/* Dollar + So'm olindi/sotildi — 2 ustunli */}
               {(olindiDollar > 0 || sotildiDollar > 0 || olindiSom > 0 || sotildiSom > 0) && (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12, marginBottom: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: isMobile ? 8 : 12, marginBottom: 12 }}>
                   {olindiDollar > 0  && <Card label="OLINDI ($)"    value={`$${fc(olindiDollar)}`}   color="#16a34a" bg="#dcfce7" />}
                   {sotildiDollar > 0 && <Card label="SOTILDI ($)"   value={`$${fc(sotildiDollar)}`}  color="#2563eb" bg="#dbeafe" />}
                   {olindiSom > 0     && <Card label="OLINDI (SO'M)" value={`${fs(olindiSom)} so'm`}  color="#16a34a" bg="#dcfce7" />}
@@ -420,7 +423,7 @@ export default function MahsulotDetailPage() {
                 </div>
               )}
               {/* KG cards — 3 ustunli */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24 }}>
                 <Card label="KIRIM"       value={`+${fmtNum(davrKirim)} kg`}  sub={`${kirimCount} ta operatsiya`}  color="#16a34a" bg="#dcfce7" />
                 <Card label="CHIQIM"      value={`-${fmtNum(davrChiqim)} kg`} sub={`${chiqimCount} ta operatsiya`} color="#ef4444" bg="#fee2e2" />
                 <Card label="HOZIRDA BOR" value={`${fmtNum(joriyBalans)} kg`} color={joriyBalans >= 0 ? "var(--primary)" : "#ef4444"} bg={joriyBalans >= 0 ? "#dcfce7" : "#fee2e2"} border={`2px solid ${joriyBalans >= 0 ? "var(--primary)" : "#ef4444"}`} />
@@ -431,6 +434,29 @@ export default function MahsulotDetailPage() {
                 <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
                   <p style={{ fontSize: 14, fontWeight: 700 }}>Narxlar tarixi</p>
                 </div>
+                {isMobile ? (
+                  <div>
+                    {withBalance.map((tx, i) => {
+                      const isDollar = tx.narxDollar > 0 && tx.narxSom === 0;
+                      const narx = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
+                      return (
+                        <div key={tx.id + i} onClick={() => router.push(`/${tx.linkType}/${tx.linkId}`)}
+                          style={{ padding: "12px 16px", borderBottom: i < withBalance.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                            <span style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: tx.linkType === "xarid" ? "#dcfce7" : "#fee2e2", color: tx.linkType === "xarid" ? "#16a34a" : "#ef4444" }}>{tx.linkType === "xarid" ? "Kirim" : "Chiqim"}</span>
+                          </div>
+                          <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", marginBottom: 8 }}>{tx.manba}</div>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 13, fontWeight: 700, color: tx.linkType === "xarid" ? "#16a34a" : "#ef4444" }}>{tx.linkType === "xarid" ? "+" : "-"}{fmtNum(tx.kirim || tx.chiqim)} kg</span>
+                            <span style={{ fontSize: 12.5, fontWeight: 600, color: isDollar ? "#2563eb" : "var(--text)" }}>{narx}</span>
+                            <span style={{ fontSize: 12.5, fontWeight: 800, color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>Qoldiq: {fmtNum(tx.balans)} kg</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
@@ -469,6 +495,7 @@ export default function MahsulotDetailPage() {
                     </tbody>
                   </table>
                 </div>
+                )}
               </div>
             </>
           );
@@ -488,6 +515,24 @@ export default function MahsulotDetailPage() {
           {filteredWithBalance.length === 0 ? (
             <div style={{ padding: 48, textAlign: "center" }}>
               <p style={{ fontSize: 14, color: "var(--text-3)" }}>Ma&apos;lumot topilmadi</p>
+            </div>
+          ) : isMobile ? (
+            <div>
+              {filteredWithBalance.map((tx, i) => (
+                <div key={tx.id + i} onClick={() => router.push(`/${tx.linkType}/${tx.linkId}`)}
+                  style={{ padding: "12px 16px", borderBottom: i < filteredWithBalance.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, marginBottom: 5 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</p>
+                      {tx.vaqt && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>{tx.vaqt}</p>}
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: tx.kirim > 0 ? "#16a34a" : "#ef4444", whiteSpace: "nowrap" }}>{tx.kirim > 0 ? `+${fmtNum(tx.kirim)}` : `-${fmtNum(tx.chiqim)}`} kg</span>
+                  </div>
+                  <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed" }}>{tx.manba}</div>
+                  {tx.izoh && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 3 }}>{tx.izoh}</div>}
+                  <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 5 }}>Balans: <b style={{ color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>{fmtNum(tx.balans)} kg</b></div>
+                </div>
+              ))}
             </div>
           ) : (
             <div style={{ overflowX: "auto" }}>

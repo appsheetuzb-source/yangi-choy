@@ -310,63 +310,57 @@ export default function XaridDetailPage() {
     <>
       {/* ── Header ── */}
       <header className="header" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="header__inner" style={{ gap: 14 }}>
+        <div className="header__inner" style={{ gap: isMobile ? 10 : 12, flexWrap: isMobile ? "wrap" : "nowrap" }}>
           <button onClick={() => router.back()}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
             Orqaga
           </button>
-          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <div style={{ minWidth: 0 }}>
-              <h1 style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>Xarid #{raqam}</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <h1 style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, lineHeight: 1.2 }}>Xarid #{raqam}</h1>
               <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{xarid.Sana}</p>
             </div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: "var(--primary)", textAlign: "right", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "55%" }}>{tNomi}</p>
+            <button onClick={openEdit} title="Tahrirlash"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 11px" : "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>{!isMobile && <span>Tahrirlash</span>}
+            </button>
+            <button onClick={() => setDeleteOpen(true)} title="O'chirish"
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 11px" : "8px 16px", border: "1px solid #fecaca", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444", flexShrink: 0 }}>
+              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>{!isMobile && <span>O&apos;chirish</span>}
+            </button>
           </div>
-          <button onClick={openEdit}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Tahrirlash
-          </button>
-          <button onClick={() => setDeleteOpen(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid #fecaca", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            O&apos;chirish
-          </button>
         </div>
       </header>
 
       <div className="page-content" style={{ maxWidth: 1000 }}>
 
         {/* ── Stats ── */}
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3,1fr)", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 16 : 24 }}>
-          <div onClick={() => router.push(`/taminotchi/${xarid.Taminotchi_ID}`)}
-            style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px", cursor: "pointer", transition: "box-shadow .15s" }}
-            onMouseEnter={e => (e.currentTarget.style.boxShadow = "var(--shadow)")}
-            onMouseLeave={e => (e.currentTarget.style.boxShadow = "var(--shadow-sm)")}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 24 }}>
+          <div onClick={() => router.push(`/taminotchi/${xarid.Taminotchi_ID}`)} style={{ gridColumn: isMobile ? "1 / -1" : undefined, background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "16px 18px" : "20px 24px", cursor: "pointer" }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>TA&apos;MINOTCHI</p>
-            <p style={{ fontSize: 20, fontWeight: 800, color: "var(--primary)" }}>{tNomi}</p>
+            <p style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: "var(--primary)" }}>{tNomi}</p>
             <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>{xarid.Sana}</p>
           </div>
-          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px" }}>
+          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "13px 14px" : "20px 24px", minWidth: 0 }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>JAMI MAHSULOT</p>
-            <p style={{ fontSize: 26, fontWeight: 800, color: "var(--text)" }}>
+            <p style={{ fontSize: isMobile ? 20 : 26, fontWeight: 800, color: "var(--text)" }}>
               {savat.length} <span style={{ fontSize: 14, fontWeight: 600 }}>ta</span>
             </p>
             <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-2)", marginTop: 4 }}>
               {fmt(savat.reduce((s, r) => s + num(r.Soni), 0))} <span style={{ fontSize: 11, fontWeight: 600 }}>kg</span>
             </p>
           </div>
-          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px" }}>
+          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "13px 14px" : "20px 24px", minWidth: 0 }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>JAMI SUMMA</p>
-            {jamiSumma !== 0 && <p style={{ fontSize: 22, fontWeight: 800, color: "var(--text)" }}>{jamiSumma.toLocaleString("ru-RU")} <span style={{fontSize:12,fontWeight:600}}>so&apos;m</span></p>}
-            {jamiSummaUsd !== 0 && <p style={{ fontSize: 22, fontWeight: 800, color: "#2563eb", marginTop: jamiSumma!==0?4:0 }}>${jamiSummaUsd.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}</p>}
-            {jamiSumma === 0 && jamiSummaUsd === 0 && <p style={{ fontSize: 22, fontWeight: 800 }}>0</p>}
+            {jamiSumma !== 0 && <p style={{ fontSize: isMobile ? 16 : 22, fontWeight: 800, color: "var(--text)" }}>{jamiSumma.toLocaleString("ru-RU")} <span style={{fontSize:12,fontWeight:600}}>so&apos;m</span></p>}
+            {jamiSummaUsd !== 0 && <p style={{ fontSize: isMobile ? 16 : 22, fontWeight: 800, color: "#2563eb", marginTop: jamiSumma!==0?4:0 }}>${jamiSummaUsd.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}</p>}
+            {jamiSumma === 0 && jamiSummaUsd === 0 && <p style={{ fontSize: isMobile ? 16 : 22, fontWeight: 800 }}>0</p>}
           </div>
         </div>
 
         {/* ── Mahsulotlar ── */}
-        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden", overflowX: isMobile ? "auto" : "hidden" }}>
+        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Mahsulotlar</span>
             <button onClick={openAddItem}
@@ -375,11 +369,13 @@ export default function XaridDetailPage() {
               Yangi mahsulot
             </button>
           </div>
-          <div style={{ display: "grid", minWidth: isMobile ? 660 : undefined, gridTemplateColumns: "48px 1fr 120px 140px 160px 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+          {!isMobile && (
+          <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 120px 140px 160px 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
             {["#", "MAHSULOT", "SONI", "NARX", "JAMI", ""].map(h => (
               <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{h}</span>
             ))}
           </div>
+          )}
           {savat.length === 0 && (
             <div style={{ padding: "32px 20px", textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>Mahsulot topilmadi</div>
           )}
@@ -390,6 +386,34 @@ export default function XaridDetailPage() {
               ? num(editRowSoni) * (num(editRowNarxSom) || num(editRowNarxi))
               : num(s.Soni) * (num(s.Narx_som) || num(s.Narxi));
             const narx = num(s.Narx_som) > 0 ? num(s.Narx_som) : num(s.Narxi);
+            if (isMobile) return (
+              <div key={s.X_Savat || i} style={{ padding: "12px 16px", borderBottom: i < savat.length - 1 ? "1px solid var(--border)" : "none", background: isEditing ? "#f0f9ff" : "transparent" }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 14, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{i + 1}. {m?.Nomi || "—"}</span>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    {isEditing ? (<>
+                      <button onClick={handleEditRowSave} disabled={editRowSaving} style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: "#dcfce7", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#16a34a" }}>{editRowSaving ? <span className="spinner" style={{ width: 12, height: 12 }}/> : <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>}</button>
+                      <button onClick={() => setEditRowItem(null)} style={{ width: 30, height: 30, borderRadius: 8, border: "none", background: "#fee2e2", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444" }}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>
+                    </>) : (<>
+                      <button onClick={() => { setEditRowItem(s); setEditRowSoni(s.Soni); setEditRowNarxi(s.Narxi); setEditRowNarxSom(s.Narx_som); }} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #dbeafe", background: "#eff6ff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb" }}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                      <button onClick={() => setDeleteSavat(s)} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #fee2e2", background: "#fef2f2", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444" }}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                    </>)}
+                  </div>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {isEditing ? (
+                    <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input autoFocus value={editRowSoni} onChange={e => setEditRowSoni(e.target.value)} inputMode="decimal" style={{ width: 58, padding: "6px 8px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
+                      <span style={{ color: "var(--text-3)" }}>×</span>
+                      <input value={num(editRowNarxSom) > 0 ? editRowNarxSom : editRowNarxi} onChange={e => num(editRowNarxSom) > 0 ? setEditRowNarxSom(e.target.value) : setEditRowNarxi(e.target.value)} inputMode="decimal" style={{ width: 88, padding: "6px 8px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: "var(--primary)" }}>= {fmt(jami)}</span>
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>{fmt(s.Soni)} × {fmt(narx)} = <b style={{ color: "var(--text)", fontSize: 14 }}>{fmt(jami)} {num(s.Narx_som) > 0 ? "so'm" : "$"}</b></span>
+                  )}
+                </div>
+              </div>
+            );
             return (
               <div key={s.X_Savat || i} style={{
                 display: "grid", minWidth: isMobile ? 660 : undefined, gridTemplateColumns: "48px 1fr 120px 140px 160px 72px",
@@ -457,7 +481,7 @@ export default function XaridDetailPage() {
       {editOpen && isAddMode && (
         <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
           onClick={() => setEditOpen(false)}>
-          <div style={{ background: "var(--white)", borderRadius: 16, width: "100%", maxWidth: 900, maxHeight: "92vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+          <div style={{ background: "var(--white)", borderRadius: isMobile ? 0 : 16, width: isMobile ? "100%" : "97vw", maxWidth: isMobile ? "100%" : 900, height: isMobile ? "100dvh" : "92vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff7ed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -475,7 +499,34 @@ export default function XaridDetailPage() {
               <div style={{ marginBottom: 10 }}>
                 <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em" }}>MAHSULOTLAR</span>
               </div>
-              {editSavat.map(s => (
+              {editSavat.map(s => {
+                const jamiTxt = num(s.Soni) > 0
+                  ? num(s.Narx_som) > 0
+                    ? (num(s.Soni) * num(s.Narx_som)).toLocaleString("ru-RU")
+                    : num(s.Narxi) > 0
+                      ? "$" + (num(s.Soni) * num(s.Narxi)).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                      : "—"
+                  : "—";
+                if (isMobile) return (
+                  <div key={s.id} style={{ marginBottom: 10, padding: "10px 12px", background: "var(--bg-2)", borderRadius: "var(--radius)", border: "1px solid var(--border)" }}>
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v => updateEditItem(s.id, "Mahsulot_ID", v)} placeholder="Mahsulot..."/>
+                      </div>
+                      <button onClick={() => setEditSavat(p => p.filter(r => r.id !== s.id))} style={{ width: 38, height: 38, borderRadius: 8, border: "none", background: "#fee2e2", color: "#ef4444", cursor: "pointer", flexShrink: 0, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>−</button>
+                    </div>
+                    <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                      <input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Soni" inputMode="decimal"
+                        style={{ width: 56, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
+                      <input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="$" inputMode="decimal"
+                        style={{ width: 74, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", color: "#2563eb", textAlign: "center" }}/>
+                      <input value={s.Narx_som} onChange={e => updateEditItem(s.id, "Narx_som", e.target.value)} placeholder="so'm" inputMode="decimal"
+                        style={{ width: 86, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
+                      <span style={{ flex: 1, minWidth: 0, textAlign: "right", fontSize: 13, fontWeight: 800, color: num(s.Narx_som) > 0 ? "var(--text)" : "#2563eb" }}>= {jamiTxt}</span>
+                    </div>
+                  </div>
+                );
+                return (
                 <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                   <div style={{ flex: 3, minWidth: 0 }}>
                     <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v => updateEditItem(s.id, "Mahsulot_ID", v)} placeholder="Mahsulot..."/>
@@ -487,20 +538,15 @@ export default function XaridDetailPage() {
                   <input value={s.Narx_som} onChange={e => updateEditItem(s.id, "Narx_som", e.target.value)} placeholder="Narx (so'm)"
                     style={{ width: 120, padding: "10px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
                   <div style={{ minWidth: 110, padding: "10px 10px", background: "var(--bg)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, textAlign: "right", color: num(s.Narx_som) > 0 ? "var(--text)" : "#2563eb" }}>
-                    {num(s.Soni) > 0
-                      ? num(s.Narx_som) > 0
-                        ? (num(s.Soni) * num(s.Narx_som)).toLocaleString("ru-RU")
-                        : num(s.Narxi) > 0
-                          ? "$" + (num(s.Soni) * num(s.Narxi)).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : "—"
-                      : "—"}
+                    {jamiTxt}
                   </div>
                   <button onClick={() => setEditSavat(p => p.filter(r => r.id !== s.id))}
                     style={{ width: 36, height: 40, borderRadius: 8, border: "none", background: "#dbeafe", color: "#2563eb", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>
                     −
                   </button>
                 </div>
-              ))}
+                );
+              })}
               <button onClick={() => { const first = mahsulotlar[0]; setEditSavat(p => [...p, { id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "" }]); }}
                 style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--white)", cursor: "pointer", color: "var(--text-2)", marginTop: 4 }}>
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>

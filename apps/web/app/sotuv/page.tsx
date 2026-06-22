@@ -212,9 +212,9 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
                   style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)"
+                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                   style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
                   <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
@@ -226,9 +226,9 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)"
+              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <div style={{padding:"10px",background:bc?"#fef2f2":"#f0fdf4",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#16a34a"}}>
                 {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jS?jS.toLocaleString("ru-RU")+" so'm":"—"):"—")}
@@ -261,9 +261,9 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
                   style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)"
+                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                   style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
                   <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
@@ -275,9 +275,9 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)"
+              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
               <div style={{padding:"10px",background:bc?"#fef2f2":"#eff6ff",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#2563eb"}}>
                 {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jU?fmtUsd(jU):"—"):"—")}

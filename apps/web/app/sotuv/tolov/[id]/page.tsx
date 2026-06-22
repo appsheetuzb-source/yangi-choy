@@ -224,25 +224,24 @@ export default function SotuvTolovDetailPage() {
   return (
     <>
       <header className="header" style={{ borderBottom: "1px solid var(--border)" }}>
-        <div className="header__inner" style={{ gap: 14 }}>
+        <div className="header__inner" style={{ gap: isMobile ? 8 : 14, flexWrap: "nowrap" }}>
           <button onClick={() => router.back()}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "6px 10px" : "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
             Orqaga
           </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: 20, fontWeight: 800, lineHeight: 1.2 }}>{mNomi}</h1>
-            <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{tolov.Sana}{tolov.Vaqt ? ` — ${tolov.Vaqt}` : ""}</p>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: isMobile ? 16 : 20, fontWeight: 800, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Pul ayirish</h1>
           </div>
-          <button onClick={openEdit}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-            Tahrirlash
+          <button onClick={openEdit} title="Tahrirlash"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 16px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "var(--text-2)", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            {!isMobile && "Tahrirlash"}
           </button>
-          <button onClick={() => setConfirmDelete(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 16px", border: "1px solid #fecaca", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444" }}>
-            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-            O&apos;chirish
+          <button onClick={() => setConfirmDelete(true)} title="O'chirish"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "8px 10px" : "8px 16px", border: "1px solid #fecaca", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            {!isMobile && "O’chirish"}
           </button>
         </div>
       </header>
@@ -256,6 +255,7 @@ export default function SotuvTolovDetailPage() {
             onMouseLeave={e => (e.currentTarget.style.boxShadow = "var(--shadow-sm)")}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>MIJOZ</p>
             <p style={{ fontSize: isMobile ? 15 : 18, fontWeight: 800, color: "var(--primary)" }}>{mNomi}</p>
+            <p style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 6, fontWeight: 600 }}>{tolov.Sana}{tolov.Vaqt ? ` · ${tolov.Vaqt}` : ""}</p>
           </div>
           <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "14px 16px" : "20px 24px" }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>SO&apos;M</p>
@@ -291,9 +291,9 @@ export default function SotuvTolovDetailPage() {
             </div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 1fr 1fr 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-            {["#","MAYDON","QIYMAT","JAMI",""].map(h => (
-              <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{h}</span>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "48px 1fr 1fr 1fr 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+            {(isMobile ? ["MAYDON","QIYMAT"] : ["#","MAYDON","QIYMAT","JAMI",""]).map((h, hi) => (
+              <span key={h || hi} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", textAlign: isMobile && hi === 1 ? "right" : "left" }}>{h}</span>
             ))}
           </div>
 
@@ -309,20 +309,22 @@ export default function SotuvTolovDetailPage() {
             ...(tolov.Izoh ? [{ label: "Izoh", value: tolov.Izoh, extra: "" }] : []),
           ].map((row, i, arr) => (
             <div key={row.label} style={{
-              display: "grid", gridTemplateColumns: "48px 1fr 1fr 1fr 72px",
+              display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "48px 1fr 1fr 1fr 72px",
+              gap: isMobile ? 10 : 0,
               padding: "13px 20px", alignItems: "center",
               borderBottom: i < arr.length - 1 ? "1px solid var(--border)" : "none",
             }}>
-              <span style={{ fontSize: 13, color: "var(--text-3)" }}>{i + 1}</span>
+              {!isMobile && <span style={{ fontSize: 13, color: "var(--text-3)" }}>{i + 1}</span>}
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-2)" }}>{row.label}</span>
               <div
                 onClick={(row as { link?: string }).link ? () => router.push((row as { link?: string }).link!) : undefined}
-                style={(row as { link?: string }).link ? { cursor: "pointer" } : {}}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: (row as { link?: string }).link ? "var(--primary)" : (row.color || "var(--text)") }}>{row.value}</span>
+                style={{ minWidth: 0, ...((row as { link?: string }).link ? { cursor: "pointer" } : {}), ...(isMobile ? { textAlign: "right" } : {}) }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: (row as { link?: string }).link ? "var(--primary)" : (row.color || "var(--text)"), wordBreak: isMobile ? "break-word" : undefined }}>{row.value}</span>
                 {row.extra && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 2 }}>{row.extra}</p>}
+                {isMobile && (row as { jami?: string }).jami && <p style={{ fontSize: 12, fontWeight: 800, color: row.color || "var(--text)", marginTop: 2 }}>{(row as { jami?: string }).jami}</p>}
               </div>
-              <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "var(--text)" }}>{(row as { jami?: string }).jami || ""}</span>
-              <span/>
+              {!isMobile && <span style={{ fontSize: 14, fontWeight: 800, color: row.color || "var(--text)" }}>{(row as { jami?: string }).jami || ""}</span>}
+              {!isMobile && <span/>}
             </div>
           ))}
         </div>
