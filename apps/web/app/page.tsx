@@ -153,7 +153,7 @@ export default function Home() {
     const visMijIds = new Set(visibleMijoz.map(m=>m.Mijoz_ID));
     let qarzSom = 0, qarzDollar = 0;
     visibleMijoz.forEach(m=>{ qarzSom += num(m.Boshlangich_Balans_som); qarzDollar += num(m.Boshlangich_Balans_dollar); });
-    const tasdiq=(s?:Sotuv)=>!!s && String(s.Chek||"").toUpperCase()==="TRUE";
+    const tasdiq=(s?:Sotuv)=>!!s && String(s.Chek||"").trim()!=="";
     savatS.forEach(r=>{ const s=sotuvMap[r.Sotuv_ID]; if(tasdiq(s) && visMijIds.has((s!.Mijoz_ID||"").includes(".")?s!.Mijoz_ID.split(".")[1]:s!.Mijoz_ID)) qarzSom += num(r.Summa_som); });
     savatD.forEach(r=>{ const s=sotuvMap[r.Sotuv_ID]; if(tasdiq(s) && visMijIds.has((s!.Mijoz_ID||"").includes(".")?s!.Mijoz_ID.split(".")[1]:s!.Mijoz_ID)) qarzDollar += num(r.Summa); });
     myTolovlar.forEach(x=>{ qarzSom -= num(x.Summa); qarzDollar -= num(x.Summa_dollar); });

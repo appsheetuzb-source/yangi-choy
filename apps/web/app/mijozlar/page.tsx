@@ -145,10 +145,10 @@ export default function MijozlarPage() {
         agents.forEach(f => { aMap[f.Foydalanuvchi_ID] = f.Nomi; });
         setAgentMap(aMap);
 
-        // Sotuv_ID → Mijoz_ID mapping (qarzga faqat Chek=TRUE qo'shiladi — eski dasturga mos)
+        // Sotuv_ID → Mijoz_ID mapping (qarzga tasdiqlangan sotuvlar: Chek bo'sh emas — TRUE yoki FALSE)
         const sotuvMijozMap: Record<string, string> = {};
         ((sR.data || []) as SotuvRow[]).forEach(s => {
-          if (String(s.Chek || "").toUpperCase() !== "TRUE") return;
+          if (String(s.Chek || "").trim() === "") return;
           const sid = String(s.Sotuv_ID || "").trim();
           const mid = String(s.Mijoz_ID || "").trim();
           if (sid && mid) sotuvMijozMap[sid] = mid;

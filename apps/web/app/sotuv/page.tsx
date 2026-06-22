@@ -61,9 +61,18 @@ function SearchSelect({ items, value, onChange, placeholder, borderColor }: {
   items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; borderColor?:string;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
-  const [pos,setPos]=useState<{top:number;left:number;width:number}|null>(null);
+  const [pos,setPos]=useState<{left:number;width:number;top?:number;bottom?:number;listMaxH:number}|null>(null);
   const selected=items.find(i=>i.id===value);
-  const place=()=>{ const el=ref.current; if(!el) return; const r=el.getBoundingClientRect(); setPos({top:r.bottom+4,left:r.left,width:r.width}); };
+  const place=()=>{
+    const el=ref.current; if(!el) return; const r=el.getBoundingClientRect();
+    const vh=window.innerHeight;
+    const spaceBelow=vh-r.bottom-8, spaceAbove=r.top-8;
+    const up = spaceBelow < 240 && spaceAbove > spaceBelow;     // pastda joy yetmasa — yuqoriga
+    const avail = up ? spaceAbove : spaceBelow;
+    const listMaxH = Math.max(120, Math.min(280, avail - 56));   // 56 ~ qidiruv qutisi
+    if(up) setPos({left:r.left,width:r.width,bottom:vh-r.top+4,listMaxH});
+    else setPos({left:r.left,width:r.width,top:r.bottom+4,listMaxH});
+  };
   useEffect(()=>{
     if(!open) return;
     const h=(e:MouseEvent)=>{ if(ref.current&&!ref.current.contains(e.target as Node)) setOpen(false); };
@@ -83,12 +92,12 @@ function SearchSelect({ items, value, onChange, placeholder, borderColor }: {
         </svg>
       </div>
       {open&&pos&&(
-        <div style={{position:"fixed",top:pos.top,left:pos.left,width:pos.width,zIndex:1000,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
+        <div style={{position:"fixed",top:pos.top,bottom:pos.bottom,left:pos.left,width:pos.width,zIndex:1000,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
           <div style={{padding:"8px",borderBottom:"1px solid var(--border)"}}>
             <input autoFocus value={q} onChange={e=>setQ(e.target.value)} placeholder="Qidirish..."
               style={{width:"100%",padding:"7px 10px",border:"1px solid var(--border)",borderRadius:8,fontSize:13,outline:"none"}}/>
           </div>
-          <div style={{maxHeight:220,overflowY:"auto",overscrollBehavior:"contain"}} onTouchMove={e=>e.stopPropagation()}>
+          <div style={{maxHeight:pos.listMaxH,overflowY:"auto",overscrollBehavior:"contain"}} onTouchMove={e=>e.stopPropagation()}>
             {list.length===0?<div style={{padding:"12px 14px",fontSize:13,color:"var(--text-3)"}}>Topilmadi</div>
               :list.map(i=>(
                 <div key={i.id} onClick={()=>{onChange(i.id);setOpen(false);setQ("");}}
@@ -366,7 +375,8 @@ export default function SotuvPage() {
   // STATUS (badge): Chek bo'sh => "Tasdiqlash"; TRUE yoki FALSE => "Tasdiqlandi"
   const isTasdiq = (s: Sotuv) => String(s.Chek||"").trim() !== "";
   // QARZ hisobiga FAQAT Chek=TRUE qo'shiladi (eski dasturga mos; FALSE qarzga kirmaydi)
-  const qarzTrue = (s: Sotuv) => String(s.Chek||"").toUpperCase() === "TRUE";
+  // Qarz: tasdiqlangan sotuv (Chek bo'sh emas — TRUE yoki FALSE). Faqat bo'sh (Tasdiqlashga) hisobga olinmaydi.
+  const qarzTrue = (s: Sotuv) => String(s.Chek||"").trim() !== "";
 
   async function toggleTasdiq(s: Sotuv) {
     if (tasdiqSaving) return;
@@ -781,6 +791,8 @@ export default function SotuvPage() {
 
   const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
+  // Sotuv add formi — (deyarli) to'liq ekran (mahsulot dropdown'i sig'sin)
+  const addModalBox:React.CSSProperties={background:"var(--white)",width:isMobile?"100%":"97vw",maxWidth:isMobile?"100%":1500,height:isMobile?"100dvh":"97vh",borderRadius:isMobile?0:16,display:"flex",flexDirection:"column",overflow:"hidden"};
 
   return (
     <>
@@ -1151,7 +1163,7 @@ export default function SotuvPage() {
       {/* ── Add Modal ── */}
       {addOpen&&(
         <div style={modalOverlay} onClick={()=>setAddOpen(false)}>
-          <div style={modalBox} onClick={e=>e.stopPropagation()}>
+          <div style={addModalBox} onClick={e=>e.stopPropagation()}>
             {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
             <div style={{display:"flex",alignItems:"center",gap:16,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
               <div style={{width:40,height:40,borderRadius:12,background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>

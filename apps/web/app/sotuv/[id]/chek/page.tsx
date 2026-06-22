@@ -539,10 +539,14 @@ function ChekContent() {
           .chek-balance { margin: 4px 0 6px; border-radius: 0; }
           .chek-balance__header { padding: 5px 10px; font-size: 9px; color: #fff !important; background-color: #1a2744 !important; }
           .chek-balance__header-cell { color: #fff !important; font-weight: 900 !important; }
-          .chek-balance__cell { padding: 4px 10px; font-size: 10px; color: #000 !important; }
+          .chek-balance__row { background-color: #fff !important; }
+          .chek-balance__cell { padding: 4px 10px; font-size: 10px; color: #000 !important; background-color: #fff !important; }
           .chek-balance__cell-label { font-size: 10px; color: #000 !important; font-weight: 800 !important; }
           .chek-balance__cell-val { color: #000 !important; font-weight: 800 !important; }
-          .chek-balance__row--total .chek-balance__cell { font-size: 11px; color: #000 !important; }
+          /* Yakuniy balans — navy chiziq + oq qalin matn (toza chiqishi uchun) */
+          .chek-balance__row--total .chek-balance__cell { font-size: 11.5px; background-color: #1a2744 !important; }
+          .chek-balance__row--total .chek-balance__cell-label,
+          .chek-balance__row--total .chek-balance__cell-val { color: #fff !important; font-weight: 900 !important; }
           .chek-footer { padding: 5px 0; font-size: 9px; margin: 0 8px; }
         }
       `}</style>

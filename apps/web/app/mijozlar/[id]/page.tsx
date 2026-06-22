@@ -139,8 +139,8 @@ export default function MijozDetailPage() {
     .finally(() => setLoading(false));
   }, [id, tick]);
 
-  // Stats — qarzga FAQAT Chek=TRUE sotuvlar qo'shiladi (eski dasturga mos)
-  const tasdiqSotuv = (sv: Sotuv) => String(sv.Chek||"").toUpperCase()==="TRUE";
+  // Stats — qarzga tasdiqlangan sotuvlar (Chek bo'sh emas: TRUE yoki FALSE). Faqat bo'sh (Tasdiqlashga) hisobga olinmaydi.
+  const tasdiqSotuv = (sv: Sotuv) => String(sv.Chek||"").trim()!=="";
   const jamiSotuvSom = useMemo(() =>
     sotuvlar.filter(tasdiqSotuv).reduce((s, sv) =>
       s + (savatMap[sv.Sotuv_ID] || []).reduce((ss, r) => ss + num(r.Summa_som), 0), 0),
@@ -173,7 +173,7 @@ export default function MijozDetailPage() {
     const toKey   = toISO   ? toISO.replace(/-/g, "")   : "";
     type Ev = { sana: string; vaqt: string; debit: number; credit: number; tavsif: string };
     const events: Ev[] = [];
-    sotuvlar.filter(s => String(s.Chek || "").toUpperCase() === "TRUE").forEach(s => {
+    sotuvlar.filter(s => String(s.Chek || "").trim() !== "").forEach(s => {
       const amt = cur === "som"
         ? (savatMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa_som), 0)
         : (savatDolMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa), 0);

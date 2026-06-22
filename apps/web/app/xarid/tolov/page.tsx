@@ -1,5 +1,6 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { getCurrentKurs } from "@/lib/kurs";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
@@ -218,6 +219,7 @@ export default function XaridTolovPage() {
   const [addSumma, setAddSumma]     = useState("");
   const [addDollar, setAddDollar]   = useState("");
   const [addKurs, setAddKurs]       = useState("");
+  const [centralKurs, setCentralKurs] = useState("");
   const [addIzoh, setAddIzoh]       = useState("");
   const [addGazna, setAddGazna]     = useState("");
   const [addGaznaDollar, setAddGaznaDollar] = useState("");
@@ -231,6 +233,7 @@ export default function XaridTolovPage() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+  useEffect(() => { getCurrentKurs().then(setCentralKurs).catch(() => {}); }, []);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -316,7 +319,7 @@ export default function XaridTolovPage() {
 
   async function openAdd() {
     setAddT(""); setAddValyuta("Som"); setAddTuri("Naqd");
-    setAddSumma(""); setAddDollar(""); setAddKurs(localStorage.getItem("dollar_kurs") || ""); setAddIzoh("");
+    setAddSumma(""); setAddDollar(""); setAddKurs(centralKurs || localStorage.getItem("dollar_kurs") || ""); setAddIzoh("");
     setAddGazna(""); setAddGaznaDollar("");
     setAddOpen(true);
     try {

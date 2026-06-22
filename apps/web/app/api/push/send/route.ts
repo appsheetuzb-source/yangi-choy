@@ -48,7 +48,7 @@ async function handle(req: NextRequest) {
 
   const sotuvMijoz: Record<string, string> = {};
   (rr["Sotuv"]?.data || []).forEach((s) => {
-    if (String(s.Chek || "").toUpperCase() === "TRUE") { const id = String(s.Sotuv_ID || "").trim(); if (id) sotuvMijoz[id] = s.Mijoz_ID; }
+    if (String(s.Chek || "").trim() !== "") { const id = String(s.Sotuv_ID || "").trim(); if (id) sotuvMijoz[id] = s.Mijoz_ID; }
   });
   const sSom: Record<string, number> = {}, sUsd: Record<string, number> = {};
   (rr["Sotuv_Savat"]?.data || []).forEach((r) => { const mid = sotuvMijoz[String(r.Sotuv_ID || "").trim()]; if (mid) sSom[mid] = (sSom[mid] || 0) + num(r.Summa_som); });

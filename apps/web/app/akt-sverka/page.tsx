@@ -98,7 +98,7 @@ export default function AktSverkaPage() {
     mySot.forEach(s => {
       const sid = String(s.Sotuv_ID || "").trim();
       const som = somByS[sid] || 0, usd = dolByS[sid] || 0;
-      const chek = String(s.Chek || "").toUpperCase() === "TRUE";
+      const chek = String(s.Chek || "").trim() !== "";
       const k = dkey(s.Sana);
       if (fromK && k < fromK) { if (chek) { eskiSom += som; eskiUsd += usd; } return; }
       if (toK && k > toK) return;

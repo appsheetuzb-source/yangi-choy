@@ -104,7 +104,7 @@ export default function OgohDetailPage() {
     fetchSheets(["Mijozlar", "Sotuv", "Sotuv_Savat", "Sotuv_savat_dollar", "S_tolov", "Ogohlantirish"]).then(rr => {
       setMijozlar(((rr["Mijozlar"].data || []) as Mijoz[]).filter(m => m.Mijoz_ID && (m.Ism || "").trim()));
       const sotuvMijoz: Record<string, string> = {};
-      ((rr["Sotuv"].data || []) as Sotuv[]).forEach(s => { if (String(s.Chek || "").toUpperCase() === "TRUE") { const id = String(s.Sotuv_ID || "").trim(); if (id) sotuvMijoz[id] = s.Mijoz_ID; } });
+      ((rr["Sotuv"].data || []) as Sotuv[]).forEach(s => { if (String(s.Chek || "").trim() !== "") { const id = String(s.Sotuv_ID || "").trim(); if (id) sotuvMijoz[id] = s.Mijoz_ID; } });
       const sSom: Record<string, number> = {};
       ((rr["Sotuv_Savat"].data || []) as SavatSom[]).forEach(r => { const mid = sotuvMijoz[String(r.Sotuv_ID || "").trim()]; if (mid) sSom[mid] = (sSom[mid] || 0) + num(r.Summa_som); });
       const sUsd: Record<string, number> = {};

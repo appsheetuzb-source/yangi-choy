@@ -1,5 +1,6 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { getCurrentKurs } from "@/lib/kurs";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
@@ -361,6 +362,7 @@ export default function SotuvTolovPage() {
   const [addSumma, setAddSumma]     = useState("");
   const [addDollar, setAddDollar]   = useState("");
   const [addKurs, setAddKurs]       = useState("");
+  const [centralKurs, setCentralKurs] = useState("");
   const [addIzoh, setAddIzoh]       = useState("");
   const [addGazna, setAddGazna]           = useState("");
   const [addGaznaDollar, setAddGaznaDollar] = useState("");
@@ -375,6 +377,7 @@ export default function SotuvTolovPage() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+  useEffect(() => { getCurrentKurs().then(setCentralKurs).catch(() => {}); }, []);
 
   const loadData = useCallback(() => {
     setLoading(true);
@@ -454,7 +457,7 @@ export default function SotuvTolovPage() {
 
   async function openAdd() {
     setAddMijoz(""); setAddSotuvId(""); setAddValyuta("Som"); setAddTuri("Naqd");
-    setAddSumma(""); setAddDollar(""); setAddKurs(localStorage.getItem("dollar_kurs") || ""); setAddIzoh("");
+    setAddSumma(""); setAddDollar(""); setAddKurs(centralKurs || localStorage.getItem("dollar_kurs") || ""); setAddIzoh("");
     setAddGazna(""); setAddGaznaDollar("");
     setAddOpen(true);
     try {
@@ -674,7 +677,7 @@ export default function SotuvTolovPage() {
     const bSom = num(selectedMijoz.Boshlangich_Balans_som);
     const bUsd = num(selectedMijoz.Boshlangich_Balans_dollar);
     let xSom = 0, xUsd = 0;
-    sotuvlar.filter(s => s.Mijoz_ID === addMijoz && String(s.Chek||"").toUpperCase()==="TRUE").forEach(s => {
+    sotuvlar.filter(s => s.Mijoz_ID === addMijoz && String(s.Chek||"").trim()!=="").forEach(s => {
       xSom += savatSomTot[s.Sotuv_ID] || 0;
       xUsd += savatDolTot[s.Sotuv_ID] || 0;
     });
