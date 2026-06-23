@@ -383,8 +383,8 @@ export default function XaridTolovPage() {
         `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
         `💵 Jami so'm: ${nS(num(summa))}\n` +
         `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
-        `💵 Qoldiq (so'm): ${nS(ostatkaSom - somVal)}\n` +
-        `💵 Qoldiq ($): ${nU(ostatkaDollar - usdVal)}\n` +
+        `💵 Qoldiq (so'm): ${nS(ostatkaSom - num(summa))}\n` +
+        `💵 Qoldiq ($): ${nU(ostatkaDollar - num(summaDollar))}\n` +
         `📝 Izoh: ${addIzoh && addIzoh.trim() ? addIzoh : "null"}`;
       fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
 

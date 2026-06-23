@@ -61,9 +61,10 @@ export default function FoydalanuvchiPage() {
   const [showParol, setShowParol]       = useState(false);
   const [saving, setSaving]             = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Foydalanuvchi | null>(null);
+  const [detailTarget, setDetailTarget] = useState<Foydalanuvchi | null>(null);
   const [isMobile, setIsMobile]         = useState(false);
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
-  useScrollLock(drawerOpen || !!deleteTarget);
+  useScrollLock(drawerOpen || !!deleteTarget || !!detailTarget);
   const [deleting, setDeleting]         = useState(false);
 
   const loadData = useCallback((delay = 0) => {
@@ -92,6 +93,8 @@ export default function FoydalanuvchiPage() {
   );
 
   const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
+  const gaznaNomlar = (ids: string) => (ids || "").split(",").map(s => s.trim()).filter(Boolean)
+    .map(id => { const g = gaznalar.find(x => x.Gazna_ID === id); return g ? g.Nomi + (g.Turi === "Dollar" ? " ($)" : "") : id; }).join(", ");
 
   function openAdd() {
     setEditTarget(null);
@@ -199,20 +202,23 @@ export default function FoydalanuvchiPage() {
                 <button className="btn btn--primary" onClick={openAdd}>+ Yangi foydalanuvchi</button>
               </div>
             ) : (
-              <div className="list">
-                {/* Ustun sarlavhalari */}
-                <div className="list__head">
-                  <div style={{ width: 56, flexShrink: 0 }} />
-                  <div className="list__head-name"><span>Ism</span></div>
-                  <div className="list__head-col"><span>Lavozim</span></div>
-                  <div className="list__head-col"><span>Ombor</span></div>
-                  <div className="list__head-col"><span>Status</span></div>
-                  <div className="list__head-actions" />
-                </div>
+              <div className="list" style={isMobile ? { display: "flex", flexDirection: "column", gap: 10 } : undefined}>
+                {/* Ustun sarlavhalari — faqat desktop */}
+                {!isMobile && (
+                  <div className="list__head">
+                    <div style={{ width: 56, flexShrink: 0 }} />
+                    <div className="list__head-name"><span>Ism</span></div>
+                    <div className="list__head-col"><span>Lavozim</span></div>
+                    <div className="list__head-col"><span>Ombor</span></div>
+                    <div className="list__head-col"><span>Status</span></div>
+                    <div className="list__head-actions" />
+                  </div>
+                )}
 
                 {filtered.map(u => (
-                  <UserRow key={u.Foydalanuvchi_ID} user={u}
+                  <UserRow key={u.Foydalanuvchi_ID} user={u} isMobile={isMobile}
                     omborNomi={omborNomi(u.Ombor_ID)}
+                    onView={() => setDetailTarget(u)}
                     onEdit={() => openEdit(u)}
                     onDelete={() => setDeleteTarget(u)} />
                 ))}
@@ -367,6 +373,71 @@ export default function FoydalanuvchiPage() {
         </>
       )}
 
+      {/* Detail drawer */}
+      {detailTarget && (() => {
+        const u = detailTarget;
+        const initials = String(u.Nomi || "?").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
+        const isActive = u.Status === "Faol";
+        const rows = [
+          { label: "Pochta", value: u.Pochta },
+          { label: "Telefon", value: u.Telefon },
+          { label: "Ombor", value: omborNomi(u.Ombor_ID) },
+          { label: "Gazna", value: gaznaNomlar(u.Gazna_ID) },
+        ];
+        return (
+          <>
+            <div className="drawer-overlay" onClick={() => setDetailTarget(null)} />
+            <div className="drawer">
+              <div className="drawer__head">
+                <button className="drawer__back" onClick={() => setDetailTarget(null)}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+                <span className="drawer__title">Foydalanuvchi</span>
+              </div>
+
+              <div className="drawer__body">
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "8px 0 20px" }}>
+                  <div style={{
+                    width: 68, height: 68, borderRadius: "50%", background: "var(--primary)", color: "#fff",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, fontWeight: 800,
+                  }}>{initials}</div>
+                  <p style={{ fontSize: 18, fontWeight: 800, textAlign: "center", wordBreak: "break-word" }}>{u.Nomi || "—"}</p>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "center" }}>
+                    <LavozimBadge lavozim={u.Lavozim} />
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, padding: "3px 12px", borderRadius: 20,
+                      background: isActive ? "#f0fdf4" : "#fef2f2", color: isActive ? "#16a34a" : "#dc2626",
+                    }}>{u.Status || "—"}</span>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 1, background: "var(--border)", borderRadius: 14, overflow: "hidden" }}>
+                  {rows.map(r => (
+                    <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 14, padding: "14px 16px", background: "var(--white)" }}>
+                      <span style={{ fontSize: 13, color: "var(--text-3)", fontWeight: 600, flexShrink: 0 }}>{r.label}</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", textAlign: "right", wordBreak: "break-word", minWidth: 0 }}>{r.value || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="drawer__footer">
+                <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => { const t = detailTarget; setDetailTarget(null); if (t) openEdit(t); }}>
+                  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  Tahrirlash
+                </button>
+                <button className="btn btn--red" style={{ flex: 1 }} onClick={() => { const t = detailTarget; setDetailTarget(null); setDeleteTarget(t); }}>
+                  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  O&apos;chirish
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
       {/* Delete confirm */}
       {deleteTarget && (
         <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
@@ -409,14 +480,53 @@ function Field({ label, value, onChange, placeholder, autoFocus }: {
 }
 
 /* ── User Row ──────────────────────────── */
-function UserRow({ user: u, omborNomi, onEdit, onDelete }: {
-  user: Foydalanuvchi; omborNomi: string; onEdit: () => void; onDelete: () => void;
+function UserRow({ user: u, isMobile, omborNomi, onView, onEdit, onDelete }: {
+  user: Foydalanuvchi; isMobile: boolean; omborNomi: string; onView: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const initials = String(u.Nomi || "?").split(" ").slice(0, 2).map(w => w[0]).join("").toUpperCase();
   const isActive = u.Status === "Faol";
 
+  // ── Mobil — toza karta (bosilganda detail ochiladi) ──
+  if (isMobile) {
+    return (
+      <div onClick={onView} style={{
+        display: "flex", alignItems: "center", gap: 12, padding: "12px 14px",
+        background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", cursor: "pointer",
+      }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: "50%", background: "var(--primary)", color: "#fff",
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, flexShrink: 0,
+        }}>{initials}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <p style={{ fontSize: 15, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.Nomi || "—"}</p>
+          {(u.Pochta || u.Telefon) && (
+            <p style={{ fontSize: 12, color: "var(--text-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{u.Pochta || u.Telefon}</p>
+          )}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap", marginTop: 7 }}>
+            <LavozimBadge lavozim={u.Lavozim} />
+            <span style={{
+              fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+              background: isActive ? "#f0fdf4" : "#fef2f2", color: isActive ? "#16a34a" : "#dc2626",
+            }}>{u.Status || "—"}</span>
+            {omborNomi && (
+              <span style={{
+                fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
+                background: "var(--bg)", color: "var(--text-2)", maxWidth: 130,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{omborNomi}</span>
+            )}
+          </div>
+        </div>
+        <svg width="18" height="18" fill="none" stroke="var(--text-3)" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/>
+        </svg>
+      </div>
+    );
+  }
+
+  // ── Desktop — jadval qatori (bosilganda detail) ──
   return (
-    <div className="list-card" style={{ cursor: "pointer" }} onClick={onEdit}>
+    <div className="list-card" style={{ cursor: "pointer" }} onClick={onView}>
       {/* Avatar */}
       <div style={{
         width: 56, height: 72, flexShrink: 0,
