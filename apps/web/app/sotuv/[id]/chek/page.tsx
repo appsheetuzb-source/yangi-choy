@@ -24,7 +24,9 @@ function buildPDF(
   savatSom: SotuvSavatRow[], savatDollar: SotuvSavatDollarRow[],
   mMap: Record<string,Mahsulot>,
   totalSom: number, totalDollar: number,
+  tolovSom: number, tolovDollar: number,
 ): jsPDF {
+  const hasTolov = tolovSom > 0 || tolovDollar > 0;
   const margin = 4;
   const W = 210;
   const rowH = 7;
@@ -32,7 +34,7 @@ function buildPDF(
   const infoH    = 30;
   const somH     = savatSom.length    > 0 ? 16 + savatSom.length    * rowH + 12 : 0;
   const dollarH  = savatDollar.length > 0 ? 16 + savatDollar.length * rowH + 12 : 0;
-  const balanceH = 55;
+  const balanceH = hasTolov ? 65 : 55;
   const footerH  = 14;
   const totalH   = headerH + infoH + somH + dollarH + balanceH + footerH;
 
@@ -142,18 +144,20 @@ function buildPDF(
   y += 5;
 
   const colW = savatSom.length > 0 && savatDollar.length > 0 ? (W - margin*2) / 2 : (W - margin*2);
-  const cols: Array<{label:string; eski:string; tovar:string; yak:string}> = [];
-  if (savatSom.length > 0)    cols.push({ label:"So'm",   eski:fmtSom(totalSom),   tovar:fmtSom(thisSom),   yak:fmtSom(totalSom+thisSom) });
-  if (savatDollar.length > 0) cols.push({ label:"Dollar", eski:fmtUsd(totalDollar), tovar:fmtUsd(thisDollar), yak:fmtUsd(totalDollar+thisDollar) });
+  const cols: Array<{label:string; eski:string; tovar:string; tolov:string; yak:string}> = [];
+  if (savatSom.length > 0)    cols.push({ label:"So'm",   eski:fmtSom(totalSom),   tovar:fmtSom(thisSom),   tolov:fmtSom(tolovSom),   yak:fmtSom(totalSom+thisSom-tolovSom) });
+  if (savatDollar.length > 0) cols.push({ label:"Dollar", eski:fmtUsd(totalDollar), tovar:fmtUsd(thisDollar), tolov:fmtUsd(tolovDollar), yak:fmtUsd(totalDollar+thisDollar-tolovDollar) });
 
   const rows2 = [
     { key:"Eski qarz:",      bg:[255,255,255] as [number,number,number], bold:false },
     { key:"Olingan tovar:",  bg:[247,248,252] as [number,number,number], bold:false },
+    ...(hasTolov ? [{ key:"To'lov:", bg:[236,253,243] as [number,number,number], bold:false }] : []),
     { key:"Yakuniy balans:", bg:[240,244,255] as [number,number,number], bold:true  },
   ];
   const vals = [
     cols.map(c=>c.eski),
     cols.map(c=>c.tovar),
+    ...(hasTolov ? [cols.map(c=>"− "+c.tolov)] : []),
     cols.map(c=>c.yak),
   ];
 
@@ -213,6 +217,8 @@ function ChekContent() {
   const mijozTel    = sp.get("mijozTel")||"";
   const totalSom    = num(sp.get("totalSom")||"0");
   const totalDollar = num(sp.get("totalDollar")||"0");
+  const tolovSom    = num(sp.get("tolovSom")||"0");
+  const tolovDollar = num(sp.get("tolovDollar")||"0");
 
   const [savatSom, setSavatSom]       = useState<SotuvSavatRow[]>([]);
   const [savatDollar, setSavatDollar] = useState<SotuvSavatDollarRow[]>([]);
@@ -259,7 +265,7 @@ function ChekContent() {
     if (!rowsReady || !id) return;
     setSharing(true);
     try {
-      const doc = buildPDF(id, sana, agentNomi, mijozIsm, mijozTel, savatSom, savatDollar, mMap, totalSom, totalDollar);
+      const doc = buildPDF(id, sana, agentNomi, mijozIsm, mijozTel, savatSom, savatDollar, mMap, totalSom, totalDollar, tolovSom, tolovDollar);
       const pdfBlob = doc.output("blob");
       const fileName = `chek-${id}.pdf`;
 
@@ -711,9 +717,15 @@ function ChekContent() {
             {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(thisSom)}</span></div>}
             {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(thisDollar)}</span></div>}
           </div>
+          {(tolovSom>0||tolovDollar>0) && (
+          <div className="chek-balance__row">
+            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtSom(tolovSom)}</span></div>}
+            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtUsd(tolovDollar)}</span></div>}
+          </div>
+          )}
           <div className="chek-balance__row chek-balance__row--total">
-            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(totalSom+thisSom)}</span></div>}
-            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd(totalDollar+thisDollar)}</span></div>}
+            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(totalSom+thisSom-tolovSom)}</span></div>}
+            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd(totalDollar+thisDollar-tolovDollar)}</span></div>}
           </div>
         </div>
 

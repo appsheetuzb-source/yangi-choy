@@ -520,14 +520,13 @@ export default function SotuvPage() {
     const maxRaqam=sotuvlar.reduce((mx,s)=>Math.max(mx,num(s.Sotuv_Raqami)),0);
     const raqam=String(maxRaqam+1);
     const kurs=addKurs||"0";
-    const totalSom=valid.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0);
-    const totalUsd=valid.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0);
     try {
       await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",row:{
           Sotuv_ID:sotuvId,Yil:yil,Oy:oy,Sana:snStr,Status:"Tasdiqlashga",
           Sotuv_Raqami:raqam,Agent:addAgent,Mijoz_ID:addMijoz,
-          Balans:String(totalSom),Balans_dollar:String(totalUsd),
+          // Balans = mijozning shu sotuv qo'shilgan paytdagi joriy qarzi (snapshot — keyin o'zgarmaydi)
+          Balans:String(Math.round(addMijozEski?.som??0)),Balans_dollar:String(addMijozEski?.dollar??0),
           Izoh:addIzoh,Vaqt:vaqt,Foiz_som:"",Foiz_summa_som:"0",
           Foiz_dollar:"",Foiz_summasi_dollar:"0",Qoshdi:"",
           Qoshilgan_Vaqt:"",Ozgartirdi:"",Oxirgi_ozgarish:"",
@@ -596,13 +595,11 @@ export default function SotuvPage() {
     setEditSaving(true);
     const kurs=editKurs||"0";
     const {sana:snStr,yil,oy,vaqt}=nowStr();
-    const totalSom=valid.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0);
-    const totalUsd=valid.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0);
     try {
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:detailSotuv.Sotuv_ID,
-          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,
-            Balans:String(totalSom),Balans_dollar:String(totalUsd)}})});
+          // Balans snapshotni o'zgartirmaymiz — eski qiymat saqlanadi (...detailSotuv)
+          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh}})});
       // Delete old savat rows
       for(const r of (savatSomMap[detailSotuv.Sotuv_ID]||[])){
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
@@ -1112,22 +1109,15 @@ export default function SotuvPage() {
                             <button onClick={()=>{
                               const mj=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID);
                               const ag=aMap[s.Agent]||"";
-                              // Mijozning eski qarzi (detail sahifasidagi kabi)
-                              const allIds=sotuvlar.filter(sv=>sv.Mijoz_ID===s.Mijoz_ID&&sv.Sotuv_ID!==s.Sotuv_ID&&qarzTrue(sv)).map(sv=>sv.Sotuv_ID);
                               const isDollar=(v:string)=>String(v||"").toLowerCase().includes("dollar")||v.trim()==="$";
-                              const somJami=allIds.flatMap(id=>savatSomMap[id]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
-                              const dollarJami=allIds.flatMap(id=>savatDollarMap[id]||[]).reduce((t,r)=>t+num(r.Summa),0);
-                              // Barcha to'lovlar (Mijoz_ID bo'yicha, umumiy to'lovlar ham) minus shu sotuvning to'lovlari
+                              // Eski qarz = snapshot (Sotuv.Balans), To'lov = shu sotuvga qilingan to'lovlar
+                              const eskiSom=num(s.Balans);
+                              const eskiDollar=num(s.Balans_dollar);
                               const curPay=stolovMap[s.Sotuv_ID]||[];
-                              const allP=stolovByMijoz[s.Mijoz_ID]||{som:0,dollar:0};
-                              const tolovSom=allP.som - curPay.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Summa):0),0);
-                              const tolovDollar=allP.dollar - curPay.reduce((t,r)=>t+(isDollar(r.Valyuta)?num(r.Summa_dollar):0),0);
-                              const bSom=num(mj?.Boshlangich_Balans_som);
-                              const bDollar=num(mj?.Boshlangich_Balans_dollar);
-                              const eskiSom=bSom+somJami-tolovSom;
-                              const eskiDollar=bDollar+dollarJami-tolovDollar;
+                              const tolovSom=curPay.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Summa):0),0);
+                              const tolovDollar=curPay.reduce((t,r)=>t+(isDollar(r.Valyuta)?num(r.Summa_dollar):0),0);
                               sessionStorage.setItem(`chek_${s.Sotuv_ID}`,JSON.stringify({savatSom:savatSomMap[s.Sotuv_ID]||[],savatDollar:savatDollarMap[s.Sotuv_ID]||[],mMap}));
-                              const params=new URLSearchParams({sana:s.Sana||"",agent:ag,mijozIsm:mj?.Ism||"",mijozTel:mj?.Telefon||"",totalSom:String(eskiSom),totalDollar:String(eskiDollar)});
+                              const params=new URLSearchParams({sana:s.Sana||"",agent:ag,mijozIsm:mj?.Ism||"",mijozTel:mj?.Telefon||"",totalSom:String(eskiSom),totalDollar:String(eskiDollar),tolovSom:String(tolovSom),tolovDollar:String(tolovDollar)});
                               router.push(`/sotuv/${s.Sotuv_ID}/chek?${params}`);
                             }}
                               style={{width:30,height:30,borderRadius:8,border:"none",background:"#f5f3ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7c3aed"}}

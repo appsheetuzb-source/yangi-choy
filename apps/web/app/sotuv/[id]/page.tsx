@@ -384,23 +384,9 @@ export default function SotuvDetailPage() {
       setStolovlar(sorted);
       setGaznalar(((gzR.data||[]) as Gazna[]).filter(g=>g.Gazna_ID));
 
-      // Mijozning umumiy balansi
-      const mijozId = s?.Mijoz_ID || "";
-      const mijozRec = (mzR.data as Mijoz[]).find(m=>m.Mijoz_ID===mijozId);
-      const bSom    = num(mijozRec?.Boshlangich_Balans_som);
-      const bDollar = num(mijozRec?.Boshlangich_Balans_dollar);
-      // Qarzga FAQAT Chek=TRUE sotuvlar qo'shiladi (eski dasturga mos)
-      const allSotuvIds = new Set(
-        (sR.data as Sotuv[]).filter(sv=>sv.Mijoz_ID===mijozId && sv.Sotuv_ID!==id && String(sv.Chek||"").trim()!=="").map(sv=>sv.Sotuv_ID)
-      );
-      const isDollar=(v:string)=>{const lv=String(v||"").toLowerCase().trim();return lv.includes("dollar")||lv==="$"||lv.includes("usd");};
-      const sotuvSomJami    = (ssR.data as SotuvSavatRow[]).filter(r=>allSotuvIds.has(r.Sotuv_ID)).reduce((s,r)=>s+num(r.Summa_som),0);
-      const sotuvDollarJami = (sdR.data as SotuvSavatDollarRow[]).filter(r=>allSotuvIds.has(r.Sotuv_ID)).reduce((s,r)=>s+num(r.Summa),0);
-      const mijozTolovlar   = (stR.data as STolov[]).filter(r=>r.Mijoz_ID===mijozId && r.Sotuv_ID!==id);
-      const tolovSomJami    = mijozTolovlar.reduce((s,t)=>s+(!isDollar(t.Valyuta)?num(t.Summa):0),0);
-      const tolovDollarJami = mijozTolovlar.reduce((s,t)=>s+(isDollar(t.Valyuta)?num(t.Summa_dollar):0),0);
-      setMijozQarzSom(bSom + sotuvSomJami - tolovSomJami);
-      setMijozQarzDollar(bDollar + sotuvDollarJami - tolovDollarJami);
+      // Mijoz balansi = sotuv yaratilgan paytdagi joriy qarz snapshot (Sotuv.Balans) — qotgan, o'zgarmaydi
+      setMijozQarzSom(num(s?.Balans));
+      setMijozQarzDollar(num(s?.Balans_dollar));
     }).finally(()=>setLoading(false));
   }
 
@@ -555,7 +541,6 @@ export default function SotuvDetailPage() {
   async function handleEditSomSave() {
     if(!editSomRow||!sotuv) return;
     setEditSomSaving(true);
-    const oldSumma=num(editSomRow.Summa_som);
     const newSumma=num(editSomSoni)*num(editSomNarx);
     const newId=uid();
     try {
@@ -573,7 +558,6 @@ export default function SotuvDetailPage() {
         }})});
       setSavatSom(p=>p.map(r=>r.Savat_ID===editSomRow.Savat_ID
         ?{...r,Savat_ID:newId,Soni:editSomSoni,Som_Narx:editSomNarx,Summa_som:String(newSumma)}:r));
-      setMijozQarzSom(p=>p-oldSumma+newSumma);
       setEditSomRow(null);
     } finally { setEditSomSaving(false); }
   }
@@ -581,7 +565,6 @@ export default function SotuvDetailPage() {
   async function handleEditDollarSave() {
     if(!editDollarRow||!sotuv) return;
     setEditDollarSaving(true);
-    const oldSumma=num(editDollarRow.Summa);
     const newSumma=num(editDollarSoni)*num(editDollarNarx);
     const newId=uid();
     try {
@@ -599,7 +582,6 @@ export default function SotuvDetailPage() {
         }})});
       setSavatDollar(p=>p.map(r=>r.Savat_ID===editDollarRow.Savat_ID
         ?{...r,Savat_ID:newId,Soni:editDollarSoni,Narx:editDollarNarx,Summa:String(newSumma)}:r));
-      setMijozQarzDollar(p=>p-oldSumma+newSumma);
       setEditDollarRow(null);
     } finally { setEditDollarSaving(false); }
   }
@@ -666,7 +648,6 @@ export default function SotuvDetailPage() {
       setSavatSom(p=>[...p,{Savat_ID:savatId,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:addSomMahsulot,
         Soni:addSomSoni,Som_Narx:addSomNarx,Summa_som:String(summa),
         Kurs:savatSom[0]?.Kurs||"0",Ombor_ID:m?.Ombor_ID||"",Check:"TRUE"}]);
-      setMijozQarzSom(p=>p+summa);
       setAddSomMahsulot(""); setAddSomSoni(""); setAddSomNarx(""); setTimeout(() => addSomRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
     } finally { setAddSomSaving(false); }
   }
@@ -692,7 +673,6 @@ export default function SotuvDetailPage() {
       setSavatDollar(p=>[...p,{Savat_ID:savatId,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:addDollarMahsulot,
         Soni:addDollarSoni,Narx:addDollarNarx,Summa:String(summa),
         Kurs:savatDollar[0]?.Kurs||"0",Ombor_ID:m?.Ombor_ID||"",Check:"TRUE"}]);
-      setMijozQarzDollar(p=>p+summa);
       setAddDollarMahsulot(""); setAddDollarSoni(""); setAddDollarNarx(""); setTimeout(() => addDollarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
     } finally { setAddDollarSaving(false); }
   }
@@ -862,7 +842,7 @@ export default function SotuvDetailPage() {
                 <button onClick={()=>{
                     const mj=mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID);
                     sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
-                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar)});
+                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(tolovJamiSom),tolovDollar:String(tolovJamiDollar)});
                     router.push(`/sotuv/${sotuv.Sotuv_ID}/chek?${p.toString()}`);
                   }} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"1px solid #ddd6fe",borderRadius:"var(--radius)",background:"#f5f3ff",cursor:"pointer",fontSize:13,fontWeight:700,color:"#7c3aed"}}>
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -884,15 +864,16 @@ export default function SotuvDetailPage() {
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
             <p style={{fontSize:10,fontWeight:700,color:"#16a34a",letterSpacing:".06em",marginBottom:12}}>SO&apos;M</p>
             {[
-              {label:"Mijoz balansi", val:mijozQarzSom, color:mijozQarzSom>0?"#ef4444":"#16a34a"},
-              {label:"Sotuv summasi", val:jamiSom, color:"var(--text)"},
-              // Yakuniy qoldiq: shu sotuv FAQAT Chek=TRUE bo'lsa qarzga qo'shiladi (eski dasturga mos)
-              {label:"Yakuniy qoldiq", val:mijozQarzSom+(String(sotuv?.Chek||"").trim()!==""?jamiSom:0), color:"var(--text)", bold:true},
+              {label:"Mijoz balansi", val:mijozQarzSom, color:mijozQarzSom>0?"#ef4444":"#16a34a", bold:false, neg:false},
+              {label:"Sotuv summasi", val:jamiSom, color:"var(--text)", bold:false, neg:false},
+              ...(tolovJamiSom>0?[{label:"To'lov", val:tolovJamiSom, color:"#16a34a", bold:false, neg:true}]:[]),
+              // Yakuniy qoldiq = eski qoldiq + shu sotuv tovari − shu sotuvga qilingan to'lov
+              {label:"Yakuniy qoldiq", val:mijozQarzSom+jamiSom-tolovJamiSom, color:"var(--text)", bold:true, neg:false},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
                 <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
                 <p style={{fontSize:r.bold?16:13,fontWeight:r.bold?800:700,color:r.color}}>
-                  {r.val!==0?r.val.toLocaleString("ru-RU"):"0"} <span style={{fontSize:10,fontWeight:600}}>so&apos;m</span>
+                  {r.neg?"− ":""}{r.val!==0?r.val.toLocaleString("ru-RU"):"0"} <span style={{fontSize:10,fontWeight:600}}>so&apos;m</span>
                 </p>
               </div>
             ))}
@@ -901,15 +882,16 @@ export default function SotuvDetailPage() {
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
             <p style={{fontSize:10,fontWeight:700,color:"#2563eb",letterSpacing:".06em",marginBottom:12}}>DOLLAR</p>
             {[
-              {label:"Mijoz balansi", val:mijozQarzDollar, color:mijozQarzDollar>0?"#ef4444":"#16a34a"},
-              {label:"Sotuv summasi", val:jamiDollar, color:"var(--text)"},
-              // Yakuniy qoldiq: shu sotuv FAQAT Chek=TRUE bo'lsa qarzga qo'shiladi (eski dasturga mos)
-              {label:"Yakuniy qoldiq", val:mijozQarzDollar+(String(sotuv?.Chek||"").trim()!==""?jamiDollar:0), color:"var(--text)", bold:true},
+              {label:"Mijoz balansi", val:mijozQarzDollar, color:mijozQarzDollar>0?"#ef4444":"#16a34a", bold:false, neg:false},
+              {label:"Sotuv summasi", val:jamiDollar, color:"var(--text)", bold:false, neg:false},
+              ...(tolovJamiDollar>0?[{label:"To'lov", val:tolovJamiDollar, color:"#16a34a", bold:false, neg:true}]:[]),
+              // Yakuniy qoldiq = eski qoldiq + shu sotuv tovari − shu sotuvga qilingan to'lov
+              {label:"Yakuniy qoldiq", val:mijozQarzDollar+jamiDollar-tolovJamiDollar, color:"var(--text)", bold:true, neg:false},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
                 <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
                 <p style={{fontSize:r.bold?16:13,fontWeight:r.bold?800:700,color:r.color}}>
-                  ${r.val!==0?r.val.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}):"0.00"}
+                  {r.neg?"− ":""}${r.val!==0?r.val.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}):"0.00"}
                 </p>
               </div>
             ))}
@@ -917,8 +899,8 @@ export default function SotuvDetailPage() {
         </div>
 
         {/* So'm mahsulotlar */}
-        {(savatSom.length>0||addSomOpen)&&(
-          <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",marginBottom:(savatDollar.length>0||addDollarOpen)?16:0,overflowX:isMobile?"auto":undefined}}>
+        {(savatSom.length>0||addSomOpen||savatDollar.length>0||addDollarOpen)&&(
+          <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",marginBottom:16,overflowX:isMobile?"auto":undefined}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
               <span style={{fontSize:15,fontWeight:700}}>So&apos;m mahsulotlar</span>
               <div style={{display:"flex",gap:8}}>
@@ -930,7 +912,7 @@ export default function SotuvDetailPage() {
                 </button>
               </div>
             </div>
-            {!isMobile ? (
+            {(savatSom.length>0||addSomOpen) && (!isMobile ? (
             <div style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
               {bulkMode
                 ? <input type="checkbox" checked={savatSom.length>0&&savatSom.every(r=>bulkSel.has(r.Savat_ID))} onChange={()=>toggleAllBulk(savatSom.map(r=>({Savat_ID:r.Savat_ID,Soni:r.Soni,narx:r.Som_Narx})))} style={{width:17,height:17,cursor:"pointer"}}/>
@@ -942,7 +924,7 @@ export default function SotuvDetailPage() {
               <input type="checkbox" checked={savatSom.length>0&&savatSom.every(r=>bulkSel.has(r.Savat_ID))} onChange={()=>toggleAllBulk(savatSom.map(r=>({Savat_ID:r.Savat_ID,Soni:r.Soni,narx:r.Som_Narx})))} style={{width:18,height:18,cursor:"pointer"}}/>
               <span style={{fontSize:12,fontWeight:700,color:"var(--text-2)"}}>Hammasini tanlash</span>
             </div>
-            ) : null}
+            ) : null)}
             {savatSom.map((s,i)=>{
               const m=mMap[s.Mahsulot_ID];
               const isEdit=editSomRow?.Savat_ID===s.Savat_ID;
@@ -1113,7 +1095,7 @@ export default function SotuvDetailPage() {
         )}
 
         {/* Dollar mahsulotlar */}
-        {(savatDollar.length>0||addDollarOpen)&&(
+        {(savatDollar.length>0||addDollarOpen||savatSom.length>0||addSomOpen)&&(
         <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",overflowX:isMobile?"auto":undefined}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
             <span style={{fontSize:15,fontWeight:700}}>Dollar mahsulotlar</span>
@@ -1126,7 +1108,7 @@ export default function SotuvDetailPage() {
               </button>
             </div>
           </div>
-          {!isMobile ? (
+          {(savatDollar.length>0||addDollarOpen) && (!isMobile ? (
           <div style={{display:"grid",gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)",alignItems:"center"}}>
             {bulkMode
               ? <input type="checkbox" checked={savatDollar.length>0&&savatDollar.every(r=>bulkSel.has(r.Savat_ID))} onChange={()=>toggleAllBulk(savatDollar.map(r=>({Savat_ID:r.Savat_ID,Soni:r.Soni,narx:r.Narx})))} style={{width:17,height:17,cursor:"pointer"}}/>
@@ -1138,7 +1120,7 @@ export default function SotuvDetailPage() {
             <input type="checkbox" checked={savatDollar.length>0&&savatDollar.every(r=>bulkSel.has(r.Savat_ID))} onChange={()=>toggleAllBulk(savatDollar.map(r=>({Savat_ID:r.Savat_ID,Soni:r.Soni,narx:r.Narx})))} style={{width:18,height:18,cursor:"pointer"}}/>
             <span style={{fontSize:12,fontWeight:700,color:"var(--text-2)"}}>Hammasini tanlash</span>
           </div>
-          ) : null}
+          ) : null)}
           {savatDollar.map((s,i)=>{
             const m=mMap[s.Mahsulot_ID];
             const isEdit=editDollarRow?.Savat_ID===s.Savat_ID;
@@ -1398,7 +1380,6 @@ export default function SotuvDetailPage() {
                 const row=deleteSomRow;
                 setDeleteSomRow(null);
                 setSavatSom(p=>p.filter(r=>r.Savat_ID!==row.Savat_ID));
-                setMijozQarzSom(p=>p-num(row.Summa_som));
                 await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
                   body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:row.Savat_ID})});
               }}>O&apos;chirish</button>
@@ -1418,7 +1399,6 @@ export default function SotuvDetailPage() {
                 const row=deleteDollarRow;
                 setDeleteDollarRow(null);
                 setSavatDollar(p=>p.filter(r=>r.Savat_ID!==row.Savat_ID));
-                setMijozQarzDollar(p=>p-num(row.Summa));
                 await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
                   body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:row.Savat_ID})});
               }}>O&apos;chirish</button>
