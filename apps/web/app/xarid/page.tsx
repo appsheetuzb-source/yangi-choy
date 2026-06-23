@@ -363,7 +363,7 @@ export default function XaridPage() {
           body:JSON.stringify({sheet:"Xarid_Savat",row:{X_Savat:uid(),Yil:y,Oy:mo.replace(/^0/,""),Sana:s,Raqam:String(i+1),Xarid_ID:xaridId,Ombor_ID:m?.Ombor_ID||"",Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narxi:r.Narxi,Narx_som:r.Narx_som,Foiz:chegirmaHa?(r.Foiz||""):"",Foizli_narx:chegirmaHa&&num(r.Foiz)>0?String(num(r.Narx_som)*(1-num(r.Foiz)/100)):"0",Foizli_narx_dollar:chegirmaHa&&num(r.Foiz)>0?String(num(r.Narxi)*(1-num(r.Foiz)/100)):r.Narxi,Jami_Summa:String(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narxi)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narxi)),Summa_Som:String(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narx_som)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narx_som)),Vaqt:`${s} ${v}`}})});
       }
       setAddOpen(false); setIzoh(""); setSavat([]); setChegirmaHa(false);
-      loadData(1000);
+      afterWrite("Xarid"); afterWrite("Xarid_Savat"); loadData(1000);
     } finally{setSaving(false);}
   }
 
@@ -407,7 +407,7 @@ export default function XaridPage() {
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({sheet:"Xarid_Savat",idColumn:"X_Savat",idValue:existing[i].X_Savat})});
       }
-      setDetailXarid(null); loadData(1000);
+      afterWrite("Xarid"); afterWrite("Xarid_Savat"); setDetailXarid(null); loadData(1000);
     } finally{setEditSaving(false);}
   }
 
@@ -421,7 +421,7 @@ export default function XaridPage() {
       }
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Xarid",idColumn:"Xarid_ID",idValue:deleteTarget.Xarid_ID})});
-      setDeleteTarget(null); loadData(800);
+      afterWrite("Xarid"); afterWrite("Xarid_Savat"); setDeleteTarget(null); loadData(800);
     } finally{setDeleting(false);}
   }
 
@@ -481,7 +481,7 @@ export default function XaridPage() {
         <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot tanlang..."/>
         <div style={{marginTop:8}}>
           <label style={{fontSize:10,fontWeight:600,color:"var(--text-3)",display:"block",marginBottom:4}}>MIQDOR</label>
-          <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" inputMode="decimal"
+          <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
             style={{width:"100%",padding:"9px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
         </div>
         <div style={{marginTop:8}}>
@@ -814,7 +814,7 @@ export default function XaridPage() {
                   <div key={s.id} style={{marginBottom:bothFilled?2:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateEditItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/></div>
-                    <input value={s.Soni} onChange={e=>updateEditItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                    <input type="number" value={s.Soni} onChange={e=>updateEditItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     <input value={s.Narxi} onChange={e=>updateEditItem(s.id,"Narxi",e.target.value)} placeholder="Narx ($)" style={{width:100,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#2563eb",textAlign:"center"}}/>
                     <input value={s.Narx_som} onChange={e=>updateEditItem(s.id,"Narx_som",e.target.value)} placeholder="Narx (so'm)" style={{width:120,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     {editChegirmaHa&&<input value={s.Foiz} onChange={e=>updateEditItem(s.id,"Foiz",e.target.value)} placeholder="%" inputMode="decimal" style={{width:70,padding:"10px",border:"1px solid #fde68a",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#d97706",textAlign:"center"}}/>}
@@ -962,7 +962,7 @@ export default function XaridPage() {
                   <div key={s.id} style={{marginBottom:bothFilled?2:8}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/></div>
-                    <input value={s.Soni} onChange={e=>updateItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                    <input type="number" value={s.Soni} onChange={e=>updateItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     <input value={s.Narxi} onChange={e=>updateItem(s.id,"Narxi",e.target.value)} placeholder="Narx ($)" style={{width:100,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#2563eb",textAlign:"center"}}/>
                     <input value={s.Narx_som} onChange={e=>updateItem(s.id,"Narx_som",e.target.value)} placeholder="Narx (so'm)" style={{width:120,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     {chegirmaHa&&<input value={s.Foiz} onChange={e=>updateItem(s.id,"Foiz",e.target.value)} placeholder="%" inputMode="decimal" style={{width:70,padding:"10px",border:"1px solid #fde68a",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#d97706",textAlign:"center"}}/>}

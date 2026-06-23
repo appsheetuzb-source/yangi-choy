@@ -298,6 +298,7 @@ export default function XaridTolovPage() {
     await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheet: "X_Tolov", idColumn: "X_Tolov_ID", idValue: t.X_Tolov_ID,
         row: { ...t, Check: newVal } }) });
+    afterWrite("X_Tolov");
     setTolovlar(p => p.map(r => r.X_Tolov_ID === t.X_Tolov_ID ? { ...r, Check: newVal } : r));
     setTogglingId(null);
   }
@@ -387,6 +388,8 @@ export default function XaridTolovPage() {
         `📝 Izoh: ${addIzoh && addIzoh.trim() ? addIzoh : "null"}`;
       fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
 
+      afterWrite("X_Tolov");
+      afterWrite("Taminotchi");
       setAddOpen(false);
       setTimeout(() => loadData(), 800);
     } finally { setSaving(false); }
@@ -406,6 +409,8 @@ export default function XaridTolovPage() {
               row: { Qoldi_som: String(num(taminotchiD.Qoldi_som) + num(deleteTarget.Som)), Qoldi_dollar: String(num(taminotchiD.Qoldi_dollar) + num(deleteTarget.Dollar)) } }) });
         } catch {}
       }
+      afterWrite("X_Tolov");
+      afterWrite("Taminotchi");
       setDeleteTarget(null);
       setTimeout(() => loadData(), 800);
     } finally { setDeleting(false); }
@@ -459,6 +464,8 @@ export default function XaridTolovPage() {
               row: { Qoldi_som: String(num(taminotchiE.Qoldi_som) + num(editTarget.Som) - somVal), Qoldi_dollar: String(num(taminotchiE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal) } }) });
         } catch {}
       }
+      afterWrite("X_Tolov");
+      afterWrite("Taminotchi");
       setEditTarget(null);
       setTimeout(() => loadData(), 800);
     } finally { setEditSaving(false); }

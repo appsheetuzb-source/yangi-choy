@@ -145,7 +145,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                   style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                   style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -159,7 +159,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -194,7 +194,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                   style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                   style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
@@ -208,7 +208,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
@@ -410,6 +410,7 @@ export default function SotuvDetailPage() {
     try {
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:s.Savat_ID,row:{Check:newVal}})});
+      afterWrite("Sotuv_Savat");
       setSavatSom(p=>p.map(r=>r.Savat_ID===s.Savat_ID?{...r,Check:newVal}:r));
     } finally { setTogglingId(null); }
   }
@@ -420,6 +421,7 @@ export default function SotuvDetailPage() {
     try {
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:s.Savat_ID,row:{Check:newVal}})});
+      afterWrite("Sotuv_savat_dollar");
       setSavatDollar(p=>p.map(r=>r.Savat_ID===s.Savat_ID?{...r,Check:newVal}:r));
     } finally { setTogglingId(null); }
   }
@@ -533,6 +535,9 @@ export default function SotuvDetailPage() {
           }
         }
       }
+      afterWrite("Sotuv");
+      afterWrite("Sotuv_Savat");
+      afterWrite("Sotuv_savat_dollar");
       setEditOpen(false);
       setTimeout(()=>loadData(),600);
     } finally { setEditSaving(false); }
@@ -558,6 +563,7 @@ export default function SotuvDetailPage() {
         }})});
       setSavatSom(p=>p.map(r=>r.Savat_ID===editSomRow.Savat_ID
         ?{...r,Savat_ID:newId,Soni:editSomSoni,Som_Narx:editSomNarx,Summa_som:String(newSumma)}:r));
+      afterWrite("Sotuv_Savat");
       setEditSomRow(null);
     } finally { setEditSomSaving(false); }
   }
@@ -582,6 +588,7 @@ export default function SotuvDetailPage() {
         }})});
       setSavatDollar(p=>p.map(r=>r.Savat_ID===editDollarRow.Savat_ID
         ?{...r,Savat_ID:newId,Soni:editDollarSoni,Narx:editDollarNarx,Summa:String(newSumma)}:r));
+      afterWrite("Sotuv_savat_dollar");
       setEditDollarRow(null);
     } finally { setEditDollarSaving(false); }
   }
@@ -648,6 +655,7 @@ export default function SotuvDetailPage() {
       setSavatSom(p=>[...p,{Savat_ID:savatId,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:addSomMahsulot,
         Soni:addSomSoni,Som_Narx:addSomNarx,Summa_som:String(summa),
         Kurs:savatSom[0]?.Kurs||"0",Ombor_ID:m?.Ombor_ID||"",Check:"TRUE"}]);
+      afterWrite("Sotuv_Savat");
       setAddSomMahsulot(""); setAddSomSoni(""); setAddSomNarx(""); setTimeout(() => addSomRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
     } finally { setAddSomSaving(false); }
   }
@@ -673,6 +681,7 @@ export default function SotuvDetailPage() {
       setSavatDollar(p=>[...p,{Savat_ID:savatId,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:addDollarMahsulot,
         Soni:addDollarSoni,Narx:addDollarNarx,Summa:String(summa),
         Kurs:savatDollar[0]?.Kurs||"0",Ombor_ID:m?.Ombor_ID||"",Check:"TRUE"}]);
+      afterWrite("Sotuv_savat_dollar");
       setAddDollarMahsulot(""); setAddDollarSoni(""); setAddDollarNarx(""); setTimeout(() => addDollarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
     } finally { setAddDollarSaving(false); }
   }
@@ -698,6 +707,9 @@ export default function SotuvDetailPage() {
       }
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sid})});
+      afterWrite("Sotuv");
+      afterWrite("Sotuv_Savat");
+      afterWrite("Sotuv_savat_dollar");
       router.push("/sotuv");
     } finally { setDeleting(false); }
   }
@@ -729,6 +741,7 @@ export default function SotuvDetailPage() {
           Dollar_Kursi:addTolovKurs,Izoh:addTolovIzoh,Vaqt:vaqt,Check:"False",
           Gazna_ID:addTolovGazna,Gazna_dollar_ID:addTolovGaznaDollar,
         }})});
+      afterWrite("S_tolov");
       setAddTolovOpen(false);
       setTimeout(()=>loadData(),600);
     } finally { setAddTolovSaving(false); }
@@ -759,6 +772,7 @@ export default function SotuvDetailPage() {
             Som:String(somV),Dollar:String(usdV),Summa:summa,Summa_dollar:summaDollar,
             Dollar_Kursi:editTolovKurs,Izoh:editTolovIzoh,
             Gazna_ID:editTolovGazna,Gazna_dollar_ID:editTolovGaznaDollar}})});
+      afterWrite("S_tolov");
       setEditTolov(null);
       setTimeout(()=>loadData(),600);
     } finally { setEditTolovSaving(false); }
@@ -770,6 +784,7 @@ export default function SotuvDetailPage() {
     try {
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"S_tolov",idColumn:"Tolov_ID",idValue:deleteTolov.Tolov_ID})});
+      afterWrite("S_tolov");
       setDeleteTolov(null);
       setTimeout(()=>loadData(),600);
     } finally { setDeletingTolov(false); }
@@ -780,6 +795,7 @@ export default function SotuvDetailPage() {
     const newVal=(t.Check==="True"||t.Check==="true")?"False":"True";
     await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({sheet:"S_tolov",idColumn:"Tolov_ID",idValue:t.Tolov_ID,row:{...t,Check:newVal}})});
+    afterWrite("S_tolov");
     setStolovlar(p=>p.map(r=>r.Tolov_ID===t.Tolov_ID?{...r,Check:newVal}:r));
     setTogglingId(null);
   }
@@ -940,7 +956,7 @@ export default function SotuvDetailPage() {
                       <div style={{fontSize:14,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m?.Nomi||"—"}</div>
                       <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5,flexWrap:"wrap"}}>
                         {sel?(<>
-                          <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} inputMode="decimal" style={{width:56,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                          <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} type="number" style={{width:56,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                           <span style={{color:"var(--text-3)"}}>×</span>
                           <input value={e.Narx} onChange={ev=>setBulkVal(s.Savat_ID,"Narx",ev.target.value)} inputMode="decimal" style={{width:80,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                           <span style={{fontSize:13,fontWeight:800,color:"var(--primary)"}}>= {fmtSom(jami)}</span>
@@ -956,7 +972,7 @@ export default function SotuvDetailPage() {
                     <input type="checkbox" checked={sel} onChange={()=>toggleBulkRow(s.Savat_ID,s.Soni,s.Som_Narx)} style={{width:17,height:17,cursor:"pointer"}}/>
                     <span style={{fontSize:14,fontWeight:600}}>{m?.Nomi||"—"}</span>
                     {sel
-                      ? <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                      ? <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} type="number" style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                       : <span style={{fontSize:14,fontWeight:700}}>{fmt(s.Soni)}</span>}
                     {sel
                       ? <input value={e.Narx} onChange={ev=>setBulkVal(s.Savat_ID,"Narx",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
@@ -983,7 +999,7 @@ export default function SotuvDetailPage() {
                   <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                     {isEdit?(
                       <span style={{display:"flex",alignItems:"center",gap:6}}>
-                        <input autoFocus value={editSomSoni} onChange={e=>setEditSomSoni(e.target.value)} inputMode="decimal" style={{width:60,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                        <input autoFocus value={editSomSoni} onChange={e=>setEditSomSoni(e.target.value)} type="number" style={{width:60,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                         <span style={{color:"var(--text-3)"}}>×</span>
                         <input value={editSomNarx} onChange={e=>setEditSomNarx(e.target.value)} inputMode="decimal" style={{width:84,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                         <span style={{fontSize:13,fontWeight:800,color:"var(--primary)"}}>= {fmtSom(num(editSomSoni)*num(editSomNarx))}</span>
@@ -1002,7 +1018,7 @@ export default function SotuvDetailPage() {
                 <div key={s.Savat_ID||i} style={{display:"grid",minWidth:isMobile?640:undefined,gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:isEdit?"8px 20px":"13px 20px",alignItems:"center",borderBottom:i<savatSom.length-1?"1px solid var(--border)":"none",background:isEdit?"#f0f9ff":"transparent"}}>
                   <span style={{fontSize:13,color:"var(--text-3)"}}>{i+1}</span>
                   <span style={{fontSize:14,fontWeight:600}}>{m?.Nomi||"—"}</span>
-                  {isEdit?<input autoFocus value={editSomSoni} onChange={e=>setEditSomSoni(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                  {isEdit?<input type="number" autoFocus value={editSomSoni} onChange={e=>setEditSomSoni(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                     :<span style={{fontSize:14,fontWeight:700}}>{fmt(s.Soni)}</span>}
                   {isEdit?<input value={editSomNarx} onChange={e=>setEditSomNarx(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                     :<span style={{fontSize:14,fontWeight:700}}>{fmt(s.Som_Narx)}</span>}
@@ -1049,7 +1065,7 @@ export default function SotuvDetailPage() {
                   <SearchSelect items={mhItems} value={addSomMahsulot} onChange={id=>{setAddSomMahsulot(id);const m=mMap[id];if(m)setAddSomNarx(m.Sotuv_som||"");}} placeholder="Mahsulot tanlang..."/>
                 </div>
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"nowrap"}}>
-                  <input value={addSomSoni} onChange={e=>setAddSomSoni(e.target.value)} placeholder="Soni" inputMode="decimal"
+                  <input value={addSomSoni} onChange={e=>setAddSomSoni(e.target.value)} placeholder="Soni" type="number"
                     style={{width:46,flexShrink:0,padding:"8px 4px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                   <span style={{color:"var(--text-3)",flexShrink:0}}>×</span>
                   <input value={addSomNarx} onChange={e=>setAddSomNarx(e.target.value)} placeholder="Narx" inputMode="decimal"
@@ -1073,7 +1089,7 @@ export default function SotuvDetailPage() {
                 <div style={{paddingRight:8}}>
                   <SearchSelect items={mhItems} value={addSomMahsulot} onChange={id=>{setAddSomMahsulot(id);const m=mMap[id];if(m)setAddSomNarx(m.Sotuv_som||"");}} placeholder="Mahsulot..."/>
                 </div>
-                <input autoFocus value={addSomSoni} onChange={e=>setAddSomSoni(e.target.value)} placeholder="Soni"
+                <input type="number" autoFocus value={addSomSoni} onChange={e=>setAddSomSoni(e.target.value)} placeholder="Soni"
                   style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                 <input value={addSomNarx} onChange={e=>setAddSomNarx(e.target.value)} placeholder="Narx"
                   style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
@@ -1136,7 +1152,7 @@ export default function SotuvDetailPage() {
                     <div style={{fontSize:14,fontWeight:700,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m?.Nomi||"—"}</div>
                     <div style={{display:"flex",alignItems:"center",gap:6,marginTop:5,flexWrap:"wrap"}}>
                       {sel?(<>
-                        <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} inputMode="decimal" style={{width:56,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                        <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} type="number" style={{width:56,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                         <span style={{color:"var(--text-3)"}}>×</span>
                         <input value={e.Narx} onChange={ev=>setBulkVal(s.Savat_ID,"Narx",ev.target.value)} inputMode="decimal" style={{width:80,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
                         <span style={{fontSize:13,fontWeight:800,color:"#2563eb"}}>= {fmtUsd(jami)}</span>
@@ -1152,7 +1168,7 @@ export default function SotuvDetailPage() {
                   <input type="checkbox" checked={sel} onChange={()=>toggleBulkRow(s.Savat_ID,s.Soni,s.Narx)} style={{width:17,height:17,cursor:"pointer"}}/>
                   <span style={{fontSize:14,fontWeight:600}}>{m?.Nomi||"—"}</span>
                   {sel
-                    ? <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                    ? <input value={e.Soni} onChange={ev=>setBulkVal(s.Savat_ID,"Soni",ev.target.value)} type="number" style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                     : <span style={{fontSize:14,fontWeight:700}}>{fmt(s.Soni)}</span>}
                   {sel
                     ? <input value={e.Narx} onChange={ev=>setBulkVal(s.Savat_ID,"Narx",ev.target.value)} inputMode="decimal" style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
@@ -1179,7 +1195,7 @@ export default function SotuvDetailPage() {
                 <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                   {isEdit?(
                     <span style={{display:"flex",alignItems:"center",gap:6}}>
-                      <input autoFocus value={editDollarSoni} onChange={e=>setEditDollarSoni(e.target.value)} inputMode="decimal" style={{width:60,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                      <input autoFocus value={editDollarSoni} onChange={e=>setEditDollarSoni(e.target.value)} type="number" style={{width:60,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                       <span style={{color:"var(--text-3)"}}>×</span>
                       <input value={editDollarNarx} onChange={e=>setEditDollarNarx(e.target.value)} inputMode="decimal" style={{width:84,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
                       <span style={{fontSize:13,fontWeight:800,color:"#2563eb"}}>= {fmtUsd(num(editDollarSoni)*num(editDollarNarx))}</span>
@@ -1198,7 +1214,7 @@ export default function SotuvDetailPage() {
               <div key={s.Savat_ID||i} style={{display:"grid",minWidth:isMobile?640:undefined,gridTemplateColumns:"48px 1fr 100px 120px 140px 90px 72px",padding:isEdit?"8px 20px":"13px 20px",alignItems:"center",borderBottom:i<savatDollar.length-1?"1px solid var(--border)":"none",background:isEdit?"#eff6ff":"transparent"}}>
                 <span style={{fontSize:13,color:"var(--text-3)"}}>{i+1}</span>
                 <span style={{fontSize:14,fontWeight:600}}>{m?.Nomi||"—"}</span>
-                {isEdit?<input autoFocus value={editDollarSoni} onChange={e=>setEditDollarSoni(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
+                {isEdit?<input type="number" autoFocus value={editDollarSoni} onChange={e=>setEditDollarSoni(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                   :<span style={{fontSize:14,fontWeight:700}}>{fmt(s.Soni)}</span>}
                 {isEdit?<input value={editDollarNarx} onChange={e=>setEditDollarNarx(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
                   :<span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(s.Narx)}</span>}
@@ -1245,7 +1261,7 @@ export default function SotuvDetailPage() {
                 <SearchSelect items={mhItems} value={addDollarMahsulot} onChange={id=>{setAddDollarMahsulot(id);const m=mMap[id];if(m)setAddDollarNarx(m.Sotuv_dollar||"");}} placeholder="Mahsulot tanlang..."/>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"nowrap"}}>
-                <input value={addDollarSoni} onChange={e=>setAddDollarSoni(e.target.value)} placeholder="Soni" inputMode="decimal"
+                <input value={addDollarSoni} onChange={e=>setAddDollarSoni(e.target.value)} placeholder="Soni" type="number"
                   style={{width:46,flexShrink:0,padding:"8px 4px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                 <span style={{color:"var(--text-3)",flexShrink:0}}>×</span>
                 <input value={addDollarNarx} onChange={e=>setAddDollarNarx(e.target.value)} placeholder="Narx ($)" inputMode="decimal"
@@ -1269,7 +1285,7 @@ export default function SotuvDetailPage() {
               <div style={{paddingRight:8}}>
                 <SearchSelect items={mhItems} value={addDollarMahsulot} onChange={id=>{setAddDollarMahsulot(id);const m=mMap[id];if(m)setAddDollarNarx(m.Sotuv_dollar||"");}} placeholder="Mahsulot..."/>
               </div>
-              <input autoFocus value={addDollarSoni} onChange={e=>setAddDollarSoni(e.target.value)} placeholder="Soni"
+              <input type="number" autoFocus value={addDollarSoni} onChange={e=>setAddDollarSoni(e.target.value)} placeholder="Soni"
                 style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
               <input value={addDollarNarx} onChange={e=>setAddDollarNarx(e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
@@ -1382,6 +1398,7 @@ export default function SotuvDetailPage() {
                 setSavatSom(p=>p.filter(r=>r.Savat_ID!==row.Savat_ID));
                 await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
                   body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:row.Savat_ID})});
+                afterWrite("Sotuv_Savat");
               }}>O&apos;chirish</button>
             </div>
           </div>
@@ -1401,6 +1418,7 @@ export default function SotuvDetailPage() {
                 setSavatDollar(p=>p.filter(r=>r.Savat_ID!==row.Savat_ID));
                 await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
                   body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:row.Savat_ID})});
+                afterWrite("Sotuv_savat_dollar");
               }}>O&apos;chirish</button>
             </div>
           </div>

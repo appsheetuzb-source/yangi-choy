@@ -233,7 +233,7 @@ export default function MijozlarPage() {
         await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Mijozlar", row: form }) });
       }
-      setDrawerOpen(false); loadData(800);
+      setDrawerOpen(false); afterWrite("Mijozlar"); loadData(800);
     } finally { setSaving(false); }
   }
 
@@ -243,7 +243,7 @@ export default function MijozlarPage() {
     try {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Mijozlar", idColumn: "Mijoz_ID", idValue: deleteTarget.Mijoz_ID }) });
-      setDeleteTarget(null); loadData(800);
+      afterWrite("Mijozlar"); setDeleteTarget(null); loadData(800);
     } finally { setDeleting(false); }
   }
 

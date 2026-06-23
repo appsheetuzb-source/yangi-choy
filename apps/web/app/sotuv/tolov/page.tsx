@@ -434,6 +434,7 @@ export default function SotuvTolovPage() {
     const newVal = (t.Check === "True" || t.Check === "true") ? "False" : "True";
     await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: t.Tolov_ID, row: { ...t, Check: newVal } }) });
+    afterWrite("S_tolov");
     setTolovlar(p => p.map(r => r.Tolov_ID === t.Tolov_ID ? { ...r, Check: newVal } : r));
     setTogglingId(null);
   }, []);
@@ -527,6 +528,8 @@ export default function SotuvTolovPage() {
               row: { Qoldi_som: String(num(qoldiA.Qoldi_som) - somVal), Qoldi_dollar: String(num(qoldiA.Qoldi_dollar) - usdVal) } }) });
         } catch {}
       }
+      afterWrite("S_tolov");
+      afterWrite("MijozBalans");
       setAddOpen(false);
       setTimeout(() => loadData(), 800);
     } finally { setSaving(false); }
@@ -546,6 +549,8 @@ export default function SotuvTolovPage() {
               row: { Qoldi_som: String(num(qoldiD.Qoldi_som) + num(deleteTarget.Som)), Qoldi_dollar: String(num(qoldiD.Qoldi_dollar) + num(deleteTarget.Dollar)) } }) });
         } catch {}
       }
+      afterWrite("S_tolov");
+      afterWrite("MijozBalans");
       setDeleteTarget(null);
       setTimeout(() => loadData(), 800);
     } finally { setDeleting(false); }
@@ -603,6 +608,8 @@ export default function SotuvTolovPage() {
               row: { Qoldi_som: String(num(qoldiE.Qoldi_som) + num(editTarget.Som) - somVal), Qoldi_dollar: String(num(qoldiE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal) } }) });
         } catch {}
       }
+      afterWrite("S_tolov");
+      afterWrite("MijozBalans");
       setEditTarget(null);
       setTimeout(() => loadData(), 800);
     } finally { setEditSaving(false); }
@@ -617,14 +624,6 @@ export default function SotuvTolovPage() {
   }, [mijozlar, isSotuvchi, user]);
 
   function num2(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
-  const addSotuvItems = useMemo(() => {
-    if (!addMijoz) return [];
-    return sotuvlar.filter(s => s.Mijoz_ID === addMijoz).map(s => ({
-      id: s.Sotuv_ID,
-      label: `#${s.Sotuv_Raqami} — ${s.Sana}${num2(s.Balans)>0 ? " | "+num2(s.Balans).toLocaleString("ru-RU")+" so'm" : ""}${num2(s.Balans_dollar)>0 ? " | $"+num2(s.Balans_dollar).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}) : ""}`,
-    }));
-  }, [addMijoz, sotuvlar]);
-
   const editSotuvItems = useMemo(() => {
     if (!editTarget) return [];
     return sotuvlar.filter(s => s.Mijoz_ID === editTarget.Mijoz_ID).map(s => ({
@@ -1012,16 +1011,6 @@ export default function SotuvTolovPage() {
                 </div>
                 <SearchSelect items={mItems} value={addMijoz} onChange={v=>{setAddMijoz(v);setAddSotuvId("");}} placeholder="Mijoz tanlang..."/>
               </div>
-              {/* Sotuv bog'lash */}
-              {addSotuvItems.length > 0 && (
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)" }}>Sotuv (ixtiyoriy)</label>
-                    {addSotuvId && <button onClick={()=>setAddSotuvId("")} style={{ fontSize: 11, color: "#ef4444", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>Tozalash</button>}
-                  </div>
-                  <SearchSelect items={addSotuvItems} value={addSotuvId} onChange={setAddSotuvId} placeholder="Sotuv tanlang..."/>
-                </div>
-              )}
               {/* Valyuta */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Valyuta</label>

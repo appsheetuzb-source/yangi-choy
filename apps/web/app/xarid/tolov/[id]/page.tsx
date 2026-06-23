@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 
@@ -130,6 +130,7 @@ export default function XaridTolovDetailPage() {
           }
         })
       });
+      afterWrite("X_Tolov");
       setEditing(false);
       setTimeout(() => loadData(), 600);
     } finally { setSaving(false); }
@@ -142,6 +143,7 @@ export default function XaridTolovDetailPage() {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "X_Tolov", idColumn: "X_Tolov_ID", idValue: tolov.X_Tolov_ID })
       });
+      afterWrite("X_Tolov");
       router.back();
     } finally { setDeleting(false); }
   }
@@ -156,6 +158,7 @@ export default function XaridTolovDetailPage() {
         row: { ...tolov, Check: newVal }
       })
     });
+    afterWrite("X_Tolov");
     setTolov(p => p ? { ...p, Check: newVal } : p);
     setToggling(false);
   }

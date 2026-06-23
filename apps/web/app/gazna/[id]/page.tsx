@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -213,6 +213,7 @@ export default function GaznaDetailPage() {
         body: JSON.stringify({ sheet: "Gazna", idColumn: "Gazna_ID", idValue: gazna.Gazna_ID,
           row: { Nomi: form.Nomi, Turi: form.Turi, Shakli: form.Shakli,
                  Boshlangich_balans: form.Boshlangich_balans, Boshlanish_Sana: sana, Tugash_Sana: sana } }) });
+      afterWrite("Gazna");
       setShowEdit(false);
       loadData();
     } finally { setSaving(false); }

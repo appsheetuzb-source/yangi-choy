@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 
@@ -147,6 +147,7 @@ export default function SotuvTolovDetailPage() {
           }
         })
       });
+      afterWrite("S_tolov");
       setEditing(false);
       setTimeout(() => loadData(), 600);
     } finally { setSaving(false); }
@@ -159,6 +160,7 @@ export default function SotuvTolovDetailPage() {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: tolov.Tolov_ID })
       });
+      afterWrite("S_tolov");
       router.back();
     } finally { setDeleting(false); }
   }
@@ -173,6 +175,7 @@ export default function SotuvTolovDetailPage() {
         row: { ...tolov, Check: newVal }
       })
     });
+    afterWrite("S_tolov");
     setTolov(p => p ? { ...p, Check: newVal } : p);
     setToggling(false);
   }

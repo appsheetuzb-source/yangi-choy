@@ -212,7 +212,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                   style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                   style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -226,7 +226,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -261,7 +261,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                   style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                   style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
@@ -275,7 +275,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" inputMode="decimal"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
@@ -503,8 +503,8 @@ export default function SotuvPage() {
   }
 
   function openAdd() {
-    // Sotuvchi bo'lsa — o'zini agenti qilib qo'yiladi va o'zgartirib bo'lmaydi
-    setAddMijoz(""); setAddAgent(isSotuvchi && user?.id ? user.id : (agentlar[0]?.Foydalanuvchi_ID||""));
+    // Agent — joriy foydalanuvchi (login bo'lgan user) bo'yicha avtomatik tanlanadi
+    setAddMijoz(""); setAddAgent(user?.id || agentlar[0]?.Foydalanuvchi_ID || "");
     setAddIzoh(""); setAddKurs(defaultKurs);
     setSavat([{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
     setAddOpen(true);
@@ -520,13 +520,19 @@ export default function SotuvPage() {
     const maxRaqam=sotuvlar.reduce((mx,s)=>Math.max(mx,num(s.Sotuv_Raqami)),0);
     const raqam=String(maxRaqam+1);
     const kurs=addKurs||"0";
+    const balSom=String(Math.round(addMijozEski?.som??0));
+    const balDol=String(addMijozEski?.dollar??0);
+    const newSotuv:Sotuv={Sotuv_ID:sotuvId,Yil:yil,Oy:oy,Sana:snStr,Status:"Tasdiqlashga",
+      Sotuv_Raqami:raqam,Agent:addAgent,Mijoz_ID:addMijoz,Balans:balSom,Balans_dollar:balDol,Izoh:addIzoh,Vaqt:vaqt,Chek:""};
+    const somRows:SotuvSavatRow[]=[];
+    const dollarRows:SotuvSavatDollarRow[]=[];
     try {
       await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",row:{
           Sotuv_ID:sotuvId,Yil:yil,Oy:oy,Sana:snStr,Status:"Tasdiqlashga",
           Sotuv_Raqami:raqam,Agent:addAgent,Mijoz_ID:addMijoz,
           // Balans = mijozning shu sotuv qo'shilgan paytdagi joriy qarzi (snapshot — keyin o'zgarmaydi)
-          Balans:String(Math.round(addMijozEski?.som??0)),Balans_dollar:String(addMijozEski?.dollar??0),
+          Balans:balSom,Balans_dollar:balDol,
           Izoh:addIzoh,Vaqt:vaqt,Foiz_som:"",Foiz_summa_som:"0",
           Foiz_dollar:"",Foiz_summasi_dollar:"0",Qoshdi:"",
           Qoshilgan_Vaqt:"",Ozgartirdi:"",Oxirgi_ozgarish:"",
@@ -536,21 +542,25 @@ export default function SotuvPage() {
       for(const r of valid){
         const m=mMap[r.Mahsulot_ID];
         if(num(r.Som_Narx)>0){
+          const savatId=uid();
           const tanSom=num(m?.Tan_som||"0");
           const tanDollar=num(m?.Tan_dollar||"0");
           const somTanNarx=tanSom!==0?tanSom:tanDollar*num(kurs);
           const foyda=num(r.Som_Narx)-somTanNarx;
           const foydaSumma=num(r.Soni)*foyda;
+          const summa=String(num(r.Soni)*num(r.Som_Narx));
           await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({sheet:"Sotuv_Savat",row:{
-              Savat_ID:uid(),Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
+              Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
               Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,
-              Summa_som:String(num(r.Soni)*num(r.Som_Narx)),
+              Summa_som:summa,
               Som_tan_narx:String(Math.round(somTanNarx)),Foyda:String(Math.round(foyda)),Foyda_summasi_som:String(Math.round(foydaSumma)),
               Ombor_ID:m?.Ombor_ID||"",Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:addMijoz,
             }})});
+          somRows.push({Savat_ID:savatId,Sotuv_ID:sotuvId,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Check:r.Check||"TRUE"});
         }
         if(num(r.Narx)>0){
+          const savatId=uid();
           const tanDollar=num(m?.Tan_dollar||"0");
           const foyda=parseFloat((num(r.Narx)-tanDollar).toFixed(2));
           const foydaSumma=parseFloat((foyda*num(r.Soni)).toFixed(2));
@@ -559,16 +569,21 @@ export default function SotuvPage() {
           const tanNarx=parseFloat(tanDollar.toFixed(2));
           await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:{
-              Savat_ID:uid(),Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
+              Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
               Mahsulot_ID:r.Mahsulot_ID,Soni:num(r.Soni),Narx:narx,Kurs:num(kurs),
               Summa:summa,
               Tan_narx:tanNarx,Foyda:foyda,Foyda_summasi_som:foydaSumma,
               Ombor_ID:m?.Ombor_ID||"",Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:addMijoz,
             }})});
+          dollarRows.push({Savat_ID:savatId,Sotuv_ID:sotuvId,Mahsulot_ID:r.Mahsulot_ID,Soni:String(r.Soni),Narx:String(narx),Summa:String(summa),Kurs:kurs,Check:""});
         }
       }
+      // Optimistik: yangi sotuv darhol ro'yxat tepasida ko'rinadi (reload kutmasdan)
+      setSotuvlar(prev=>[newSotuv,...prev]);
+      setSavatSomMap(prev=>({...prev,[sotuvId]:somRows}));
+      setSavatDollarMap(prev=>({...prev,[sotuvId]:dollarRows}));
+      afterWrite("Sotuv"); afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
       setAddOpen(false);
-      loadData(800);
     } finally { setSaving(false); }
   }
 
@@ -648,6 +663,7 @@ export default function SotuvPage() {
             }})});
         }
       }
+      afterWrite("Sotuv"); afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
       setDetailSotuv(null);
       loadData(800);
     } finally { setEditSaving(false); }
@@ -687,8 +703,12 @@ export default function SotuvPage() {
       }
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sid})});
+      // Optimistik: o'chirilgan sotuv darhol ro'yxatdan yo'qoladi (reload kutmasdan)
+      setSotuvlar(prev=>prev.filter(s=>s.Sotuv_ID!==sid));
+      setSavatSomMap(prev=>{const n={...prev};delete n[sid];return n;});
+      setSavatDollarMap(prev=>{const n={...prev};delete n[sid];return n;});
+      afterWrite("Sotuv"); afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
       setDeleteTarget(null);
-      loadData(800);
     } finally { setDeleting(false); }
   }
 
@@ -1194,6 +1214,12 @@ export default function SotuvPage() {
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12,overflowY:"auto",flex:1}}>
               {isMobile && (
               <div style={{display:"grid",gridTemplateColumns:"1fr",gap:12}}>
+                {isAdmin && (
+                  <div>
+                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Agent *</label>
+                    <SearchSelect items={aItems} value={addAgent} onChange={v=>{setAddAgent(v);setAddMijoz("");}} placeholder="Agent tanlang..." borderColor={!addAgent?"#ef4444":undefined}/>
+                  </div>
+                )}
                 <div>
                   <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,marginBottom:6,minHeight:16}}>
                     <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Mijoz *</label>
@@ -1207,12 +1233,6 @@ export default function SotuvPage() {
                   </div>
                   <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz tanlang..." borderColor={!addMijoz?"#ef4444":undefined}/>
                 </div>
-                {isAdmin && (
-                  <div>
-                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Agent *</label>
-                    <SearchSelect items={aItems} value={addAgent} onChange={v=>{setAddAgent(v);setAddMijoz("");}} placeholder="Agent tanlang..." borderColor={!addAgent?"#ef4444":undefined}/>
-                  </div>
-                )}
               </div>
               )}
 

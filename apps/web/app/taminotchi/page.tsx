@@ -166,7 +166,7 @@ export default function TaminotchiPage() {
     try {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: deleteTarget.Taminotchi_ID }) });
-      setDeleteTarget(null); loadData(800);
+      afterWrite("Taminotchi"); setDeleteTarget(null); loadData(800);
     } finally { setDeleting(false); }
   }
 

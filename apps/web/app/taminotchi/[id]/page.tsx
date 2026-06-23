@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
 
 import { useEffect, useState, useMemo } from "react";
@@ -162,6 +162,7 @@ export default function TaminotchiDetailPage() {
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Xarid", idColumn: "Xarid_ID", idValue: x.Xarid_ID, row: { ...x, Akt_sverka: val } }) });
+      afterWrite("Xarid");
     } finally {
       setToggling(p => ({ ...p, [x.Xarid_ID]: false }));
     }
@@ -173,6 +174,7 @@ export default function TaminotchiDetailPage() {
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "X_Tolov", idColumn: "X_Tolov_ID", idValue: t.X_Tolov_ID, row: { ...t, Check: val } }) });
+      afterWrite("X_Tolov");
     } finally {
       setToggling(p => ({ ...p, [t.X_Tolov_ID]: false }));
     }
@@ -184,6 +186,7 @@ export default function TaminotchiDetailPage() {
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: taminotchi.Taminotchi_ID, row: { ...taminotchi, ...form } }) });
+      afterWrite("Taminotchi");
       setEditOpen(false);
       setTimeout(() => setTick(t => t + 1), 800);
     } finally { setSaving(false); }

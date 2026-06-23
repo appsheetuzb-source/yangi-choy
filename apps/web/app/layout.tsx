@@ -3,6 +3,11 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import AppShell from "@/components/AppShell";
 
+// Barcha sahifalar dynamic (statik prerender YO'Q) — Next.js javobga
+// `no-store` Cache-Control qo'yadi, shuning uchun deploydan keyin brauzer
+// eski HTML/chunk'larni keshlab qolmaydi (qattiq yangilash shart emas).
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Yangi Choy",
   description: "Yangi Choy boshqaruv paneli",

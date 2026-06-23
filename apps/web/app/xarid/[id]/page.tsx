@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -203,6 +203,8 @@ export default function XaridDetailPage() {
             } }) });
         }
       }
+      afterWrite("Xarid");
+      afterWrite("Xarid_Savat");
       setEditOpen(false);
       setIsAddMode(false);
       setTimeout(() => loadData(), 800);
@@ -237,6 +239,7 @@ export default function XaridDetailPage() {
           Jami_Summa: String(num(editRowSoni) * num(editRowNarxi)),
           Summa_Som: String(num(editRowSoni) * num(editRowNarxSom)), Vaqt: xarid.Sana,
         } }) });
+      afterWrite("Xarid_Savat");
       setEditRowItem(null);
       setTimeout(() => loadData(), 600);
     } finally { setEditRowSaving(false); }
@@ -245,6 +248,7 @@ export default function XaridDetailPage() {
   async function handleDeleteSavatItem(s: XaridSavat) {
     await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheet: "Xarid_Savat", idColumn: "X_Savat", idValue: s.X_Savat }) });
+    afterWrite("Xarid_Savat");
     setDeleteSavat(null);
     setTimeout(() => loadData(), 600);
   }
@@ -259,6 +263,8 @@ export default function XaridDetailPage() {
       }
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Xarid", idColumn: "Xarid_ID", idValue: xarid.Xarid_ID }) });
+      afterWrite("Xarid");
+      afterWrite("Xarid_Savat");
       router.push("/xarid");
     } finally { setDeleting(false); }
   }
@@ -274,6 +280,7 @@ export default function XaridDetailPage() {
     await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheet: "Xarid", idColumn: "Xarid_ID", idValue: xarid.Xarid_ID,
         row: { ...xarid, Akt_sverka: newVal } }) });
+    afterWrite("Xarid");
     setXarid(prev => prev ? { ...prev, Akt_sverka: newVal } : prev);
     setTogglingAkt(false);
   }
@@ -403,7 +410,7 @@ export default function XaridDetailPage() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   {isEditing ? (
                     <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <input autoFocus value={editRowSoni} onChange={e => setEditRowSoni(e.target.value)} inputMode="decimal" style={{ width: 58, padding: "6px 8px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
+                      <input autoFocus value={editRowSoni} onChange={e => setEditRowSoni(e.target.value)} type="number" style={{ width: 58, padding: "6px 8px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
                       <span style={{ color: "var(--text-3)" }}>×</span>
                       <input value={num(editRowNarxSom) > 0 ? editRowNarxSom : editRowNarxi} onChange={e => num(editRowNarxSom) > 0 ? setEditRowNarxSom(e.target.value) : setEditRowNarxi(e.target.value)} inputMode="decimal" style={{ width: 88, padding: "6px 8px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
                       <span style={{ fontSize: 13, fontWeight: 800, color: "var(--primary)" }}>= {fmt(jami)}</span>
@@ -425,7 +432,7 @@ export default function XaridDetailPage() {
                 <span style={{ fontSize: 14, fontWeight: 600 }}>{m?.Nomi || "—"}</span>
 
                 {isEditing ? (
-                  <input autoFocus value={editRowSoni} onChange={e => setEditRowSoni(e.target.value)}
+                  <input type="number" autoFocus value={editRowSoni} onChange={e => setEditRowSoni(e.target.value)}
                     style={{ width: "100%", padding: "6px 10px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
                 ) : (
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(s.Soni)}</span>
@@ -516,7 +523,7 @@ export default function XaridDetailPage() {
                       <button onClick={() => setEditSavat(p => p.filter(r => r.id !== s.id))} style={{ width: 38, height: 38, borderRadius: 8, border: "none", background: "#fee2e2", color: "#ef4444", cursor: "pointer", flexShrink: 0, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>−</button>
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      <input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Soni" inputMode="decimal"
+                      <input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Soni" type="number"
                         style={{ width: 56, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
                       <input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="$" inputMode="decimal"
                         style={{ width: 74, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", color: "#2563eb", textAlign: "center" }}/>
@@ -531,7 +538,7 @@ export default function XaridDetailPage() {
                   <div style={{ flex: 3, minWidth: 0 }}>
                     <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v => updateEditItem(s.id, "Mahsulot_ID", v)} placeholder="Mahsulot..."/>
                   </div>
-                  <input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Miqdor"
+                  <input type="number" value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Miqdor"
                     style={{ width: 90, padding: "10px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
                   <input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="Narx ($)"
                     style={{ width: 100, padding: "10px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", color: "#2563eb", textAlign: "center" }}/>
@@ -620,7 +627,7 @@ export default function XaridDetailPage() {
                       <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v => updateEditItem(s.id, "Mahsulot_ID", v)} placeholder="Mahsulot tanlang..."/>
                     </div>
                     <div className="grid-2">
-                      <div className="field"><label>Miqdor (kg)</label><input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="0"/></div>
+                      <div className="field"><label>Miqdor (kg)</label><input type="number" value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="0"/></div>
                       <div className="field"><label>Narxi ($)</label><input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="0.00" style={{ color: "#2563eb", fontWeight: 700 }}/></div>
                       <div className="field"><label>Narxi (so&apos;m)</label><input value={s.Narx_som} onChange={e => updateEditItem(s.id, "Narx_som", e.target.value)} placeholder="0"/></div>
                       <div className="field"><label>Jami</label>

@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -236,6 +236,7 @@ export default function MahsulotDetailPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Mahsulot", idColumn: "Mahsulot_ID", idValue: mahsulot.Mahsulot_ID, row: updated }),
       });
+      afterWrite("Mahsulot");
       setMahsulot(updated);
     } finally { setSaving(null); }
   }
