@@ -48,6 +48,76 @@ function fmtSom(v: number) { return v ? v.toLocaleString("ru-RU") + " so'm" : "�
 function fmtUsd(v: number) {
   return v ? "$" + v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
 }
+
+// ── Ovozli savat to'ldirish — o'zbekcha matnni qoidalar asosida tahlil (AI'siz) ──
+const UZ_ONES: Record<string, number> = { nol:0, bir:1, ikki:2, uch:3, tort:4, besh:5, olti:6, yetti:7, sakkiz:8, toqqiz:9 };
+const UZ_TENS: Record<string, number> = { on:10, yigirma:20, ottiz:30, qirq:40, ellik:50, oltmish:60, yetmish:70, sakson:80, toqson:90 };
+function voicePrepare(text: string): string {
+  const s = String(text||"").toLowerCase()
+    .replace(/['’ʻ`´]/g, "")
+    .replace(/[.,!?;:()/\\-]/g, " ")
+    .replace(/\bkilogramm\b|\bkilogram\b|\bkilolik\b|\bkilo\b|\bkg\b/g, "kg")
+    .replace(/\bgrammlik\b|\bgramm\b|\bgram\b|\bgr\b/g, "gr")
+    .replace(/\s+/g, " ").trim();
+  const toks = s.split(" ");
+  const out: string[] = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (t in UZ_TENS) {
+      let v = UZ_TENS[t];
+      if (i + 1 < toks.length && toks[i+1] in UZ_ONES && UZ_ONES[toks[i+1]] > 0) { v += UZ_ONES[toks[i+1]]; i++; }
+      out.push(String(v));
+    } else if (t in UZ_ONES) {
+      out.push(String(UZ_ONES[t]));
+    } else out.push(t);
+  }
+  return out.join(" ").replace(/(\d)\s+(kg|gr)\b/g, "$1$2");
+}
+function voiceMatchProduct(prepared: string, products: Mahsulot[]): Mahsulot | null {
+  const qTokens = prepared.split(" ").filter(Boolean);
+  const qSet = new Set(qTokens);
+  let best: Mahsulot | null = null, bestScore = 0;
+  for (const m of products) {
+    if (!m.Nomi) continue;
+    const mTokens = voicePrepare(m.Nomi).split(" ").filter(Boolean);
+    if (!mTokens.length) continue;
+    let score = 0, maxP = 0;
+    for (const mt of mTokens) {
+      const isNum = /\d/.test(mt);
+      const w = isNum ? 2 : 1;
+      maxP += w;
+      const hit = isNum
+        ? qSet.has(mt)
+        : (qSet.has(mt) || qTokens.some(qt => qt.length >= 3 && !/\d/.test(qt) && (qt.includes(mt) || mt.includes(qt))));
+      if (hit) score += w;
+    }
+    const norm = maxP ? score / maxP : 0;
+    if (norm > bestScore) { bestScore = norm; best = m; }
+  }
+  return bestScore >= 0.55 ? best : null;
+}
+function voiceQty(prepared: string, product: Mahsulot): number {
+  const mTokens = new Set(voicePrepare(product.Nomi).split(" ").filter(Boolean));
+  let leftover = prepared.split(" ").filter(t => t && !mTokens.has(t)).join(" ");
+  const m = leftover.match(/(\d+(?:[.,]\d+)?)\s*(dona|ta|tup|blok|quti|qop|halta|pachka|paket|soni)/);
+  if (m) return parseFloat(m[1].replace(",", ".")) || 1;
+  leftover = leftover.replace(/\d+(?:[.,]\d+)?(kg|gr)/g, " ");
+  const nums = leftover.match(/\d+(?:[.,]\d+)?/g);
+  if (nums && nums.length) return parseFloat(nums[nums.length - 1].replace(",", ".")) || 1;
+  return 1;
+}
+function voiceParse(text: string, products: Mahsulot[]): { product: Mahsulot; qty: number } | null {
+  const prepared = voicePrepare(text);
+  if (!prepared) return null;
+  const product = voiceMatchProduct(prepared, products);
+  if (!product) return null;
+  return { product, qty: voiceQty(prepared, product) };
+}
+type VoiceRec = {
+  lang: string; continuous: boolean; interimResults: boolean; maxAlternatives: number;
+  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
+  onerror: (e: { error?: string }) => void; onend: () => void; start: () => void; stop: () => void;
+};
 function nowStr() {
   const d=new Date();
   const t=new Date(d.toLocaleString("en-US",{timeZone:"Asia/Tashkent"}));
@@ -197,34 +267,36 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
       <div style={{marginBottom:16}}>
         <span style={{fontSize:11,fontWeight:700,color:"#16a34a",letterSpacing:".05em",display:"block",marginBottom:8}}>SO&apos;M SAVAT</span>
         {!isMobile&&somRows.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
-            {["MAHSULOT","MIQDOR","NARX (so'm)","JAMI",""].map(h=>(
+          <div style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
+            {["№","MAHSULOT","MIQDOR","NARX (so'm)","JAMI",""].map(h=>(
               <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
             ))}
           </div>
         )}
-        {somRows.map(s=>{
+        {somRows.map((s,idx)=>{
           const jS=num(s.Soni)*num(s.Som_Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{background:"#f0fdf4",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":undefined}}>
-              <div style={{marginBottom:6}}>
-                <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
-                  style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
-                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
-                  <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
+            <div key={s.id} style={{padding:"8px 0 10px",borderBottom:"1px solid var(--border)",marginBottom:4}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",minWidth:16,flexShrink:0,textAlign:"center"}}>{idx+1}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
                 </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+                  style={{flex:1,minWidth:0,padding:"9px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
+                  style={{flex:1,minWidth:0,padding:"9px 6px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                <div style={{flex:1,minWidth:0,fontSize:12,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jS?jS.toLocaleString("ru-RU"):"—")}</div>
+                <button onClick={()=>onRemove(s.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:18,fontWeight:700}}>−</button>
               </div>
             </div>
           );
           return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -246,34 +318,36 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
       <div style={{marginBottom:8}}>
         <span style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:".05em",display:"block",marginBottom:8}}>DOLLAR SAVAT</span>
         {!isMobile&&dollarRows.length>0&&(
-          <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
-            {["MAHSULOT","MIQDOR","NARX ($)","JAMI",""].map(h=>(
+          <div style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
+            {["№","MAHSULOT","MIQDOR","NARX ($)","JAMI",""].map(h=>(
               <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
             ))}
           </div>
         )}
-        {dollarRows.map(s=>{
+        {dollarRows.map((s,idx)=>{
           const jU=num(s.Soni)*num(s.Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{background:"#eff6ff",borderRadius:"var(--radius)",padding:"10px 12px",marginBottom:8,border:bc?"1px solid #ef4444":undefined}}>
-              <div style={{marginBottom:6}}>
-                <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
-                  style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
-                  <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
+            <div key={s.id} style={{padding:"8px 0 10px",borderBottom:"1px solid var(--border)",marginBottom:4}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
+                <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",minWidth:16,flexShrink:0,textAlign:"center"}}>{idx+1}</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
                 </div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:6}}>
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+                  style={{flex:1,minWidth:0,padding:"9px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
+                  style={{flex:1,minWidth:0,padding:"9px 6px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
+                <div style={{flex:1,minWidth:0,fontSize:12,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#2563eb",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jU?fmtUsd(jU):"—")}</div>
+                <button onClick={()=>onRemove(s.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:18,fontWeight:700}}>−</button>
               </div>
             </div>
           );
           return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
+              <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -342,6 +416,11 @@ export default function SotuvPage() {
   const [addIzoh, setAddIzoh]     = useState("");
   const [addKurs, setAddKurs]     = useState("");
   const [savat, setSavat]         = useState<SavatItem[]>([]);
+  // Ovozli savat to'ldirish
+  const [voiceOn, setVoiceOn]     = useState(false);
+  const [voiceMsg, setVoiceMsg]   = useState("");
+  const [voiceText, setVoiceText] = useState("");
+  const voiceRecRef = useRef<VoiceRec | null>(null);
   const sana = nowStr().sana;
 
   // Edit modal
@@ -367,7 +446,7 @@ export default function SotuvPage() {
   // Savat formasi: desktopda gorizontal qator, mobilda stacklangan
   const [savatMobile, setSavatMobile] = useState(false);
   useEffect(()=>{
-    const c=()=>setSavatMobile(window.innerWidth<640);
+    const c=()=>setSavatMobile(window.innerWidth<768);
     c(); window.addEventListener("resize",c); return ()=>window.removeEventListener("resize",c);
   },[]);
 
@@ -394,28 +473,15 @@ export default function SotuvPage() {
   const loadData = useCallback((delay=0)=>{
     setLoading(true);
     setTimeout(()=>{
-      fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_savat_dollar","Foydalanuvchi","Mijozlar","Mahsulot","Kurs"])
+      // Faza 1 — yengil sheet'lar (list DARHOL ko'rinadi)
+      fetchSheets(["Sotuv","Foydalanuvchi","Mijozlar","Mahsulot","Kurs"])
       .then((rr)=>{
-        const sR=rr["Sotuv"], ssR=rr["Sotuv_Savat"], sdR=rr["Sotuv_savat_dollar"], fR=rr["Foydalanuvchi"], mzR=rr["Mijozlar"], mhR=rr["Mahsulot"], kR=rr["Kurs"];
+        const sR=rr["Sotuv"], fR=rr["Foydalanuvchi"], mzR=rr["Mijozlar"], mhR=rr["Mahsulot"], kR=rr["Kurs"];
         if(sR.error) throw new Error(sR.error);
         // Eski dasturdagidek: sheet'dagi yaratilish tartibi bo'yicha, eng yangi qator (oxirgi qo'shilgan) tepada.
         // Ko'rsatilgan sana/vaqt yoki № emas — aynan sheet qatorlari teskari tartibda.
         const sorted=[...(sR.data as Sotuv[])].filter(s=>s.Sotuv_ID).reverse();
         setSotuvlar(sorted);
-
-        const sm:Record<string,SotuvSavatRow[]>={};
-        (ssR.data as SotuvSavatRow[]).forEach(r=>{
-          const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
-          if(!sm[k])sm[k]=[]; sm[k].push(r);
-        });
-        setSavatSomMap(sm);
-
-        const dm:Record<string,SotuvSavatDollarRow[]>={};
-        (sdR.data as SotuvSavatDollarRow[]).forEach(r=>{
-          const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
-          if(!dm[k])dm[k]=[]; dm[k].push(r);
-        });
-        setSavatDollarMap(dm);
 
         const fArr=fR.data as Foydalanuvchi[];
         setAgentlar(fArr);
@@ -438,7 +504,22 @@ export default function SotuvPage() {
       }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
         .finally(()=>{
           setLoading(false);
-          // S_tolov katta bo'lgani uchun alohida, fonda yuklanadi
+          // Faza 2 — og'ir savat sheet'lari FONDA (JAMI/statistika ~1-2s da to'ladi)
+          fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]).then((rr)=>{
+            const sm:Record<string,SotuvSavatRow[]>={};
+            ((rr["Sotuv_Savat"]?.data||[]) as SotuvSavatRow[]).forEach(r=>{
+              const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
+              if(!sm[k])sm[k]=[]; sm[k].push(r);
+            });
+            setSavatSomMap(sm);
+            const dm:Record<string,SotuvSavatDollarRow[]>={};
+            ((rr["Sotuv_savat_dollar"]?.data||[]) as SotuvSavatDollarRow[]).forEach(r=>{
+              const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
+              if(!dm[k])dm[k]=[]; dm[k].push(r);
+            });
+            setSavatDollarMap(dm);
+          }).catch(()=>{});
+          // S_tolov ham fonda
           fetchSheet("S_tolov").then(stR=>{
             const stm: Record<string,STolov[]> = {};
             const sbm: Record<string,{som:number,dollar:number}> = {};
@@ -460,6 +541,58 @@ export default function SotuvPage() {
   },[]);
 
   useEffect(()=>{loadData();},[loadData]);
+
+  // ── Ovozli savat ──
+  function addVoiceItem(product: Mahsulot, qty: number) {
+    const isSom = num(product.Sotuv_som) > 0;
+    const item: SavatItem = {
+      id: uid(), Mahsulot_ID: product.Mahsulot_ID, Soni: String(qty),
+      Som_Narx: isSom ? (product.Sotuv_som || "") : "",
+      Narx: isSom ? "" : (product.Sotuv_dollar || ""),
+      valyuta: isSom ? "som" : "dollar", Check: "TRUE",
+    };
+    setSavat(prev => {
+      const idx = prev.findIndex(r => r.valyuta === item.valyuta && !r.Mahsulot_ID && !r.Soni);
+      if (idx >= 0) { const cp = [...prev]; cp[idx] = item; return cp; }
+      return [...prev, item];
+    });
+  }
+  function handleVoiceText(txt: string) {
+    const res = voiceParse(txt, mahsulotlar);
+    if (!res) { setVoiceMsg(`🔎 "${txt}" — mahsulot topilmadi, qayta urinib ko'ring`); return; }
+    addVoiceItem(res.product, res.qty);
+    setVoiceMsg(`✅ ${res.product.Nomi} × ${res.qty}  ("${txt}")`);
+  }
+  function startVoice() {
+    // Mikrofon faqat xavfsiz kontekstda (HTTPS yoki localhost) ishlaydi — LAN IP (http) da emas
+    if (typeof window !== "undefined" && !window.isSecureContext) {
+      setVoiceMsg("🎤 Mikrofon faqat HTTPS yoki localhost'da ishlaydi (LAN IP/http da bo'lmaydi). musaffotea.uz yoki localhost'da sinang — yoki hozir pastga yozib qo'shing.");
+      return;
+    }
+    const w = window as unknown as { SpeechRecognition?: new () => VoiceRec; webkitSpeechRecognition?: new () => VoiceRec };
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) { setVoiceMsg("Bu brauzer ovozni qo'llab-quvvatlamaydi (Chrome/Edge tavsiya) — pastdagi maydonga yozing"); return; }
+    if (voiceOn) { try { voiceRecRef.current?.stop(); } catch {} setVoiceOn(false); return; }
+    let rec: VoiceRec;
+    try { rec = new SR(); } catch { setVoiceMsg("Ovozni boshlab bo'lmadi — pastga yozib qo'shing"); return; }
+    rec.lang = "uz-UZ"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
+    rec.onresult = (e) => { const t = e.results?.[0]?.[0]?.transcript || ""; if (t) handleVoiceText(t); };
+    rec.onerror = (e) => {
+      const err = e.error || "";
+      const msg = (err === "not-allowed" || err === "service-not-allowed")
+        ? "Mikrofonga ruxsat berilmadi — brauzer manzil yonidagi 🔒/ⓘ dan mikrofonni yoqing"
+        : err === "no-speech" ? "Ovoz eshitilmadi — qayta urinib, aniqroq gapiring"
+        : err === "audio-capture" ? "Mikrofon topilmadi"
+        : err === "network" ? "Tarmoq xatosi — ovoz xizmati uchun internet/HTTPS kerak"
+        : "Ovoz xatosi: " + err;
+      setVoiceMsg(msg); setVoiceOn(false);
+    };
+    rec.onend = () => setVoiceOn(false);
+    voiceRecRef.current = rec;
+    setVoiceMsg("🎙 Tinglayapman... mahsulot, gram va sonini ayting");
+    setVoiceOn(true);
+    try { rec.start(); } catch { setVoiceMsg("Ovozni boshlab bo'lmadi — pastga yozib qo'shing"); setVoiceOn(false); }
+  }
 
   function addSomItem() {
     setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
@@ -507,6 +640,7 @@ export default function SotuvPage() {
     setAddMijoz(""); setAddAgent(user?.id || agentlar[0]?.Foydalanuvchi_ID || "");
     setAddIzoh(""); setAddKurs(defaultKurs);
     setSavat([{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
+    setVoiceMsg(""); setVoiceText(""); setVoiceOn(false);
     setAddOpen(true);
   }
 
@@ -1255,6 +1389,23 @@ export default function SotuvPage() {
                       style={{width:100,padding:"6px 10px",border:`1px solid ${num(addKurs)>0&&num(addKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                   </div>
                 )}
+                {/* Ovozli savat to'ldirish */}
+                <div style={{marginBottom:14,padding:"12px 14px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:"var(--radius-xl)"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <button type="button" onClick={startVoice}
+                      style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:"var(--radius)",border:"none",background:voiceOn?"#ef4444":"#16a34a",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>
+                      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
+                      {voiceOn?"Tinglayapman...":"Ovozdan qo'shish"}
+                    </button>
+                    <input value={voiceText} onChange={e=>setVoiceText(e.target.value)}
+                      onKeyDown={e=>{if(e.key==="Enter"&&voiceText.trim()){handleVoiceText(voiceText.trim());setVoiceText("");}}}
+                      placeholder="yoki yozing: Rizq 71 1kg 5 dona"
+                      style={{flex:1,minWidth:140,padding:"9px 12px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,outline:"none",background:"#fff"}}/>
+                    <button type="button" onClick={()=>{if(voiceText.trim()){handleVoiceText(voiceText.trim());setVoiceText("");}}}
+                      style={{padding:"9px 14px",borderRadius:"var(--radius)",border:"1px solid #16a34a",background:"#fff",color:"#16a34a",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>Qo&apos;shish</button>
+                  </div>
+                  {voiceMsg && <p style={{margin:"8px 2px 0",fontSize:12,fontWeight:600,color:"var(--text-2)"}}>{voiceMsg}</p>}
+                </div>
                 <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
               <div>

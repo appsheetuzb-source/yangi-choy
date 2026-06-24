@@ -89,14 +89,21 @@ export default function Home() {
   const [myGaznaIds, setMyGaznaIds] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","X_tolov","Mahsulot","Mijozlar","Gazna","Foydalanuvchi","Xarajat"])
+    // Faza 1 — yengil sheet'lar (dashboard DARHOL ko'rinadi)
+    fetchSheets(["Sotuv","Mijozlar","Gazna","Mahsulot","Foydalanuvchi"])
     .then(r=>{
-      setSotuvlar(r["Sotuv"]?.data||[]); setSavatS(r["Sotuv_Savat"]?.data||[]); setSavatD(r["Sotuv_Savat_Dollar"]?.data||[]);
-      setTolovlar(r["S_tolov"]?.data||[]); setXtolov(r["X_tolov"]?.data||[]); setMahsulotlar(r["Mahsulot"]?.data||[]);
-      setMijozlar(r["Mijozlar"]?.data||[]); setGaznalar(r["Gazna"]?.data||[]); setXarajatlar(r["Xarajat"]?.data||[]);
+      setSotuvlar(r["Sotuv"]?.data||[]); setMahsulotlar(r["Mahsulot"]?.data||[]);
+      setMijozlar(r["Mijozlar"]?.data||[]); setGaznalar(r["Gazna"]?.data||[]);
       const me = (r["Foydalanuvchi"]?.data as Foydalanuvchi[]||[]).find(u=>u.Foydalanuvchi_ID===user?.id);
       setMyGaznaIds((me?.Gazna_ID||"").split(",").map(x=>x.trim()).filter(Boolean));
-    }).finally(()=>setLoading(false));
+    }).finally(()=>{
+      setLoading(false);
+      // Faza 2 — og'ir savat/to'lov/xarajat FONDA (KPI/grafik ~1-2s da to'ladi)
+      fetchSheets(["Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","X_tolov","Xarajat"]).then(r=>{
+        setSavatS(r["Sotuv_Savat"]?.data||[]); setSavatD(r["Sotuv_Savat_Dollar"]?.data||[]);
+        setTolovlar(r["S_tolov"]?.data||[]); setXtolov(r["X_tolov"]?.data||[]); setXarajatlar(r["Xarajat"]?.data||[]);
+      }).catch(()=>{});
+    });
   }, [user]);
 
   const t = today();

@@ -120,18 +120,24 @@ export default function StatistikaPage() {
   const [currency, setCurrency] = useState<"som" | "dollar">("som");
 
   useEffect(() => {
-    fetchSheets(["Sotuv","Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","Xarid","Xarid_Savat","Mahsulot","Mijozlar","Taminotchi"])
+    // Faza 1 — yengil (dashboard DARHOL ko'rinadi)
+    fetchSheets(["Sotuv","Xarid","Mahsulot","Mijozlar","Taminotchi"])
     .then(r => {
       setSotuvlar(r["Sotuv"]?.data || []);
-      setSavat(r["Sotuv_Savat"]?.data || []);
-      setSavatD(r["Sotuv_Savat_Dollar"]?.data || []);
-      setTolovlar(r["S_tolov"]?.data || []);
       setXaridlar(r["Xarid"]?.data || []);
-      setXSavat(r["Xarid_Savat"]?.data || []);
       setMahsulotlar(r["Mahsulot"]?.data || []);
       setMijozlar(r["Mijozlar"]?.data || []);
       setTaminotchilar(r["Taminotchi"]?.data || []);
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      setLoading(false);
+      // Faza 2 — og'ir savat/to'lov FONDA (grafik/statistika ~1-2s da to'ladi)
+      fetchSheets(["Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","Xarid_Savat"]).then(r => {
+        setSavat(r["Sotuv_Savat"]?.data || []);
+        setSavatD(r["Sotuv_Savat_Dollar"]?.data || []);
+        setTolovlar(r["S_tolov"]?.data || []);
+        setXSavat(r["Xarid_Savat"]?.data || []);
+      }).catch(()=>{});
+    });
   }, []);
 
   // Available years

@@ -213,27 +213,17 @@ export default function XaridPage() {
   const loadData = useCallback((delay=0)=>{
     setLoading(true);
     setTimeout(()=>{
+      // Faza 1 — yengil (list DARHOL ko'rinadi)
       Promise.all([
         fetchSheet("Xarid"),
-        fetchSheet("Xarid_Savat"),
         fetchSheet("Taminotchi"),
         fetchSheet("Mahsulot"),
-        fetchSheet("X_Tolov"),
-      ]).then(([xR,xsR,tR,mR,xtR])=>{
+      ]).then(([xR,tR,mR])=>{
         if(xR.error) throw new Error(xR.error);
-        setXtolov((xtR.data as XTolov[]) || []);
         const pDate=(s:string)=>{const[d,mo,y]=(s||"").split(".").map(Number);return(y||0)*10000+(mo||0)*100+(d||0);};
         const pTime=(v:string)=>{const[h,m,s]=(v||"").split(":").map(Number);return(h||0)*3600+(m||0)*60+(s||0);};
         const sorted=[...(xR.data as Xarid[])].sort((a,b)=>{const dd=pDate(b.Sana)-pDate(a.Sana);return dd!==0?dd:pTime(b.Vaqt)-pTime(a.Vaqt);});
         setXaridlar(sorted);
-        const sm:Record<string,XaridSavat[]>={};
-        (xsR.data as XaridSavat[]).forEach(s=>{
-          const key=String(s.Xarid_ID||"").trim();
-          if(!key) return;
-          if(!sm[key])sm[key]=[];
-          sm[key].push(s);
-        });
-        setSavatMap(sm);
         const t=tR.data as Taminotchi[];
         setTaminotchilar(t);
         const tm:Record<string,string>={};
@@ -246,7 +236,21 @@ export default function XaridPage() {
         mArr.forEach(m=>{mm[m.Mahsulot_ID]=m;});
         setMMap(mm);
       }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
-        .finally(()=>setLoading(false));
+        .finally(()=>{
+          setLoading(false);
+          // Faza 2 — og'ir Xarid_Savat + X_Tolov FONDA (jami/qoldiq ~1-2s da to'ladi)
+          Promise.all([fetchSheet("Xarid_Savat"), fetchSheet("X_Tolov")]).then(([xsR,xtR])=>{
+            const sm:Record<string,XaridSavat[]>={};
+            ((xsR.data||[]) as XaridSavat[]).forEach(s=>{
+              const key=String(s.Xarid_ID||"").trim();
+              if(!key) return;
+              if(!sm[key])sm[key]=[];
+              sm[key].push(s);
+            });
+            setSavatMap(sm);
+            setXtolov((xtR.data as XTolov[]) || []);
+          }).catch(()=>{});
+        });
     },delay);
   },[]);
 
