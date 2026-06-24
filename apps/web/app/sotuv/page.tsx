@@ -73,28 +73,46 @@ function voicePrepare(text: string): string {
   }
   return out.join(" ").replace(/(\d)\s+(kg|gr)\b/g, "$1$2");
 }
+function voiceLev(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  if (Math.abs(m - n) > 2) return 99;
+  const d: number[][] = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0) as number[]]);
+  for (let j = 0; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+    const c = a[i - 1] === b[j - 1] ? 0 : 1;
+    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+  }
+  return d[m][n];
+}
+function voiceFuzzy(qt: string, mt: string): boolean {
+  if (qt === mt) return true;
+  if (qt.length >= 3 && (qt.includes(mt) || mt.includes(qt))) return true;
+  const lim = mt.length >= 4 ? 2 : 1;
+  return mt.length >= 3 && voiceLev(qt, mt) <= lim;
+}
 function voiceMatchProduct(prepared: string, products: Mahsulot[]): Mahsulot | null {
   const qTokens = prepared.split(" ").filter(Boolean);
   const qSet = new Set(qTokens);
-  let best: Mahsulot | null = null, bestScore = 0;
+  let best: Mahsulot | null = null, bestScore = -Infinity;
   for (const m of products) {
     if (!m.Nomi) continue;
     const mTokens = voicePrepare(m.Nomi).split(" ").filter(Boolean);
     if (!mTokens.length) continue;
-    let score = 0, maxP = 0;
+    let matched = 0, unmatchedNum = 0, brandTotal = 0, brandHit = false;
     for (const mt of mTokens) {
       const isNum = /\d/.test(mt);
-      const w = isNum ? 2 : 1;
-      maxP += w;
+      if (!isNum) brandTotal++;
       const hit = isNum
         ? qSet.has(mt)
-        : (qSet.has(mt) || qTokens.some(qt => qt.length >= 3 && !/\d/.test(qt) && (qt.includes(mt) || mt.includes(qt))));
-      if (hit) score += w;
+        : qTokens.some(qt => !/\d/.test(qt) && voiceFuzzy(qt, mt));
+      if (hit) { matched += isNum ? 2 : 1; if (!isNum) brandHit = true; }
+      else if (isNum) unmatchedNum++;
     }
-    const norm = maxP ? score / maxP : 0;
-    if (norm > bestScore) { bestScore = norm; best = m; }
+    if (brandTotal > 0 && !brandHit) continue;        // brand so'zi mos kelishi shart
+    const score = matched - unmatchedNum * 3;          // noto'g'ri gram/kod variantini jazolaymiz
+    if (score > bestScore) { bestScore = score; best = m; }
   }
-  return bestScore >= 0.55 ? best : null;
+  return bestScore >= 1 ? best : null;
 }
 function voiceQty(prepared: string, product: Mahsulot): number {
   const mTokens = new Set(voicePrepare(product.Nomi).split(" ").filter(Boolean));
