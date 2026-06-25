@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   try {
     const wf = new FormData();
     wf.append("file", audio, (audio as File).name || "audio.webm");
-    wf.append("model", process.env.OPENAI_STT_MODEL || "gpt-4o-transcribe");
+    wf.append("model", process.env.OPENAI_STT_MODEL || "gpt-4o-mini-transcribe");
     // Eslatma: language="uz" Whisper API'da qabul qilinmaydi (uz rasman qo'llab-quvvatlanmaydi).
     // Tilni avto-aniqlashga qoldiramiz; o'zbekcha "prompt" (brend nomlari) aniqlashni o'zbek tomon yo'naltiradi.
     wf.append("prompt", biasPrompt);
@@ -112,7 +112,7 @@ ${catalog}`;
       body: JSON.stringify({
         model: process.env.OPENAI_MATCH_MODEL || "gpt-4o-mini",
         temperature: 0,
-        max_tokens: 1200,
+        max_tokens: 700,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemText },

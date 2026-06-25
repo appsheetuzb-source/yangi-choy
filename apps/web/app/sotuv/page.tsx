@@ -430,6 +430,7 @@ export default function SotuvPage() {
   const [voiceBusy, setVoiceBusy] = useState(false);   // server tahlil qilmoqda
   const [voiceMsg, setVoiceMsg]   = useState("");
   const [voiceText, setVoiceText] = useState("");
+  const [voiceCur, setVoiceCur]   = useState<"som" | "dollar">("som"); // qaysi savatga
   const mediaRecRef = useRef<MediaRecorder | null>(null);
   const voiceChunksRef = useRef<Blob[]>([]);
   const sana = nowStr().sana;
@@ -554,8 +555,8 @@ export default function SotuvPage() {
   useEffect(()=>{loadData();},[loadData]);
 
   // ── Ovozli savat ──
-  function addVoiceItem(product: Mahsulot, qty: number) {
-    const isSom = num(product.Sotuv_som) > 0;
+  function addVoiceItem(product: Mahsulot, qty: number, currency: "som" | "dollar") {
+    const isSom = currency === "som";
     const item: SavatItem = {
       id: uid(), Mahsulot_ID: product.Mahsulot_ID, Soni: String(qty),
       Som_Narx: isSom ? (product.Sotuv_som || "") : "",
@@ -571,11 +572,11 @@ export default function SotuvPage() {
   function handleVoiceText(txt: string) {
     const res = voiceParse(txt, mahsulotlar);
     if (!res) { setVoiceMsg(`🔎 "${txt}" — mahsulot topilmadi, qayta urinib ko'ring`); return; }
-    addVoiceItem(res.product, res.qty);
+    addVoiceItem(res.product, res.qty, "som");
     setVoiceMsg(`✅ ${res.product.Nomi} × ${res.qty}  ("${txt}")`);
   }
   // Yozilgan audioni serverga (Whisper + GPT) yuborib, mahsulot(lar)ni topadi
-  async function sendVoiceBlob(blob: Blob) {
+  async function sendVoiceBlob(blob: Blob, currency: "som" | "dollar") {
     setVoiceBusy(true);
     setVoiceMsg("⏳ Tahlil qilinyapti...");
     try {
@@ -594,19 +595,19 @@ export default function SotuvPage() {
         const product = id ? mMap[id] : null;
         if (!product) continue;
         const qty = num(it?.soni) || 1;
-        addVoiceItem(product, qty);
+        addVoiceItem(product, qty, currency);
         added.push(`${product.Nomi} ×${qty}${it?.ishonch === "past" ? "⚠️" : ""}`);
       }
       if (added.length > 0) {
         const notFound = items.length - added.length;
-        setVoiceMsg(`✅ ${added.length} ta qo'shildi: ${added.join(", ")}${notFound > 0 ? ` · ${notFound} ta topilmadi` : ""}${said}`);
+        setVoiceMsg(`✅ ${added.length} ta qo'shildi (${currency === "dollar" ? "dollar" : "so'm"}): ${added.join(", ")}${notFound > 0 ? ` · ${notFound} ta topilmadi` : ""}${said}`);
         return;
       }
       // Hech narsa topilmadi — transkripsiya bo'lsa lokal (bitta) moslashga urinish
       if (trans) {
         const local = voiceParse(trans, mahsulotlar);
         if (local) {
-          addVoiceItem(local.product, local.qty);
+          addVoiceItem(local.product, local.qty, currency);
           setVoiceMsg(`✅ ${local.product.Nomi} × ${local.qty}${said}`);
           return;
         }
@@ -619,10 +620,11 @@ export default function SotuvPage() {
     }
   }
 
-  async function startVoice() {
+  async function startVoice(currency: "som" | "dollar") {
     if (voiceBusy) return;
     // Yozish ketyapti — to'xtatib, serverga yuborish (onstop ichida)
     if (voiceOn) { try { mediaRecRef.current?.stop(); } catch {} return; }
+    setVoiceCur(currency);
     // Mikrofon faqat xavfsiz kontekstda (HTTPS yoki localhost) ishlaydi — LAN IP (http) da emas
     if (typeof window !== "undefined" && !window.isSecureContext) {
       setVoiceMsg("🎤 Mikrofon faqat HTTPS yoki localhost'da ishlaydi. musaffotea.uz da sinang — yoki pastga yozib qo'shing.");
@@ -649,7 +651,7 @@ export default function SotuvPage() {
       setVoiceOn(false);
       const blob = new Blob(voiceChunksRef.current, { type: mime || "audio/webm" });
       if (blob.size < 1200) { setVoiceMsg("Ovoz juda qisqa — tugmani bosib mahsulotni ayting, so'ng yana bosing"); return; }
-      await sendVoiceBlob(blob);
+      await sendVoiceBlob(blob, currency);
     };
     mediaRecRef.current = rec;
     setVoiceMsg("🎙 Yozyapman... mahsulot(lar)ni, gram va sonini ayting — bir nechta bo'lsa ketma-ket (masalan: Rizq 71 400 gramm 10 dona, Mumtoz 72 400 gramm 10 dona) — so'ng tugmani yana bosing");
@@ -1380,6 +1382,13 @@ export default function SotuvPage() {
                 <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi sotuv</h2>
                 <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
               </div>
+              {isMobile && (
+                <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                  <label style={{fontSize:11,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
+                  <input value={addKurs} onChange={e=>setAddKurs(e.target.value)} placeholder="12800" inputMode="numeric"
+                    style={{width:74,padding:"7px 8px",border:`1px solid ${num(addKurs)>0&&num(addKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                </div>
+              )}
               {!isMobile && (
                 <div style={{width:240,flexShrink:1,minWidth:0}}>
                   <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz" borderColor={!addMijoz?"#ef4444":undefined}/>
@@ -1445,21 +1454,21 @@ export default function SotuvPage() {
               )}
 
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                {isMobile && (
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,marginBottom:12}}>
-                    <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
-                    <input value={addKurs} onChange={e=>setAddKurs(e.target.value)} placeholder="12800" inputMode="numeric"
-                      style={{width:100,padding:"6px 10px",border:`1px solid ${num(addKurs)>0&&num(addKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                  </div>
-                )}
                 {/* Ovozli savat to'ldirish */}
                 <div style={{marginBottom:14,padding:"12px 14px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:"var(--radius-xl)"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <button type="button" onClick={startVoice} disabled={voiceBusy}
-                      style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:"var(--radius)",border:"none",background:voiceBusy?"#94a3b8":voiceOn?"#ef4444":"#16a34a",color:"#fff",cursor:voiceBusy?"default":"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>
-                      <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
-                      {voiceBusy?"⏳ Tahlil...":voiceOn?"⏹ To'xtatish":"Ovozdan qo'shish"}
+                  <div style={{display:"flex",gap:8,marginBottom:8}}>
+                    <button type="button" onClick={()=>startVoice("som")} disabled={voiceBusy||(voiceOn&&voiceCur!=="som")}
+                      style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"10px 10px",borderRadius:"var(--radius)",border:"none",background:(voiceOn||voiceBusy)&&voiceCur==="som"?(voiceBusy?"#94a3b8":"#ef4444"):"#16a34a",color:"#fff",cursor:voiceBusy?"default":"pointer",fontSize:13,fontWeight:700,opacity:voiceOn&&voiceCur!=="som"?0.5:1}}>
+                      <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
+                      {(voiceOn||voiceBusy)&&voiceCur==="som"?(voiceBusy?"⏳ Tahlil...":"⏹ To'xtatish"):"So'm ovoz"}
                     </button>
+                    <button type="button" onClick={()=>startVoice("dollar")} disabled={voiceBusy||(voiceOn&&voiceCur!=="dollar")}
+                      style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"10px 10px",borderRadius:"var(--radius)",border:"none",background:(voiceOn||voiceBusy)&&voiceCur==="dollar"?(voiceBusy?"#94a3b8":"#ef4444"):"#2563eb",color:"#fff",cursor:voiceBusy?"default":"pointer",fontSize:13,fontWeight:700,opacity:voiceOn&&voiceCur!=="dollar"?0.5:1}}>
+                      <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
+                      {(voiceOn||voiceBusy)&&voiceCur==="dollar"?(voiceBusy?"⏳ Tahlil...":"⏹ To'xtatish"):"Dollar ovoz"}
+                    </button>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
                     <input value={voiceText} onChange={e=>setVoiceText(e.target.value)}
                       onKeyDown={e=>{if(e.key==="Enter"&&voiceText.trim()){handleVoiceText(voiceText.trim());setVoiceText("");}}}
                       placeholder="yoki yozing: Rizq 71 1kg 5 dona"
