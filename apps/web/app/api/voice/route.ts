@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
     if (w) { brands.push(w); blen += w.length + 2; }
     if (blen > 650) break;
   }
-  const biasPrompt = ("Choy mahsulotlari buyurtmasi. Nomlar: " + brands.join(", ")).slice(0, 880);
+  const biasPrompt = (
+    "Choy mahsulotlari ovozli buyurtmasi. Tartib: nom gramm dona. " +
+    "Masalan: Rizq 71 400 gramm 10 dona; Mumtoz 72 200 gramm 5 dona. " +
+    "Grammlar: 100, 200, 250, 300, 400, 500 gramm yoki 1 kg. " +
+    "Sonlar: bir, ikki, uch, to'rt, besh, olti, yetti, sakkiz, to'qqiz, o'n, yigirma. " +
+    "Mahsulotlar: " + brands.join(", ")
+  ).slice(0, 980);
 
   let transcription = "";
   try {
@@ -86,11 +92,12 @@ QOIDALAR:
 - Brend/nom VA gramm bo'yicha mos kel. Gramm raqam yoki son-so'z ("ikki yuz gramm"=200, "tort yuz"=400). To'g'ri grammli variantni tanla.
 - soni: "dona/ta/tup/blok/quti/qop/halta/pachka" so'zi OLDIDAGI raqam/son-so'z. "on dona"=10, "besh dona"=5. Aniq son bo'lmasa soni=1.
 - ishonch: aniq mos kelsa "yuqori", shubhali bo'lsa "past".
-- Javobni FAQAT JSON ko'rinishida qaytar: {"items":[{"Mahsulot_ID":"...","soni":N,"ishonch":"yuqori"}]}
+- MUHIM: Mahsulot_ID sifatida KATALOGning chap ustunidagi AYNAN o'sha kodni yoz (8 belgili, masalan "096a2390"). Mahsulot nomini, gramini yoki "<...>" kabi namunani YOZMA — faqat katalogdagi haqiqiy ID kodi.
+- Javobni FAQAT JSON ko'rinishida qaytar: {"items":[{"Mahsulot_ID":"096a2390","soni":N,"ishonch":"yuqori"}]}
 
-MISOLLAR:
-- "rizq yetmish bir tort yuz gramm on dona, mumtoz yetmish ikki tort yuz gramm on dona" -> {"items":[{"Mahsulot_ID":"<rizq 71 400GR id>","soni":10,"ishonch":"yuqori"},{"Mahsulot_ID":"<mumtoz 72 400GR id>","soni":10,"ishonch":"yuqori"}]}
-- "zamin gold ikki yuz gramm besh dona" -> {"items":[{"Mahsulot_ID":"<zamin 200GR id>","soni":5,"ishonch":"yuqori"}]}
+MISOLLAR (ID lar shunchaki FORMAT namunasi — har doim katalogdan haqiqiy kodni ol):
+- "rizq yetmish bir tort yuz gramm on dona, mumtoz yetmish ikki tort yuz gramm on dona" -> {"items":[{"Mahsulot_ID":"0a1b2c3d","soni":10,"ishonch":"yuqori"},{"Mahsulot_ID":"4e5f6a7b","soni":10,"ishonch":"yuqori"}]}
+- "zamin gold ikki yuz gramm besh dona" -> {"items":[{"Mahsulot_ID":"8c9d0e1f","soni":5,"ishonch":"yuqori"}]}
 
 KATALOG (ID | Nomi):
 ${catalog}`;
