@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   try {
     const wf = new FormData();
     wf.append("file", audio, (audio as File).name || "audio.webm");
-    wf.append("model", process.env.OPENAI_STT_MODEL || "whisper-1");
+    wf.append("model", process.env.OPENAI_STT_MODEL || "gpt-4o-transcribe");
     // Eslatma: language="uz" Whisper API'da qabul qilinmaydi (uz rasman qo'llab-quvvatlanmaydi).
     // Tilni avto-aniqlashga qoldiramiz; o'zbekcha "prompt" (brend nomlari) aniqlashni o'zbek tomon yo'naltiradi.
     wf.append("prompt", biasPrompt);
@@ -74,15 +74,24 @@ export async function POST(req: NextRequest) {
   const catalog = products.map((p) => `${p.id} | ${p.n}`).join("\n");
   const systemText =
 `Sen ovozli buyurtmani mahsulot katalogiga moslaydigan yordamchisan.
-Foydalanuvchi mahsulot nomi, grami va sonini ovozda aytadi. Ovoz matnga aylantirilgan, lekin XATO bo'lishi mumkin (masalan "200 gramm" -> "22 gondoni", "kg" -> "ka"). Shuni hisobga olib eng mos mahsulotni tanla.
+Foydalanuvchi mahsulot nomi, grami va sonini ovozda aytadi. Ovoz matnga aylantirilgan, lekin XATO bo'lishi mumkin (apostroflar tushadi: "o'n"->"on", "to'rt"->"tort"; yoki raqam noto'g'ri eshitiladi). Shuni hisobga olib eng mos mahsulotni tanla.
+
+O'ZBEKCHA SON-SO'ZLARNI RAQAMGA AYLANTIR (apostrofsiz ham):
+bir=1, ikki=2, uch=3, tort/to'rt=4, besh=5, olti=6, yetti=7, sakkiz=8, toqqiz/to'qqiz=9, on/o'n=10, yigirma=20, ottiz/o'ttiz=30, qirq=40, ellik=50, oltmish=60, yetmish=70, sakson=80, toqson/to'qson=90, yuz=100.
+Qo'shma: "on besh"=15, "yigirma besh"=25, "ikki yuz"=200, "tort yuz"=400, "besh yuz"=500.
 
 QOIDALAR:
 - Faqat quyidagi KATALOGdagi mahsulotlardan BIRINI tanla. Mos kelmasa Mahsulot_ID="".
-- Brend/nom va gramm/og'irlik bo'yicha mos kel; eshitilgan raqam grammni anglatishi mumkin (200, 250, 1kg...).
-- soni: dona/ta/tup/blok/quti/qop kabi so'zlardan olinadi. Aniq ko'rsatilmasa soni=1.
+- Brend/nom VA gramm/og'irlik bo'yicha mos kel. Gramm raqam yoki son-so'z bilan ("ikki yuz gramm"=200, "tort yuz"=400). To'g'ri grammli variantni tanla.
+- soni: "dona/ta/tup/blok/quti/qop/halta/pachka" so'zi OLDIDAGI raqam yoki son-so'z. "on dona"=10, "besh dona"=5, "yigirma dona"=20. Aniq son ko'rsatilmasa soni=1.
 - ishonch: aniq mos kelsa "yuqori", shubhali bo'lsa "past".
 - nomzodlar: eng mos 1-3 ta Mahsulot_ID (birinchisi eng mosi).
 - Javobni FAQAT JSON ko'rinishida qaytar: {"Mahsulot_ID":"...","soni":N,"ishonch":"yuqori","nomzodlar":["..."]}
+
+MISOLLAR:
+- "rizq yetmish bir bir kg besh dona" -> rizq 71 mahsuloti, soni=5
+- "zamin premium gold tort yuz gramm on dona" -> ZAMIN PREMIUM GOLD 400GR, soni=10
+- "kola ikki yuz gramm" -> 200GR variant, soni=1
 
 KATALOG (ID | Nomi):
 ${catalog}`;
