@@ -98,44 +98,35 @@ function voiceMatchProduct(prepared: string, products: Mahsulot[]): Mahsulot | n
     if (!m.Nomi) continue;
     const mTokens = voicePrepare(m.Nomi).split(" ").filter(Boolean);
     if (!mTokens.length) continue;
-    let matched = 0, unmatchedNum = 0, brandTotal = 0, brandHit = false;
+    let matched = 0, brandTotal = 0, brandHit = false;
     for (const mt of mTokens) {
       const isNum = /\d/.test(mt);
-      if (!isNum) brandTotal++;
-      const hit = isNum
-        ? qSet.has(mt)
-        : qTokens.some(qt => !/\d/.test(qt) && voiceFuzzy(qt, mt));
-      if (hit) { matched += isNum ? 2 : 1; if (!isNum) brandHit = true; }
-      else if (isNum) unmatchedNum++;
+      if (isNum) {
+        if (qSet.has(mt)) matched += 2;                                   // raqam (gram/kod) — faqat ANIQ moslik
+      } else {
+        brandTotal++;
+        if (qSet.has(mt)) { matched += 1; brandHit = true; }              // aniq so'z mosligi — to'liq ball
+        else if (qTokens.some(qt => !/\d/.test(qt) && voiceFuzzy(qt, mt))) { matched += 0.5; brandHit = true; } // taxminiy — yarim ball
+      }
     }
-    if (brandTotal > 0 && !brandHit) continue;        // brand so'zi mos kelishi shart
-    const score = matched - unmatchedNum * 3;          // noto'g'ri gram/kod variantini jazolaymiz
-    if (score > bestScore) { bestScore = score; best = m; }
+    if (brandTotal > 0 && !brandHit) continue;        // brand (nomi) so'zi mos kelishi shart
+    // Eng ko'p mos kelgan mahsulot tanlanadi (gram noto'g'ri eshitilsa ham brand bo'yicha to'g'ri topadi)
+    if (matched > bestScore) { bestScore = matched; best = m; }
   }
   return bestScore >= 1 ? best : null;
 }
-function voiceQty(prepared: string, product: Mahsulot): number {
-  const mTokens = new Set(voicePrepare(product.Nomi).split(" ").filter(Boolean));
-  let leftover = prepared.split(" ").filter(t => t && !mTokens.has(t)).join(" ");
-  const m = leftover.match(/(\d+(?:[.,]\d+)?)\s*(dona|ta|tup|blok|quti|qop|halta|pachka|paket|soni)/);
-  if (m) return parseFloat(m[1].replace(",", ".")) || 1;
-  leftover = leftover.replace(/\d+(?:[.,]\d+)?(kg|gr)/g, " ");
-  const nums = leftover.match(/\d+(?:[.,]\d+)?/g);
-  if (nums && nums.length) return parseFloat(nums[nums.length - 1].replace(",", ".")) || 1;
-  return 1;
+function voiceQty(prepared: string): number {
+  // Soni FAQAT aniq birlik so'zi bilan ("5 dona", "3 ta"...) — gram noto'g'ri eshitilsa son sifatida olinmaydi
+  const m = prepared.match(/(\d+(?:[.,]\d+)?)\s*(dona|ta|tup|blok|quti|qop|halta|pachka|paket|soni)/);
+  return m ? (parseFloat(m[1].replace(",", ".")) || 1) : 1;
 }
 function voiceParse(text: string, products: Mahsulot[]): { product: Mahsulot; qty: number } | null {
   const prepared = voicePrepare(text);
   if (!prepared) return null;
   const product = voiceMatchProduct(prepared, products);
   if (!product) return null;
-  return { product, qty: voiceQty(prepared, product) };
+  return { product, qty: voiceQty(prepared) };
 }
-type VoiceRec = {
-  lang: string; continuous: boolean; interimResults: boolean; maxAlternatives: number;
-  onresult: (e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void;
-  onerror: (e: { error?: string }) => void; onend: () => void; start: () => void; stop: () => void;
-};
 function nowStr() {
   const d=new Date();
   const t=new Date(d.toLocaleString("en-US",{timeZone:"Asia/Tashkent"}));
@@ -434,11 +425,13 @@ export default function SotuvPage() {
   const [addIzoh, setAddIzoh]     = useState("");
   const [addKurs, setAddKurs]     = useState("");
   const [savat, setSavat]         = useState<SavatItem[]>([]);
-  // Ovozli savat to'ldirish
-  const [voiceOn, setVoiceOn]     = useState(false);
+  // Ovozli savat to'ldirish (Whisper + Claude)
+  const [voiceOn, setVoiceOn]     = useState(false);   // ovoz yozilmoqda
+  const [voiceBusy, setVoiceBusy] = useState(false);   // server tahlil qilmoqda
   const [voiceMsg, setVoiceMsg]   = useState("");
   const [voiceText, setVoiceText] = useState("");
-  const voiceRecRef = useRef<VoiceRec | null>(null);
+  const mediaRecRef = useRef<MediaRecorder | null>(null);
+  const voiceChunksRef = useRef<Blob[]>([]);
   const sana = nowStr().sana;
 
   // Edit modal
@@ -581,35 +574,74 @@ export default function SotuvPage() {
     addVoiceItem(res.product, res.qty);
     setVoiceMsg(`✅ ${res.product.Nomi} × ${res.qty}  ("${txt}")`);
   }
-  function startVoice() {
+  // Yozilgan audioni serverga (Whisper + Claude) yuborib, mahsulotni topadi
+  async function sendVoiceBlob(blob: Blob) {
+    setVoiceBusy(true);
+    setVoiceMsg("⏳ Tahlil qilinyapti...");
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "audio.webm");
+      fd.append("products", JSON.stringify(mahsulotlar.map(m => ({ id: m.Mahsulot_ID, n: m.Nomi }))));
+      const r = await fetch("/api/voice", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({} as Record<string, unknown>));
+      const trans = String(j.transcription || "");
+      const said = trans ? ` — eshitildi: "${trans}"` : "";
+      // Server mahsulotni topdi
+      if (r.ok && j.Mahsulot_ID && mMap[j.Mahsulot_ID as string]) {
+        const product = mMap[j.Mahsulot_ID as string];
+        const qty = num(j.soni) || 1;
+        addVoiceItem(product, qty);
+        setVoiceMsg(`✅ ${product.Nomi} × ${qty}${j.ishonch === "past" ? " ⚠️ tekshiring" : ""}  ("${trans}")`);
+        return;
+      }
+      // Topa olmadi yoki server xato — transkripsiya bo'lsa lokal moslashga urinish
+      if (trans) {
+        const local = voiceParse(trans, mahsulotlar);
+        if (local) {
+          addVoiceItem(local.product, local.qty);
+          setVoiceMsg(`✅ ${local.product.Nomi} × ${local.qty}  ("${trans}")`);
+          return;
+        }
+      }
+      setVoiceMsg(j.error ? `⚠️ ${j.error}${said}` : `🔎 Mahsulot topilmadi${said} — qayta urinib ko'ring`);
+    } catch {
+      setVoiceMsg("⚠️ Server bilan bog'lanib bo'lmadi — pastga yozib qo'shing");
+    } finally {
+      setVoiceBusy(false);
+    }
+  }
+
+  async function startVoice() {
+    if (voiceBusy) return;
+    // Yozish ketyapti — to'xtatib, serverga yuborish (onstop ichida)
+    if (voiceOn) { try { mediaRecRef.current?.stop(); } catch {} return; }
     // Mikrofon faqat xavfsiz kontekstda (HTTPS yoki localhost) ishlaydi — LAN IP (http) da emas
     if (typeof window !== "undefined" && !window.isSecureContext) {
-      setVoiceMsg("🎤 Mikrofon faqat HTTPS yoki localhost'da ishlaydi (LAN IP/http da bo'lmaydi). musaffotea.uz yoki localhost'da sinang — yoki hozir pastga yozib qo'shing.");
+      setVoiceMsg("🎤 Mikrofon faqat HTTPS yoki localhost'da ishlaydi. musaffotea.uz da sinang — yoki pastga yozib qo'shing.");
       return;
     }
-    const w = window as unknown as { SpeechRecognition?: new () => VoiceRec; webkitSpeechRecognition?: new () => VoiceRec };
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
-    if (!SR) { setVoiceMsg("Bu brauzer ovozni qo'llab-quvvatlamaydi (Chrome/Edge tavsiya) — pastdagi maydonga yozing"); return; }
-    if (voiceOn) { try { voiceRecRef.current?.stop(); } catch {} setVoiceOn(false); return; }
-    let rec: VoiceRec;
-    try { rec = new SR(); } catch { setVoiceMsg("Ovozni boshlab bo'lmadi — pastga yozib qo'shing"); return; }
-    rec.lang = "uz-UZ"; rec.continuous = false; rec.interimResults = false; rec.maxAlternatives = 1;
-    rec.onresult = (e) => { const t = e.results?.[0]?.[0]?.transcript || ""; if (t) handleVoiceText(t); };
-    rec.onerror = (e) => {
-      const err = e.error || "";
-      const msg = (err === "not-allowed" || err === "service-not-allowed")
-        ? "Mikrofonga ruxsat berilmadi — brauzer manzil yonidagi 🔒/ⓘ dan mikrofonni yoqing"
-        : err === "no-speech" ? "Ovoz eshitilmadi — qayta urinib, aniqroq gapiring"
-        : err === "audio-capture" ? "Mikrofon topilmadi"
-        : err === "network" ? "Tarmoq xatosi — ovoz xizmati uchun internet/HTTPS kerak"
-        : "Ovoz xatosi: " + err;
-      setVoiceMsg(msg); setVoiceOn(false);
+    let stream: MediaStream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { setVoiceMsg("Mikrofonga ruxsat berilmadi — brauzer manzili yonidagi 🔒 dan mikrofonni yoqing"); return; }
+    const canRec = typeof MediaRecorder !== "undefined";
+    const mime = canRec && MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
+      : canRec && MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+    let rec: MediaRecorder;
+    try { rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
+    catch { setVoiceMsg("Bu brauzer ovoz yozishni qo'llab-quvvatlamaydi — pastga yozib qo'shing"); stream.getTracks().forEach(t => t.stop()); return; }
+    voiceChunksRef.current = [];
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) voiceChunksRef.current.push(e.data); };
+    rec.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      setVoiceOn(false);
+      const blob = new Blob(voiceChunksRef.current, { type: mime || "audio/webm" });
+      if (blob.size < 1200) { setVoiceMsg("Ovoz juda qisqa — tugmani bosib mahsulotni ayting, so'ng yana bosing"); return; }
+      await sendVoiceBlob(blob);
     };
-    rec.onend = () => setVoiceOn(false);
-    voiceRecRef.current = rec;
-    setVoiceMsg("🎙 Tinglayapman... mahsulot, gram va sonini ayting");
+    mediaRecRef.current = rec;
+    setVoiceMsg("🎙 Yozyapman... mahsulot, gram va sonini ayting, so'ng tugmani yana bosing");
     setVoiceOn(true);
-    try { rec.start(); } catch { setVoiceMsg("Ovozni boshlab bo'lmadi — pastga yozib qo'shing"); setVoiceOn(false); }
+    try { rec.start(); } catch { setVoiceMsg("Ovoz yozib bo'lmadi"); setVoiceOn(false); stream.getTracks().forEach(t => t.stop()); }
   }
 
   function addSomItem() {
@@ -1410,10 +1442,10 @@ export default function SotuvPage() {
                 {/* Ovozli savat to'ldirish */}
                 <div style={{marginBottom:14,padding:"12px 14px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:"var(--radius-xl)"}}>
                   <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-                    <button type="button" onClick={startVoice}
-                      style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:"var(--radius)",border:"none",background:voiceOn?"#ef4444":"#16a34a",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>
+                    <button type="button" onClick={startVoice} disabled={voiceBusy}
+                      style={{display:"flex",alignItems:"center",gap:7,padding:"9px 16px",borderRadius:"var(--radius)",border:"none",background:voiceBusy?"#94a3b8":voiceOn?"#ef4444":"#16a34a",color:"#fff",cursor:voiceBusy?"default":"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>
                       <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
-                      {voiceOn?"Tinglayapman...":"Ovozdan qo'shish"}
+                      {voiceBusy?"⏳ Tahlil...":voiceOn?"⏹ To'xtatish":"Ovozdan qo'shish"}
                     </button>
                     <input value={voiceText} onChange={e=>setVoiceText(e.target.value)}
                       onKeyDown={e=>{if(e.key==="Enter"&&voiceText.trim()){handleVoiceText(voiceText.trim());setVoiceText("");}}}
