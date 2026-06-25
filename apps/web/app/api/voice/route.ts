@@ -74,24 +74,23 @@ export async function POST(req: NextRequest) {
   const catalog = products.map((p) => `${p.id} | ${p.n}`).join("\n");
   const systemText =
 `Sen ovozli buyurtmani mahsulot katalogiga moslaydigan yordamchisan.
-Foydalanuvchi mahsulot nomi, grami va sonini ovozda aytadi. Ovoz matnga aylantirilgan, lekin XATO bo'lishi mumkin (apostroflar tushadi: "o'n"->"on", "to'rt"->"tort"; yoki raqam noto'g'ri eshitiladi). Shuni hisobga olib eng mos mahsulotni tanla.
+Foydalanuvchi BIR yoki BIR NECHTA mahsulotni ketma-ket aytadi (vergul, "va", yoki shunchaki ketma-ket). Har biri uchun nom, gram va soni bo'ladi. Ovoz matnga aylantirilgan, lekin XATO bo'lishi mumkin (apostroflar tushadi: "o'n"->"on", "to'rt"->"tort"; yoki raqam noto'g'ri eshitiladi). Shuni hisobga ol.
 
 O'ZBEKCHA SON-SO'ZLARNI RAQAMGA AYLANTIR (apostrofsiz ham):
 bir=1, ikki=2, uch=3, tort/to'rt=4, besh=5, olti=6, yetti=7, sakkiz=8, toqqiz/to'qqiz=9, on/o'n=10, yigirma=20, ottiz/o'ttiz=30, qirq=40, ellik=50, oltmish=60, yetmish=70, sakson=80, toqson/to'qson=90, yuz=100.
 Qo'shma: "on besh"=15, "yigirma besh"=25, "ikki yuz"=200, "tort yuz"=400, "besh yuz"=500.
 
 QOIDALAR:
-- Faqat quyidagi KATALOGdagi mahsulotlardan BIRINI tanla. Mos kelmasa Mahsulot_ID="".
-- Brend/nom VA gramm/og'irlik bo'yicha mos kel. Gramm raqam yoki son-so'z bilan ("ikki yuz gramm"=200, "tort yuz"=400). To'g'ri grammli variantni tanla.
-- soni: "dona/ta/tup/blok/quti/qop/halta/pachka" so'zi OLDIDAGI raqam yoki son-so'z. "on dona"=10, "besh dona"=5, "yigirma dona"=20. Aniq son ko'rsatilmasa soni=1.
+- HAR BIR aytilgan mahsulotni ALOHIDA element qil. Buyurtmada nechta mahsulot bo'lsa, "items" ro'yxatida shuncha element bo'lsin (10 tagacha yoki ko'proq).
+- Har element: katalogdan eng mos Mahsulot_ID, soni, ishonch. Faqat KATALOGdagi mahsulotlardan tanla; mos kelmasa o'sha element Mahsulot_ID="".
+- Brend/nom VA gramm bo'yicha mos kel. Gramm raqam yoki son-so'z ("ikki yuz gramm"=200, "tort yuz"=400). To'g'ri grammli variantni tanla.
+- soni: "dona/ta/tup/blok/quti/qop/halta/pachka" so'zi OLDIDAGI raqam/son-so'z. "on dona"=10, "besh dona"=5. Aniq son bo'lmasa soni=1.
 - ishonch: aniq mos kelsa "yuqori", shubhali bo'lsa "past".
-- nomzodlar: eng mos 1-3 ta Mahsulot_ID (birinchisi eng mosi).
-- Javobni FAQAT JSON ko'rinishida qaytar: {"Mahsulot_ID":"...","soni":N,"ishonch":"yuqori","nomzodlar":["..."]}
+- Javobni FAQAT JSON ko'rinishida qaytar: {"items":[{"Mahsulot_ID":"...","soni":N,"ishonch":"yuqori"}]}
 
 MISOLLAR:
-- "rizq yetmish bir bir kg besh dona" -> rizq 71 mahsuloti, soni=5
-- "zamin premium gold tort yuz gramm on dona" -> ZAMIN PREMIUM GOLD 400GR, soni=10
-- "kola ikki yuz gramm" -> 200GR variant, soni=1
+- "rizq yetmish bir tort yuz gramm on dona, mumtoz yetmish ikki tort yuz gramm on dona" -> {"items":[{"Mahsulot_ID":"<rizq 71 400GR id>","soni":10,"ishonch":"yuqori"},{"Mahsulot_ID":"<mumtoz 72 400GR id>","soni":10,"ishonch":"yuqori"}]}
+- "zamin gold ikki yuz gramm besh dona" -> {"items":[{"Mahsulot_ID":"<zamin 200GR id>","soni":5,"ishonch":"yuqori"}]}
 
 KATALOG (ID | Nomi):
 ${catalog}`;
@@ -106,11 +105,11 @@ ${catalog}`;
       body: JSON.stringify({
         model: process.env.OPENAI_MATCH_MODEL || "gpt-4o-mini",
         temperature: 0,
-        max_tokens: 300,
+        max_tokens: 1200,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemText },
-          { role: "user", content: `Eshitildi: "${transcription}". Shu buyurtmadagi mahsulot va sonini aniqla. Faqat JSON qaytar.` },
+          { role: "user", content: `Eshitildi: "${transcription}". Shu buyurtmadagi HAR BIR mahsulot va sonini aniqlab, items ro'yxatini qaytar. Faqat JSON.` },
         ],
       }),
     });
@@ -122,14 +121,13 @@ ${catalog}`;
     const txt = String(cj?.choices?.[0]?.message?.content || "");
     const parsed = extractJson(txt);
     const ids = new Set(products.map((p) => p.id));
-    const mid = String(parsed.Mahsulot_ID || "");
-    return NextResponse.json({
-      Mahsulot_ID: ids.has(mid) ? mid : "",
-      soni: num(parsed.soni) || 1,
-      ishonch: parsed.ishonch === "past" ? "past" : "yuqori",
-      nomzodlar: Array.isArray(parsed.nomzodlar) ? parsed.nomzodlar : [],
-      transcription,
+    const rawItems = Array.isArray((parsed as { items?: unknown }).items) ? (parsed as { items: unknown[] }).items : [];
+    const items = rawItems.map((it) => {
+      const o = (it || {}) as Record<string, unknown>;
+      const mid = String(o.Mahsulot_ID || "");
+      return { Mahsulot_ID: ids.has(mid) ? mid : "", soni: num(o.soni) || 1, ishonch: o.ishonch === "past" ? "past" : "yuqori" };
     });
+    return NextResponse.json({ items, transcription });
   } catch {
     // Matching xato bo'lsa ham, transkripsiya bo'lsa frontend lokal moslashga uradi
     return NextResponse.json({ error: "GPT bilan bog'lanib bo'lmadi", transcription }, { status: 502 });

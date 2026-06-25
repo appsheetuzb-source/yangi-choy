@@ -574,7 +574,7 @@ export default function SotuvPage() {
     addVoiceItem(res.product, res.qty);
     setVoiceMsg(`✅ ${res.product.Nomi} × ${res.qty}  ("${txt}")`);
   }
-  // Yozilgan audioni serverga (Whisper + Claude) yuborib, mahsulotni topadi
+  // Yozilgan audioni serverga (Whisper + GPT) yuborib, mahsulot(lar)ni topadi
   async function sendVoiceBlob(blob: Blob) {
     setVoiceBusy(true);
     setVoiceMsg("⏳ Tahlil qilinyapti...");
@@ -585,21 +585,29 @@ export default function SotuvPage() {
       const r = await fetch("/api/voice", { method: "POST", body: fd });
       const j = await r.json().catch(() => ({} as Record<string, unknown>));
       const trans = String(j.transcription || "");
-      const said = trans ? ` — eshitildi: "${trans}"` : "";
-      // Server mahsulotni topdi
-      if (r.ok && j.Mahsulot_ID && mMap[j.Mahsulot_ID as string]) {
-        const product = mMap[j.Mahsulot_ID as string];
-        const qty = num(j.soni) || 1;
+      const said = trans ? `  ("${trans}")` : "";
+      const items = Array.isArray(j.items) ? (j.items as Array<{ Mahsulot_ID?: string; soni?: number | string; ishonch?: string }>) : [];
+      // Topilgan barcha mahsulotni savatga qo'shish
+      const added: string[] = [];
+      for (const it of items) {
+        const id = String(it?.Mahsulot_ID || "");
+        const product = id ? mMap[id] : null;
+        if (!product) continue;
+        const qty = num(it?.soni) || 1;
         addVoiceItem(product, qty);
-        setVoiceMsg(`✅ ${product.Nomi} × ${qty}${j.ishonch === "past" ? " ⚠️ tekshiring" : ""}  ("${trans}")`);
+        added.push(`${product.Nomi} ×${qty}${it?.ishonch === "past" ? "⚠️" : ""}`);
+      }
+      if (added.length > 0) {
+        const notFound = items.length - added.length;
+        setVoiceMsg(`✅ ${added.length} ta qo'shildi: ${added.join(", ")}${notFound > 0 ? ` · ${notFound} ta topilmadi` : ""}${said}`);
         return;
       }
-      // Topa olmadi yoki server xato — transkripsiya bo'lsa lokal moslashga urinish
+      // Hech narsa topilmadi — transkripsiya bo'lsa lokal (bitta) moslashga urinish
       if (trans) {
         const local = voiceParse(trans, mahsulotlar);
         if (local) {
           addVoiceItem(local.product, local.qty);
-          setVoiceMsg(`✅ ${local.product.Nomi} × ${local.qty}  ("${trans}")`);
+          setVoiceMsg(`✅ ${local.product.Nomi} × ${local.qty}${said}`);
           return;
         }
       }
@@ -621,7 +629,12 @@ export default function SotuvPage() {
       return;
     }
     let stream: MediaStream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    try {
+      // Tozaroq ovoz → STT aniqroq: shovqin bostirish, exo bekor, avto-balans
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+    }
     catch { setVoiceMsg("Mikrofonga ruxsat berilmadi — brauzer manzili yonidagi 🔒 dan mikrofonni yoqing"); return; }
     const canRec = typeof MediaRecorder !== "undefined";
     const mime = canRec && MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
@@ -639,7 +652,7 @@ export default function SotuvPage() {
       await sendVoiceBlob(blob);
     };
     mediaRecRef.current = rec;
-    setVoiceMsg("🎙 Yozyapman... mahsulot, gram va sonini ayting, so'ng tugmani yana bosing");
+    setVoiceMsg("🎙 Yozyapman... mahsulot(lar)ni, gram va sonini ayting — bir nechta bo'lsa ketma-ket (masalan: Rizq 71 400 gramm 10 dona, Mumtoz 72 400 gramm 10 dona) — so'ng tugmani yana bosing");
     setVoiceOn(true);
     try { rec.start(); } catch { setVoiceMsg("Ovoz yozib bo'lmadi"); setVoiceOn(false); stream.getTracks().forEach(t => t.stop()); }
   }
