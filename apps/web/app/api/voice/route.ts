@@ -88,8 +88,9 @@ Qo'shma: "on besh"=15, "yigirma besh"=25, "ikki yuz"=200, "tort yuz"=400, "besh 
 
 QOIDALAR:
 - HAR BIR aytilgan mahsulotni ALOHIDA element qil. Buyurtmada nechta mahsulot bo'lsa, "items" ro'yxatida shuncha element bo'lsin — CHEKLOV YO'Q (30, 50 ta bo'lsa ham HAMMASINI qaytar, birortasini tashlab ketma).
-- Har element: katalogdan eng mos Mahsulot_ID, soni, ishonch. Faqat KATALOGdagi mahsulotlardan tanla; mos kelmasa o'sha element Mahsulot_ID="".
-- Brend/nom VA gramm bo'yicha mos kel. Gramm raqam yoki son-so'z ("ikki yuz gramm"=200, "tort yuz"=400). To'g'ri grammli variantni tanla.
+- Har element: katalogdan eng mos Mahsulot_ID, soni, ishonch.
+- BREND ANIQ MOS KELISHI SHART. Mahsulot nomi boshidagi brend (Rizq, Turon, Zamin, Mumtoz, Ansor, Exc, Rusoma, Oolong, Yaxshi, Saodat...) aytilgan brend bilan AYNAN bir xil bo'lsin. Brend boshqa bo'lsa — model raqami (71, 68...) va gram bir xil bo'lsa HAM TANLAMA. Masalan "Rizq 71 200" uchun FAQAT "Rizq 71 200GR"; "TURON 71 200GR" NOTO'G'RI (brend Rizq emas). Aytilgan brend katalogda umuman yo'q bo'lsa Mahsulot_ID="".
+- Gramm/og'irlik bo'yicha mos kel: raqam yoki son-so'z ("ikki yuz gramm"=200, "tort yuz"=400). Brend mos, lekin aniq gram topilmasa — eng yaqin gramli variantni tanla.
 - soni: "dona/ta/tup/blok/quti/qop/halta/pachka" so'zi OLDIDAGI raqam/son-so'z. "on dona"=10, "besh dona"=5. Aniq son bo'lmasa soni=1.
 - ishonch: aniq mos kelsa "yuqori", shubhali bo'lsa "past".
 - MUHIM: Mahsulot_ID sifatida KATALOGning chap ustunidagi AYNAN o'sha kodni yoz (8 belgili, masalan "096a2390"). Mahsulot nomini, gramini yoki "<...>" kabi namunani YOZMA — faqat katalogdagi haqiqiy ID kodi.
@@ -110,7 +111,7 @@ ${catalog}`;
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_MATCH_MODEL || "gpt-4o-mini",
+        model: process.env.OPENAI_MATCH_MODEL || "gpt-4o",
         temperature: 0,
         max_tokens: 4000,
         response_format: { type: "json_object" },
