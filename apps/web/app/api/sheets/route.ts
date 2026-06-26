@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSheetData, getSheetNames, getMultipleSheets, appendRow, updateRow, deleteRow } from "@/lib/sheets";
+import { getSheetData, getSheetNames, getMultipleSheets, appendRow, appendRows, updateRow, deleteRow } from "@/lib/sheets";
 
 export const dynamic = "force-dynamic";
 
@@ -58,9 +58,10 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { sheet, row } = await request.json();
-    if (!sheet || !row) return NextResponse.json({ error: "sheet va row kerak" }, { status: 400 });
-    await appendRow(sheet, row);
+    const { sheet, row, rows } = await request.json();
+    if (!sheet || (!row && !Array.isArray(rows))) return NextResponse.json({ error: "sheet va row/rows kerak" }, { status: 400 });
+    if (Array.isArray(rows)) await appendRows(sheet, rows);
+    else await appendRow(sheet, row);
     invalidate(sheet);
     return NextResponse.json({ success: true });
   } catch (error) {

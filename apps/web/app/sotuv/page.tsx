@@ -726,7 +726,7 @@ export default function SotuvPage() {
     const somRows:SotuvSavatRow[]=[];
     const dollarRows:SotuvSavatDollarRow[]=[];
     try {
-      await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
+      const sotuvRes=await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",row:{
           Sotuv_ID:sotuvId,Yil:yil,Oy:oy,Sana:snStr,Status:"Tasdiqlashga",
           Sotuv_Raqami:raqam,Agent:addAgent,Mijoz_ID:addMijoz,
@@ -737,6 +737,10 @@ export default function SotuvPage() {
           Qoshilgan_Vaqt:"",Ozgartirdi:"",Oxirgi_ozgarish:"",
           Chek:"",Chek_file:"",Chek_file_phone:"",Chek_phone:"",Change:"",Change_phone:"",
         }})});
+      if(!sotuvRes.ok) throw new Error("Sotuv asosiy qatori saqlanmadi");
+      // Savat qatorlarini massivga yig'ib, BITTA so'rovda (batch) yozamiz — 30+ mahsulotda ham tez va ishonchli
+      const somSheetRows: Record<string,string|number>[]=[];
+      const dollarSheetRows: Record<string,string|number>[]=[];
       let savatIdx=1;
       for(const r of valid){
         const m=mMap[r.Mahsulot_ID];
@@ -748,14 +752,13 @@ export default function SotuvPage() {
           const foyda=num(r.Som_Narx)-somTanNarx;
           const foydaSumma=num(r.Soni)*foyda;
           const summa=String(num(r.Soni)*num(r.Som_Narx));
-          await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({sheet:"Sotuv_Savat",row:{
-              Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
-              Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,
-              Summa_som:summa,
-              Som_tan_narx:String(Math.round(somTanNarx)),Foyda:String(Math.round(foyda)),Foyda_summasi_som:String(Math.round(foydaSumma)),
-              Ombor_ID:m?.Ombor_ID||"",Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:addMijoz,
-            }})});
+          somSheetRows.push({
+            Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
+            Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,
+            Summa_som:summa,
+            Som_tan_narx:String(Math.round(somTanNarx)),Foyda:String(Math.round(foyda)),Foyda_summasi_som:String(Math.round(foydaSumma)),
+            Ombor_ID:m?.Ombor_ID||"",Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:addMijoz,
+          });
           somRows.push({Savat_ID:savatId,Sotuv_ID:sotuvId,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Check:r.Check||"TRUE"});
         }
         if(num(r.Narx)>0){
@@ -766,16 +769,23 @@ export default function SotuvPage() {
           const narx=parseFloat(num(r.Narx).toFixed(2));
           const summa=parseFloat((num(r.Soni)*narx).toFixed(2));
           const tanNarx=parseFloat(tanDollar.toFixed(2));
-          await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
-            body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:{
-              Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
-              Mahsulot_ID:r.Mahsulot_ID,Soni:num(r.Soni),Narx:narx,Kurs:num(kurs),
-              Summa:summa,
-              Tan_narx:tanNarx,Foyda:foyda,Foyda_summasi_som:foydaSumma,
-              Ombor_ID:m?.Ombor_ID||"",Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:addMijoz,
-            }})});
+          dollarSheetRows.push({
+            Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
+            Mahsulot_ID:r.Mahsulot_ID,Soni:num(r.Soni),Narx:narx,Kurs:num(kurs),
+            Summa:summa,
+            Tan_narx:tanNarx,Foyda:foyda,Foyda_summasi_som:foydaSumma,
+            Ombor_ID:m?.Ombor_ID||"",Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:addMijoz,
+          });
           dollarRows.push({Savat_ID:savatId,Sotuv_ID:sotuvId,Mahsulot_ID:r.Mahsulot_ID,Soni:String(r.Soni),Narx:String(narx),Summa:String(summa),Kurs:kurs,Check:""});
         }
+      }
+      if(somSheetRows.length>0){
+        const resS=await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",rows:somSheetRows})});
+        if(!resS.ok) throw new Error("So'm savat saqlanmadi");
+      }
+      if(dollarSheetRows.length>0){
+        const resD=await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",rows:dollarSheetRows})});
+        if(!resD.ok) throw new Error("Dollar savat saqlanmadi");
       }
       // Optimistik: yangi sotuv darhol ro'yxat tepasida ko'rinadi (reload kutmasdan)
       setSotuvlar(prev=>[newSotuv,...prev]);
@@ -783,6 +793,8 @@ export default function SotuvPage() {
       setSavatDollarMap(prev=>({...prev,[sotuvId]:dollarRows}));
       afterWrite("Sotuv"); afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
       setAddOpen(false);
+    } catch(e) {
+      alert("Saqlashda xatolik: "+(e instanceof Error?e.message:"noma'lum")+". Internet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setSaving(false); }
   }
 

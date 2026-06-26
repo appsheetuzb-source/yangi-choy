@@ -87,7 +87,7 @@ bir=1, ikki=2, uch=3, tort/to'rt=4, besh=5, olti=6, yetti=7, sakkiz=8, toqqiz/to
 Qo'shma: "on besh"=15, "yigirma besh"=25, "ikki yuz"=200, "tort yuz"=400, "besh yuz"=500.
 
 QOIDALAR:
-- HAR BIR aytilgan mahsulotni ALOHIDA element qil. Buyurtmada nechta mahsulot bo'lsa, "items" ro'yxatida shuncha element bo'lsin (10 tagacha yoki ko'proq).
+- HAR BIR aytilgan mahsulotni ALOHIDA element qil. Buyurtmada nechta mahsulot bo'lsa, "items" ro'yxatida shuncha element bo'lsin — CHEKLOV YO'Q (30, 50 ta bo'lsa ham HAMMASINI qaytar, birortasini tashlab ketma).
 - Har element: katalogdan eng mos Mahsulot_ID, soni, ishonch. Faqat KATALOGdagi mahsulotlardan tanla; mos kelmasa o'sha element Mahsulot_ID="".
 - Brend/nom VA gramm bo'yicha mos kel. Gramm raqam yoki son-so'z ("ikki yuz gramm"=200, "tort yuz"=400). To'g'ri grammli variantni tanla.
 - soni: "dona/ta/tup/blok/quti/qop/halta/pachka" so'zi OLDIDAGI raqam/son-so'z. "on dona"=10, "besh dona"=5. Aniq son bo'lmasa soni=1.
@@ -112,7 +112,7 @@ ${catalog}`;
       body: JSON.stringify({
         model: process.env.OPENAI_MATCH_MODEL || "gpt-4o-mini",
         temperature: 0,
-        max_tokens: 700,
+        max_tokens: 4000,
         response_format: { type: "json_object" },
         messages: [
           { role: "system", content: systemText },

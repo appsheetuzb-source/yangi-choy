@@ -194,6 +194,50 @@ export async function appendRow(sheetName: string, row: Record<string, string | 
   });
 }
 
+// ── BATCH APPEND — bir nechta qatorni BITTA Google so'rovida qo'shish ──
+export async function appendRows(sheetName: string, rowsData: Record<string, string | number>[]) {
+  if (!rowsData || rowsData.length === 0) return;
+  invalidateCache(sheetName);
+  const sheets = getSheetsClient();
+
+  let res;
+  try {
+    res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID, range: sheetName, valueRenderOption: "UNFORMATTED_VALUE",
+    });
+  } catch {
+    await ensureSheetExists(sheetName, Object.keys(rowsData[0]));
+    res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID, range: sheetName, valueRenderOption: "UNFORMATTED_VALUE",
+    });
+  }
+
+  const rows = res.data.values ?? [];
+  const rawHeaders = (rows[0] ?? []) as unknown[];
+  const validCols = rawHeaders
+    .map((h, i) => ({ h: String(h), i }))
+    .filter(({ h }) => h && h !== "false" && h !== "null" && h !== "true");
+
+  const values = rowsData.map((row) =>
+    validCols.map(({ h }) => {
+      const v = row[h];
+      if (v === undefined || v === null || v === "") return "";
+      return v;
+    })
+  );
+
+  const startRow = rows.length + 1;
+  const endRow = rows.length + values.length;
+  const endColLetter = colToLetter(validCols.length - 1);
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${sheetName}!A${startRow}:${endColLetter}${endRow}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values },
+  });
+}
+
 export async function updateCell(
   sheetName: string,
   idColumn: string,
