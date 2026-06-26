@@ -18,6 +18,25 @@ function extractJson(txt: string): Record<string, unknown> {
   try { return JSON.parse(txt.slice(a, b + 1)); } catch { return {}; }
 }
 
+// ── Pre-filter: transkripsiyaga qarab katalogni kichraytirish (gpt-4o narxini ~4x kamaytiradi) ──
+const VOICE_STOP = new Set(["gr","gram","gramm","kg","kilo","kilogramm","dona","ta","tup","blok","quti","qop","halta","pachka","paket","soni","va","yuz","ming","li","lik","ali","tali","oq","qora"]);
+function voiceNorm(s: string) { return s.toLowerCase().replace(/['’ʻ`´]/g, "").replace(/[^a-z0-9\s]/g, " "); }
+function voiceTok(s: string) { return (voiceNorm(s).match(/\d+|[a-z]{2,}/g) || []).filter((t) => !VOICE_STOP.has(t)); }
+function filterCatalog(trans: string, products: Prod[], cap = 150): Prod[] {
+  const q = new Set(voiceTok(trans));
+  const scored = products.map((p) => {
+    const pt = voiceTok(p.n);
+    let score = 0;
+    for (const t of pt) {
+      if (q.has(t)) score += /^\d+$/.test(t) ? 1.2 : 1;             // raqam (gram/model) mosligi biroz muhimroq
+      else if (t.length >= 4) { for (const w of q) { if (w.length >= 4 && (w.includes(t) || t.includes(w))) { score += 0.5; break; } } }
+    }
+    return { p, score };
+  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+  if (scored.length === 0) return products;   // hech narsa mos kelmasa — xavfsizlik uchun to'liq katalog
+  return scored.slice(0, cap).map((x) => x.p);
+}
+
 export async function POST(req: NextRequest) {
   const OPENAI = process.env.OPENAI_API_KEY;
   if (!OPENAI) return NextResponse.json({ error: "OPENAI_API_KEY sozlanmagan (server .env)" }, { status: 500 });
@@ -77,7 +96,9 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 2. GPT (OpenAI): matn → mahsulot (katalogga moslash) ──
-  const catalog = products.map((p) => `${p.id} | ${p.n}`).join("\n");
+  // Pre-filter: faqat transkripsiyaga aloqador ~150 mahsulotni GPT'ga yuboramiz (620 emas) — narx ~4x arzon, aniqlik o'sha
+  const candidates = filterCatalog(transcription, products);
+  const catalog = candidates.map((p) => `${p.id} | ${p.n}`).join("\n");
   const systemText =
 `Sen ovozli buyurtmani mahsulot katalogiga moslaydigan yordamchisan.
 Foydalanuvchi BIR yoki BIR NECHTA mahsulotni ketma-ket aytadi (vergul, "va", yoki shunchaki ketma-ket). Har biri uchun nom, gram va soni bo'ladi. Ovoz matnga aylantirilgan, lekin XATO bo'lishi mumkin (apostroflar tushadi: "o'n"->"on", "to'rt"->"tort"; yoki raqam noto'g'ri eshitiladi). Shuni hisobga ol.
