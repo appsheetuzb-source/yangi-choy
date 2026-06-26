@@ -22,7 +22,7 @@ function extractJson(txt: string): Record<string, unknown> {
 const VOICE_STOP = new Set(["gr","gram","gramm","kg","kilo","kilogramm","dona","ta","tup","blok","quti","qop","halta","pachka","paket","soni","va","yuz","ming","li","lik","ali","tali","oq","qora"]);
 function voiceNorm(s: string) { return s.toLowerCase().replace(/['’ʻ`´]/g, "").replace(/[^a-z0-9\s]/g, " "); }
 function voiceTok(s: string) { return (voiceNorm(s).match(/\d+|[a-z]{2,}/g) || []).filter((t) => !VOICE_STOP.has(t)); }
-function filterCatalog(trans: string, products: Prod[], cap = 90): Prod[] {
+function filterCatalog(trans: string, products: Prod[], cap = 70): Prod[] {
   const q = new Set(voiceTok(trans));
   const scored = products.map((p) => {
     const pt = voiceTok(p.n);
