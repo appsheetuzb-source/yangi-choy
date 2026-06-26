@@ -109,6 +109,7 @@ Qo'shma: "on besh"=15, "yigirma besh"=25, "ikki yuz"=200, "tort yuz"=400, "besh 
 
 QOIDALAR:
 - HAR BIR aytilgan mahsulotni ALOHIDA element qil. Buyurtmada nechta mahsulot bo'lsa, "items" ro'yxatida shuncha element bo'lsin — CHEKLOV YO'Q (30, 50 ta bo'lsa ham HAMMASINI qaytar, birortasini tashlab ketma).
+- MAHSULOT CHEGARASI: "dona" (yoki "ta", "tup", "blok", "quti", "qop", "halta", "pachka") so'zi BITTA mahsulotning OXIRINI bildiradi — undan keyingi so'zlar YANGI mahsulot boshlanishi. "dona"/"ta" nechta marta aytilsa, items'da AYNAN shuncha element bo'lsin. Ikki mahsulotni HECH QACHON bittaga birlashtirma.
 - Har element: katalogdan eng mos Mahsulot_ID, soni, ishonch.
 - BREND ANIQ MOS KELISHI SHART. Mahsulot nomi boshidagi brend (Rizq, Turon, Zamin, Mumtoz, Ansor, Exc, Rusoma, Oolong, Yaxshi, Saodat...) aytilgan brend bilan AYNAN bir xil bo'lsin. Brend boshqa bo'lsa — model raqami (71, 68...) va gram bir xil bo'lsa HAM TANLAMA. Masalan "Rizq 71 200" uchun FAQAT "Rizq 71 200GR"; "TURON 71 200GR" NOTO'G'RI (brend Rizq emas). Aytilgan brend katalogda umuman yo'q bo'lsa Mahsulot_ID="".
 - Gramm/og'irlik bo'yicha mos kel: raqam yoki son-so'z ("ikki yuz gramm"=200, "tort yuz"=400). Brend mos, lekin aniq gram topilmasa — eng yaqin gramli variantni tanla.
