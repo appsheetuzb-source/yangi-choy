@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
@@ -55,12 +55,12 @@ function ChekContent() {
       }
     } catch {}
     Promise.all([
-      fetchSheet("Sotuv_Savat"),
-      fetchSheet("Sotuv_savat_dollar"),
+      fetchSheetWhere("Sotuv_Savat", "Sotuv_ID", id),
+      fetchSheetWhere("Sotuv_savat_dollar", "Sotuv_ID", id),
       fetchSheet("Mahsulot"),
     ]).then(([ssR,sdR,mhR])=>{
-      setSavatSom((ssR.data as SotuvSavatRow[]).filter(r=>r.Sotuv_ID===id));
-      setSavatDollar((sdR.data as SotuvSavatDollarRow[]).filter(r=>r.Sotuv_ID===id));
+      setSavatSom(ssR.data as SotuvSavatRow[]);
+      setSavatDollar(sdR.data as SotuvSavatDollarRow[]);
       const mm:Record<string,Mahsulot>={};
       (mhR.data as Mahsulot[]).forEach(m=>{mm[m.Mahsulot_ID]=m;});
       setMMap(mm);
