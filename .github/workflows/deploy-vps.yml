@@ -67,7 +67,7 @@ jobs:
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
         run: |
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" \
-            "cd '$VPS_APP_DIR' && npm install --omit=dev --no-audit --no-fund --package-lock=false && git reset --hard --quiet '$GITHUB_SHA' && pm2 reload yangi-choy --update-env && pm2 save"
+            "timeout 180 bash -lc 'cd $VPS_APP_DIR && npm install --omit=dev --no-audit --no-fund --package-lock=false && git reset --hard --quiet $GITHUB_SHA && pm2 reload yangi-choy --update-env >/tmp/yangi-choy-pm2-reload.log 2>&1'"
 
       - name: Smoke test
         env:
