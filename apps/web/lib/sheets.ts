@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import type { Pool } from "pg"; // FAQAT tip — runtime'da pg lazy yuklanadi (pastdagi getPool)
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
 
@@ -19,6 +20,193 @@ export function invalidateCache(sheetName?: string) {
   else { for (const k of Object.keys(_cache)) delete _cache[k]; }
 }
 // ─────────────────────────────────────────────────────
+
+// ══════════════════════════════════════════════════════
+// PostgreSQL backend — USE_POSTGRES=true bo'lganda ishlaydi.
+// Sheets bilan AYNAN bir xil { headers, data } shaklini qaytaradi
+// (ustun nomlari case-sensitive saqlangan, NULL -> "").
+// ══════════════════════════════════════════════════════
+const USE_POSTGRES = process.env.USE_POSTGRES === "true";
+let _pool: Pool | null = null;
+// pg LAZY yuklanadi — statik import bo'lsa, pg topilmasa BUTUN sayt qulardi.
+// Bu yo'l faqat USE_POSTGRES yo'llarida chaqiriladi; Sheets rejimида pg umuman yuklanmaydi.
+async function getPool(): Promise<Pool> {
+  if (!_pool) {
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL yo'q — PostgreSQL sozlanmagan (USE_POSTGRES=true)");
+    }
+    const { Pool: PoolCtor } = await import("pg");
+    _pool = new PoolCtor({
+      connectionString: process.env.DATABASE_URL,
+      max: 10,
+      idleTimeoutMillis: 30_000,
+    });
+  }
+  return _pool;
+}
+// Sheet nomi -> jadval nomi (migratsiya bilan AYNAN bir xil qoida)
+function pgTable(sheetName: string): string {
+  return sheetName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+function pgQ(name: string): string { return '"' + String(name).replace(/"/g, '""') + '"'; }
+// "true"/"false" -> "TRUE"/"FALSE" (Sheets checkbox bilan bir xil; migratsiya shunday saqlagan)
+function boolNorm(v: unknown): string {
+  const s = v === null || v === undefined ? "" : String(v);
+  if (s === "true") return "TRUE";
+  if (s === "false") return "FALSE";
+  return s;
+}
+// Jadval ustunlari (yaratilish tartibida = original sarlavha tartibi) — keshlanadi
+const _pgCols: Record<string, string[]> = {};
+async function pgColumns(table: string): Promise<string[]> {
+  if (_pgCols[table]) return _pgCols[table];
+  const r = await (await getPool()).query(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema = 'public' AND table_name = $1 AND column_name <> '_ord'
+     ORDER BY ordinal_position`,
+    [table]
+  );
+  const cols = r.rows.map((x) => x.column_name as string);
+  if (cols.length) _pgCols[table] = cols;
+  return cols;
+}
+
+async function pgGetSheet(range: string): Promise<{ headers: string[]; data: Record<string, string>[] }> {
+  const table = pgTable(range);
+  try {
+    // _ord = varaq tartibi (BIGSERIAL PK). ORDER BY _ord -> Sheets bilan aynan bir xil tartib.
+    const r = await (await getPool()).query(`SELECT * FROM ${pgQ(table)} ORDER BY _ord`);
+    const headers = r.fields.map((f) => f.name).filter((n) => n !== "_ord");
+    const data = r.rows.map((row) => {
+      const obj: Record<string, string> = {};
+      const rec = row as Record<string, unknown>;
+      for (const h of headers) { const v = rec[h]; obj[h] = v === null || v === undefined ? "" : String(v); }
+      return obj;
+    });
+    return { headers, data };
+  } catch {
+    return { headers: [], data: [] };
+  }
+}
+
+async function pgGetMultiple(ranges: string[]) {
+  const result: Record<string, { headers: string[]; data: Record<string, string>[] }> = {};
+  const missing: string[] = [];
+  for (const r of ranges) {
+    const cached = cacheGet(r);
+    if (cached) result[r] = cached as { headers: string[]; data: Record<string, string>[] };
+    else missing.push(r);
+  }
+  if (missing.length) {
+    const parsed = await Promise.all(missing.map((r) => pgGetSheet(r)));
+    missing.forEach((r, i) => {
+      result[r] = parsed[i];
+      if (parsed[i].headers.length) cacheSet(r, parsed[i]);
+    });
+  }
+  return result;
+}
+
+async function pgGetSheetNames(): Promise<string[]> {
+  const r = await (await getPool()).query(
+    `SELECT table_name FROM information_schema.tables
+     WHERE table_schema = 'public' ORDER BY table_name`
+  );
+  return r.rows.map((x) => x.table_name as string);
+}
+
+// Jadval mavjud bo'lmasa, qator kalitlaridan yaratadi (Sheets ensureSheetExists kabi)
+async function pgEnsureTable(table: string, keys: string[]): Promise<string[]> {
+  let cols = await pgColumns(table);
+  if (cols.length === 0 && keys.length) {
+    const defs = keys.map((k) => `${pgQ(k)} TEXT`).join(", ");
+    await (await getPool()).query(`CREATE TABLE IF NOT EXISTS ${pgQ(table)} (_ord BIGSERIAL PRIMARY KEY, ${defs})`);
+    delete _pgCols[table];
+    cols = keys;
+  }
+  return cols;
+}
+
+async function pgAppendRow(sheetName: string, row: Record<string, string | number>) {
+  invalidateCache(sheetName);
+  const table = pgTable(sheetName);
+  const cols = await pgEnsureTable(table, Object.keys(row));
+  const useCols = cols.filter((c) => c in row);
+  if (useCols.length === 0) return;
+  const vals = useCols.map((c) => boolNorm(row[c]));
+  const ph = useCols.map((_, i) => "$" + (i + 1));
+  await (await getPool()).query(
+    `INSERT INTO ${pgQ(table)} (${useCols.map(pgQ).join(", ")}) VALUES (${ph.join(", ")})`,
+    vals
+  );
+}
+
+async function pgAppendRows(sheetName: string, rowsData: Record<string, string | number>[]) {
+  if (!rowsData || rowsData.length === 0) return;
+  invalidateCache(sheetName);
+  const table = pgTable(sheetName);
+  const cols = await pgEnsureTable(table, Object.keys(rowsData[0]));
+  const useCols = cols.filter((c) => rowsData.some((r) => c in r));
+  if (useCols.length === 0) return;
+  const colList = useCols.map(pgQ).join(", ");
+  const BATCH = 500;
+  for (let i = 0; i < rowsData.length; i += BATCH) {
+    const slice = rowsData.slice(i, i + BATCH);
+    const values: string[] = [];
+    const params: string[] = [];
+    let p = 1;
+    for (const row of slice) {
+      const ph = useCols.map(() => "$" + p++);
+      values.push("(" + ph.join(",") + ")");
+      for (const c of useCols) params.push(boolNorm(row[c]));
+    }
+    await (await getPool()).query(`INSERT INTO ${pgQ(table)} (${colList}) VALUES ${values.join(",")}`, params);
+  }
+}
+
+async function pgUpdateRow(sheetName: string, idColumn: string, idValue: string, updatedRow: Record<string, string>) {
+  invalidateCache(sheetName);
+  const table = pgTable(sheetName);
+  const cols = await pgColumns(table);
+  if (!cols.includes(idColumn)) throw new Error("ID ustun topilmadi");
+  const setCols = cols.filter((c) => c in updatedRow && updatedRow[c] !== undefined);
+  if (setCols.length === 0) return;
+  const set = setCols.map((c, i) => `${pgQ(c)} = $${i + 1}`).join(", ");
+  const params = setCols.map((c) => boolNorm(updatedRow[c]));
+  params.push(idValue);
+  const res = await (await getPool()).query(
+    `UPDATE ${pgQ(table)} SET ${set}
+     WHERE ctid = (SELECT ctid FROM ${pgQ(table)} WHERE trim(${pgQ(idColumn)}) = trim($${params.length}) LIMIT 1)`,
+    params
+  );
+  if (res.rowCount === 0) throw new Error("Qator topilmadi");
+}
+
+async function pgUpdateCell(sheetName: string, idColumn: string, idValue: string, targetColumn: string, newValue: string) {
+  invalidateCache(sheetName);
+  const table = pgTable(sheetName);
+  const cols = await pgColumns(table);
+  if (!cols.includes(idColumn) || !cols.includes(targetColumn)) throw new Error("Ustun topilmadi");
+  const res = await (await getPool()).query(
+    `UPDATE ${pgQ(table)} SET ${pgQ(targetColumn)} = $1
+     WHERE ctid = (SELECT ctid FROM ${pgQ(table)} WHERE trim(${pgQ(idColumn)}) = trim($2) LIMIT 1)`,
+    [boolNorm(newValue), idValue]
+  );
+  if (res.rowCount === 0) throw new Error(`Qator topilmadi: ${idValue}`);
+}
+
+async function pgDeleteRow(sheetName: string, idColumn: string, idValue: string) {
+  invalidateCache(sheetName);
+  const table = pgTable(sheetName);
+  const cols = await pgColumns(table);
+  if (!cols.includes(idColumn)) throw new Error("ID ustun topilmadi");
+  const res = await (await getPool()).query(
+    `DELETE FROM ${pgQ(table)} WHERE ctid = (SELECT ctid FROM ${pgQ(table)} WHERE trim(${pgQ(idColumn)}) = trim($1) LIMIT 1)`,
+    [idValue]
+  );
+  if (res.rowCount === 0) throw new Error("Qator topilmadi");
+}
+// ══════════════════════════════════════════════════════
 
 function getAuthClient(scopes?: string[]) {
   const privateKey = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
@@ -66,6 +254,7 @@ function parseRows(rows: unknown[][] | null | undefined) {
 
 // ── BATCH READ — bir nechta jadvalni BITTA Google so'rovida olish ──
 export async function getMultipleSheets(ranges: string[]) {
+  if (USE_POSTGRES) return pgGetMultiple(ranges);
   const result: Record<string, { headers: string[]; data: Record<string, string>[] }> = {};
   const missing: string[] = [];
 
@@ -106,6 +295,12 @@ export async function getSheetData(range?: string) {
   const cached = cacheGet(fullRange);
   if (cached) return cached as { headers: string[]; data: Record<string, string>[] };
 
+  if (USE_POSTGRES) {
+    const result = await pgGetSheet(fullRange);
+    if (result.headers.length > 0) cacheSet(fullRange, result);
+    return result;
+  }
+
   const sheets = getSheetsClient();
   let response;
   try {
@@ -125,6 +320,7 @@ export async function getSheetData(range?: string) {
 }
 
 export async function getSheetNames() {
+  if (USE_POSTGRES) return pgGetSheetNames();
   const sheets = getSheetsClient();
   const response = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
   return response.data.sheets?.map((s) => s.properties?.title || "") || [];
@@ -151,6 +347,7 @@ async function ensureSheetExists(sheetName: string, headers: string[]) {
 }
 
 export async function appendRow(sheetName: string, row: Record<string, string | number>) {
+  if (USE_POSTGRES) return pgAppendRow(sheetName, row);
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -197,6 +394,7 @@ export async function appendRow(sheetName: string, row: Record<string, string | 
 // ── BATCH APPEND — bir nechta qatorni BITTA Google so'rovida qo'shish ──
 export async function appendRows(sheetName: string, rowsData: Record<string, string | number>[]) {
   if (!rowsData || rowsData.length === 0) return;
+  if (USE_POSTGRES) return pgAppendRows(sheetName, rowsData);
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -245,6 +443,7 @@ export async function updateCell(
   targetColumn: string,
   newValue: string
 ) {
+  if (USE_POSTGRES) return pgUpdateCell(sheetName, idColumn, idValue, targetColumn, newValue);
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -291,6 +490,7 @@ export async function updateRow(
   idValue: string,
   updatedRow: Record<string, string>
 ) {
+  if (USE_POSTGRES) return pgUpdateRow(sheetName, idColumn, idValue, updatedRow);
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -331,6 +531,7 @@ export async function deleteRow(
   idColumn: string,
   idValue: string
 ) {
+  if (USE_POSTGRES) return pgDeleteRow(sheetName, idColumn, idValue);
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 

@@ -36,6 +36,9 @@ echo "==> [4/5] Live source'ni yangilab, .next'ni atomik almashtirish"
 cd "$LIVE"
 git fetch --quiet origin main
 git reset --hard --quiet origin/main
+# LIVE node_modules'ni yangilash — yangi paketlar (masalan pg) runtime'da topilishi uchun.
+# next start LIVE node_modules'dan require qiladi; build klonidagi o'rnatish bu yerga ko'chmaydi.
+npm install --no-audit --no-fund
 rm -rf "$LIVE/$APP/.next.new" "$LIVE/$APP/.next.old"
 cp -a "$BUILD/$APP/.next" "$LIVE/$APP/.next.new"
 cd "$LIVE/$APP"

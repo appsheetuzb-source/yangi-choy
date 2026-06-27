@@ -32,6 +32,8 @@ function uid()  { return Math.random().toString(36).slice(2, 10); }
 function num(v: string|number|undefined) {
   return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0;
 }
+// Float artefaktini tozalash (Sheets USER_ENTERED ~15 sig fig kabi) — haqiqiy qiymat o'zgarmaydi
+function s15(n: number) { return String(Number(n.toPrecision(15))); }
 function fmtSom(v: string|number|undefined) {
   const n=num(v); return n?n.toLocaleString("ru-RU")+" so'm":"—";
 }
@@ -364,7 +366,7 @@ export default function XaridPage() {
         const r=savat[i]; if(!r.Mahsulot_ID||!r.Soni) continue;
         const m=mMap[r.Mahsulot_ID];
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({sheet:"Xarid_Savat",row:{X_Savat:uid(),Yil:y,Oy:mo.replace(/^0/,""),Sana:s,Raqam:String(i+1),Xarid_ID:xaridId,Ombor_ID:m?.Ombor_ID||"",Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narxi:r.Narxi,Narx_som:r.Narx_som,Foiz:chegirmaHa?(r.Foiz||""):"",Foizli_narx:chegirmaHa&&num(r.Foiz)>0?String(num(r.Narx_som)*(1-num(r.Foiz)/100)):"0",Foizli_narx_dollar:chegirmaHa&&num(r.Foiz)>0?String(num(r.Narxi)*(1-num(r.Foiz)/100)):r.Narxi,Jami_Summa:String(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narxi)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narxi)),Summa_Som:String(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narx_som)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narx_som)),Vaqt:`${s} ${v}`}})});
+          body:JSON.stringify({sheet:"Xarid_Savat",row:{X_Savat:uid(),Yil:y,Oy:mo.replace(/^0/,""),Sana:s,Raqam:String(i+1),Xarid_ID:xaridId,Ombor_ID:m?.Ombor_ID||"",Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narxi:r.Narxi,Narx_som:r.Narx_som,Foiz:chegirmaHa?(r.Foiz||""):"",Foizli_narx:chegirmaHa&&num(r.Foiz)>0?s15(num(r.Narx_som)*(1-num(r.Foiz)/100)):"0",Foizli_narx_dollar:chegirmaHa&&num(r.Foiz)>0?s15(num(r.Narxi)*(1-num(r.Foiz)/100)):r.Narxi,Jami_Summa:s15(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narxi)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narxi)),Summa_Som:s15(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narx_som)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narx_som)),Vaqt:`${s} ${v}`}})});
       }
       setAddOpen(false); setIzoh(""); setSavat([]); setChegirmaHa(false);
       afterWrite("Xarid"); afterWrite("Xarid_Savat"); loadData(1000);
@@ -392,10 +394,10 @@ export default function XaridPage() {
           Xarid_ID:detailXarid.Xarid_ID,Ombor_ID:m?.Ombor_ID||"",
           Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narxi:r.Narxi,Narx_som:r.Narx_som,
           Foiz:editChegirmaHa?(r.Foiz||""):"",
-          Foizli_narx:foizRow?String(num(r.Narx_som)*(1-num(r.Foiz)/100)):"0",
-          Foizli_narx_dollar:foizRow?String(num(r.Narxi)*(1-num(r.Foiz)/100)):r.Narxi,
-          Jami_Summa:String(foizRow?num(r.Soni)*num(r.Narxi)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narxi)),
-          Summa_Som:String(foizRow?num(r.Soni)*num(r.Narx_som)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narx_som)),
+          Foizli_narx:foizRow?s15(num(r.Narx_som)*(1-num(r.Foiz)/100)):"0",
+          Foizli_narx_dollar:foizRow?s15(num(r.Narxi)*(1-num(r.Foiz)/100)):r.Narxi,
+          Jami_Summa:s15(foizRow?num(r.Soni)*num(r.Narxi)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narxi)),
+          Summa_Som:s15(foizRow?num(r.Soni)*num(r.Narx_som)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narx_som)),
           Vaqt:detailXarid.Sana,
         };
         if(existing[i]){

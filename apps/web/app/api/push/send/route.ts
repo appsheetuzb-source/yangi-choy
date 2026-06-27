@@ -32,6 +32,10 @@ async function handle(req: NextRequest) {
 
   // ── Ma'lumotlar ──
   const rr = await getMultipleSheets(["Mijozlar", "Sotuv", "Sotuv_Savat", "Sotuv_savat_dollar", "S_tolov", "Ogohlantirish"]);
+  // Manba jadval kutilmaganda bo'sh bo'lsa (o'qish xatosi) — noto'g'ri qarz yubormaslik uchun to'xtaymiz
+  const needCore = ["Mijozlar", "Sotuv", "Sotuv_Savat", "S_tolov"];
+  const emptyCore = needCore.filter((n) => (rr[n]?.data?.length || 0) === 0);
+  if (emptyCore.length) return NextResponse.json({ skipped: true, reason: "manba bo'sh — yuborilmadi", empty: emptyCore });
   const ogoh = rr["Ogohlantirish"]?.data || [];
 
   // Barcha yozuvlardagi tanlangan mijozlar birlashmasi
