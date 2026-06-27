@@ -91,6 +91,14 @@ Avtomatik yangilanish o'rnatiladi. Endi: **https://musaffotea.uz** ✅
 ---
 
 ## Yangilash (kod o'zgargach)
+
+Asosiy production deploy endi GitHub Actions orqali yuradi: `main` branch'ga push/merge bo'lsa,
+GitHub Linux runner'da `next build` qiladi, tayyor artifact'ni VPS'ga yuboradi va PM2 reload qiladi.
+Shuning uchun kichik VPS endi sekin `next build` bilan band bo'lmaydi.
+
+Manual deploy kerak bo'lsa GitHub'da **Actions → Deploy VPS → Run workflow** bosing.
+
+Eski server ichida build qiladigan fallback:
 ```bash
 cd /var/www/yangi-choy
 git pull

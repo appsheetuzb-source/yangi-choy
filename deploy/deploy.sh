@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
-# Yangi Choy (Musaffo Tea) — DOWNTIME'SIZ deploy.
+# Yangi Choy (Musaffo Tea) — server ichida build qiladigan FALLBACK deploy.
+#
+# Asosiy production yo'l: GitHub Actions (`.github/workflows/deploy-vps.yml`).
+# U build'ni GitHub runner'da qiladi va VPS'ga tayyor artifact yuboradi. Kichik
+# VPS'da `next build` juda sekin bo'lgani uchun odatiy deployda shu yo'l ishlatiladi.
+#
+# Bu script faqat GitHub Actions ishlamasa yoki favqulodda manual deploy kerak
+# bo'lsa serverda ishlatiladi.
 #
 # Muammo: oldin `next build` jonli ilovaning `.next` papkasi ustiga yozardi va
 # kichik VPS'ni band qilib ~10 daqiqa saytni o'chirardi.
