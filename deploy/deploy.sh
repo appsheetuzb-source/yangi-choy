@@ -14,7 +14,7 @@
 # Yechim: build ALOHIDA klonda (/var/www/yc-build) bajariladi va Next standalone
 # runtime tayyorlanadi — jonli sayt o'z artifactidan ishlab turaveradi. Build past
 # CPU/IO prioritetda (nice/ionice), shu sabab sayt sekinlashmaydi. Tayyor bo'lgach
-# `.next` atomik almashtirilib, PM2 configdan qayta yuklanadi.
+# `.next` atomik almashtirilib, PM2 yangi configdan qayta start qilinadi.
 #
 # Ishlatish (serverda):  sudo bash /var/www/yangi-choy/deploy/deploy.sh
 set -euo pipefail
@@ -54,8 +54,10 @@ cd "$LIVE/$APP"
 mv .next .next.old 2>/dev/null || true
 mv .next.new .next
 
-echo "==> [5/5] PM2 standalone runtime'ni reload qilish"
+echo "==> [5/5] PM2 standalone runtime'ni qayta start qilish"
 cd "$LIVE"
-pm2 startOrReload deploy/ecosystem.config.js --only yangi-choy --update-env
+pm2 delete yangi-choy 2>/dev/null || true
+pm2 start deploy/ecosystem.config.js --only yangi-choy --update-env
+pm2 save --force
 rm -rf "$LIVE/$APP/.next.old"
-echo "✅ ZERO-DOWNTIME DEPLOY OK"
+echo "✅ STANDALONE DEPLOY OK"

@@ -94,7 +94,7 @@ Avtomatik yangilanish o'rnatiladi. Endi: **https://musaffotea.uz** ✅
 
 Asosiy production deploy endi GitHub Actions orqali yuradi: `main` branch'ga push/merge bo'lsa,
 GitHub Linux runner'da `next build` qiladi, VPS'dagi source'ni shu commitga reset qiladi, tayyor
-standalone runtime artifact'ni yuboradi va PM2 configdan reload qiladi. Shuning uchun kichik VPS
+standalone runtime artifact'ni yuboradi va PM2 configdan qayta start qiladi. Shuning uchun kichik VPS
 endi sekin `next build` yoki odatiy deployda `npm install` bilan band bo'lmaydi.
 
 Manual deploy kerak bo'lsa GitHub'da **Actions → Deploy VPS → Run workflow** bosing.

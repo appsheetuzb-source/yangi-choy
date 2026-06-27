@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Build on GitHub and reload VPS
+    name: Build on GitHub and restart VPS
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -68,14 +68,14 @@ jobs:
             -e "ssh -i ~/.ssh/vps_key" \
             apps/web/.next/standalone/ "$VPS_USER@$VPS_HOST:$VPS_APP_DIR/apps/web/.next/standalone/"
 
-      - name: Reload PM2
+      - name: Restart PM2
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
         run: |
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" \
-            "timeout 60 bash -lc 'cd $VPS_APP_DIR && git reset --hard --quiet $GITHUB_SHA && if [ -f apps/web/.env.local ]; then install -m 600 apps/web/.env.local apps/web/.next/standalone/apps/web/.env.local; fi && pm2 startOrReload deploy/ecosystem.config.js --only yangi-choy --update-env >/tmp/yangi-choy-pm2-reload.log 2>&1 && pm2 save --force >>/tmp/yangi-choy-pm2-reload.log 2>&1'"
+            "timeout 60 bash -lc 'cd $VPS_APP_DIR && git reset --hard --quiet $GITHUB_SHA && if [ -f apps/web/.env.local ]; then install -m 600 apps/web/.env.local apps/web/.next/standalone/apps/web/.env.local; fi && : >/tmp/yangi-choy-pm2-reload.log && { pm2 delete yangi-choy >>/tmp/yangi-choy-pm2-reload.log 2>&1 || true; } && pm2 start deploy/ecosystem.config.js --only yangi-choy --update-env >>/tmp/yangi-choy-pm2-reload.log 2>&1 && pm2 save --force >>/tmp/yangi-choy-pm2-reload.log 2>&1'"
 
       - name: Smoke test
         env:
