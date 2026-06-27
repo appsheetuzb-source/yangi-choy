@@ -4,7 +4,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 interface Mijoz {
@@ -194,23 +194,31 @@ export default function MijozlarPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = mijozlar.filter(m => {
+  const filtered = useMemo(()=>mijozlar.filter(m => {
     // Sotuvchi faqat o'z mijozlarini ko'radi
     if (isSotuvchi && user?.id && (m.Agent || "").trim() !== user.id) return false;
     return String(m.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
       String(m.Telefon || "").includes(search);
-  });
+  }),[mijozlar,isSotuvchi,user,search]);
 
-  // Group by Agent
-  const agentIds = [...new Set(filtered.map(m => m.Agent || ""))];
-  const agentGroups = agentIds.map(agentId => ({
-    agentId,
-    agentNomi: agentMap[agentId] || agentId || "Agent ko'rsatilmagan",
-    members: filtered.filter(m => (m.Agent || "") === agentId),
-  })).filter(g => g.members.length > 0);
+  // Group by Agent (bitta o'tishda — har agent uchun qayta filter o'rniga)
+  const agentGroups = useMemo(()=>{
+    const byAgent: Record<string, Mijoz[]> = {};
+    const order: string[] = [];
+    for (const m of filtered) {
+      const a = m.Agent || "";
+      if (!byAgent[a]) { byAgent[a] = []; order.push(a); }
+      byAgent[a].push(m);
+    }
+    return order.map(agentId => ({
+      agentId,
+      agentNomi: agentMap[agentId] || agentId || "Agent ko'rsatilmagan",
+      members: byAgent[agentId],
+    }));
+  },[filtered,agentMap]);
 
-  const visibleGroups = activeAgent === "all" ? agentGroups : agentGroups.filter(g => g.agentId === activeAgent);
-  const totalCount = agentGroups.reduce((s, g) => s + g.members.length, 0);
+  const visibleGroups = useMemo(()=>activeAgent === "all" ? agentGroups : agentGroups.filter(g => g.agentId === activeAgent),[agentGroups,activeAgent]);
+  const totalCount = useMemo(()=>agentGroups.reduce((s, g) => s + g.members.length, 0),[agentGroups]);
 
   function openAdd() {
     setEditTarget(null);

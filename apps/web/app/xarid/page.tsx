@@ -305,6 +305,16 @@ export default function XaridPage() {
   const totalUsd = useMemo(()=>filtered.reduce((s,x)=>s+(savatMap[String(x.Xarid_ID||"").trim()]||[]).reduce((ss,r)=>ss+num(r.Jami_Summa),0),0),[filtered,savatMap]);
   const totalSom = useMemo(()=>filtered.reduce((s,x)=>s+(savatMap[String(x.Xarid_ID||"").trim()]||[]).reduce((ss,r)=>ss+num(r.Summa_Som),0),0),[filtered,savatMap]);
 
+  // Windowing — ro'yxatni bo'lib render qilish (skroll tezligi uchun)
+  const [shown,setShown]=useState(60);
+  const moreRef=useRef<HTMLDivElement>(null);
+  useEffect(()=>{ setShown(60); },[filterOy,filterYil,filterT,search]);
+  useEffect(()=>{
+    const el=moreRef.current; if(!el) return;
+    const io=new IntersectionObserver(es=>{ if(es[0].isIntersecting) setShown(n=>n+60); });
+    io.observe(el); return ()=>io.disconnect();
+  },[filtered.length]);
+
   const years = useMemo(()=>{
     const y=[...new Set(xaridlar.map(x=>x.Yil).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
     if(!y.includes(String(now.getFullYear()))) y.unshift(String(now.getFullYear()));
@@ -626,7 +636,7 @@ export default function XaridPage() {
               {/* MOBILE cards */}
               {isMobile ? (
                 <div style={{display:"flex",flexDirection:"column"}}>
-                  {filtered.map((x,idx)=>{
+                  {filtered.slice(0,shown).map((x,idx)=>{
                     const savati=savatMap[String(x.Xarid_ID||"").trim()]||[];
                     const tNomi=tMap[x.Taminotchi_ID]||"—";
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
@@ -682,7 +692,7 @@ export default function XaridPage() {
               ) : (
                 /* DESKTOP table rows */
                 <>
-                  {filtered.map((x,idx)=>{
+                  {filtered.slice(0,shown).map((x,idx)=>{
                     const savati=savatMap[String(x.Xarid_ID||"").trim()]||[];
                     const tNomi=tMap[x.Taminotchi_ID]||"—";
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
@@ -735,6 +745,11 @@ export default function XaridPage() {
                     </div>
                   )}
                 </>
+              )}
+              {shown<filtered.length && (
+                <div ref={moreRef} style={{padding:"14px",textAlign:"center",color:"var(--text-3)",fontSize:12,fontWeight:600}}>
+                  Yuklanmoqda… ({shown}/{filtered.length})
+                </div>
               )}
             </div>
           </>

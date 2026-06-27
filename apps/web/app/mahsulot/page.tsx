@@ -4,7 +4,7 @@ import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 interface Mahsulot {
@@ -134,10 +134,10 @@ export default function MahsulotPage() {
     });
   }, [loadData]);
 
-  const filtered = mahsulotlar.filter(m =>
+  const filtered = useMemo(()=>mahsulotlar.filter(m =>
     String(m.Nomi || "").toLowerCase().includes(search.toLowerCase()) &&
     (!filterMijoz || (mijMahMap[filterMijoz]?.has(m.Mahsulot_ID) ?? false))
-  );
+  ),[mahsulotlar,search,filterMijoz,mijMahMap]);
 
   function toggleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -146,7 +146,7 @@ export default function MahsulotPage() {
 
   const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
 
-  const sorted = sortCol ? [...filtered].sort((a, b) => {
+  const sorted = useMemo(()=> sortCol ? [...filtered].sort((a, b) => {
     let av = 0, bv = 0;
     let as = "", bs = "";
     if (sortCol === "nomi")    { as = a.Nomi || ""; bs = b.Nomi || ""; return sortDir === "asc" ? as.localeCompare(bs, "uz") : bs.localeCompare(as, "uz"); }
@@ -156,7 +156,17 @@ export default function MahsulotPage() {
     if (sortCol === "tan_usd")     { av = n(a.Tan_dollar);   bv = n(b.Tan_dollar);   }
     if (sortCol === "hozirda_bor") { av = balansMap[a.Mahsulot_ID] ?? 0; bv = balansMap[b.Mahsulot_ID] ?? 0; }
     return sortDir === "asc" ? av - bv : bv - av;
-  }) : filtered;
+  }) : filtered,[filtered,sortCol,sortDir,balansMap]);
+
+  // Windowing — kartalarni bo'lib render qilish (skroll tezligi uchun)
+  const [shown, setShown] = useState(60);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setShown(60); }, [search, filterMijoz, view]);
+  useEffect(() => {
+    const el = moreRef.current; if (!el) return;
+    const io = new IntersectionObserver(es => { if (es[0].isIntersecting) setShown(n => n + 60); });
+    io.observe(el); return () => io.disconnect();
+  }, [filtered.length, view]);
 
   // ── Yuklash: mahsulot nomi + qoldiq (dona) + chiqarilgan sana ──
   function buildMahsulotExport(): ExportOpts {
@@ -440,7 +450,7 @@ export default function MahsulotPage() {
 
         {!loading && !error && filtered.length > 0 && view === "grid" && (
           <div className="card-grid">
-            {filtered.map((m, i) => (
+            {filtered.slice(0,shown).map((m, i) => (
               <GridCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
                 omborNomi={omborNomi(m.Ombor_ID)}
@@ -477,7 +487,7 @@ export default function MahsulotPage() {
               ))}
               <div className="list__head-actions" />
             </div>
-            {sorted.map((m, i) => (
+            {sorted.slice(0,shown).map((m, i) => (
               <ListCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
                 balans={balansMap[m.Mahsulot_ID]}
@@ -486,6 +496,11 @@ export default function MahsulotPage() {
           </div>
           );
         })()}
+        {!loading && !error && shown < (view === "grid" ? filtered.length : sorted.length) && (
+          <div ref={moreRef} style={{ padding: 14, textAlign: "center", color: "var(--text-3)", fontSize: 12, fontWeight: 600 }}>
+            Yuklanmoqda… ({shown}/{view === "grid" ? filtered.length : sorted.length})
+          </div>
+        )}
       </div>
 
       {/* ── Drawer (right side panel) ── */}

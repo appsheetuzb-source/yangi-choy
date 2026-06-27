@@ -1,7 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 interface Ombor {
@@ -71,20 +71,31 @@ export default function OmborPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const allMahsulotlar = mainOmbor
+  const allMahsulotlar = useMemo(()=> mainOmbor
     ? mahsulotlar.filter(m => m.Ombor_ID === mainOmbor.Ombor_ID)
-    : mahsulotlar;
+    : mahsulotlar, [mahsulotlar, mainOmbor]);
 
-  const filtered = allMahsulotlar.filter(m =>
+  const filtered = useMemo(()=> allMahsulotlar.filter(m =>
     String(m.Nomi || "").toLowerCase().includes(search.toLowerCase())
-  );
+  ), [allMahsulotlar, search]);
 
-  const totalTanSom   = allMahsulotlar.reduce((s, m) => s + num(m.Tan_som),   0);
-  const totalSotuvSom = allMahsulotlar.reduce((s, m) => s + num(m.Sotuv_som), 0);
-  const totalTanUsd   = allMahsulotlar.reduce((s, m) => s + num(m.Tan_dollar),   0);
-  const totalSotuvUsd = allMahsulotlar.reduce((s, m) => s + num(m.Sotuv_dollar), 0);
-  const marjaSom      = totalSotuvSom - totalTanSom;
-  const marjaUsd      = totalSotuvUsd - totalTanUsd;
+  const { totalTanSom, totalSotuvSom, totalTanUsd, totalSotuvUsd, marjaSom, marjaUsd } = useMemo(()=>{
+    const totalTanSom   = allMahsulotlar.reduce((s, m) => s + num(m.Tan_som),   0);
+    const totalSotuvSom = allMahsulotlar.reduce((s, m) => s + num(m.Sotuv_som), 0);
+    const totalTanUsd   = allMahsulotlar.reduce((s, m) => s + num(m.Tan_dollar),   0);
+    const totalSotuvUsd = allMahsulotlar.reduce((s, m) => s + num(m.Sotuv_dollar), 0);
+    return { totalTanSom, totalSotuvSom, totalTanUsd, totalSotuvUsd, marjaSom: totalSotuvSom-totalTanSom, marjaUsd: totalSotuvUsd-totalTanUsd };
+  }, [allMahsulotlar]);
+
+  // Windowing — ro'yxatni bo'lib render qilish (skroll tezligi uchun)
+  const [shown, setShown] = useState(60);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setShown(60); }, [search, mainOmbor]);
+  useEffect(() => {
+    const el = moreRef.current; if (!el) return;
+    const io = new IntersectionObserver(es => { if (es[0].isIntersecting) setShown(n => n + 60); });
+    io.observe(el); return () => io.disconnect();
+  }, [filtered.length]);
 
   const stats = [
     {
@@ -282,7 +293,7 @@ export default function OmborPage() {
                 gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fill, minmax(210px, 1fr))",
                 gap: isMobile ? 12 : 16,
               }}>
-                {filtered.map(m => (
+                {filtered.slice(0,shown).map(m => (
                   <ProductCard key={m.Mahsulot_ID || m.Nomi} mahsulot={m} currency={currency}
                     onPress={() => router.push(`/ombor/${m.Mahsulot_ID}`)}/>
                 ))}
@@ -302,11 +313,16 @@ export default function OmborPage() {
                     <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{h}</span>
                   ))}
                 </div>
-                {filtered.map((m, idx) => (
+                {filtered.slice(0,shown).map((m, idx) => (
                   <ProductRow key={m.Mahsulot_ID || m.Nomi} mahsulot={m} currency={currency}
                     idx={idx} total={filtered.length} isMobile={isMobile}
                     onPress={() => router.push(`/ombor/${m.Mahsulot_ID}`)}/>
                 ))}
+              </div>
+            )}
+            {shown < filtered.length && (
+              <div ref={moreRef} style={{ padding: 14, textAlign: "center", color: "var(--text-3)", fontSize: 12, fontWeight: 600 }}>
+                Yuklanmoqda… ({shown}/{filtered.length})
               </div>
             )}
           </>

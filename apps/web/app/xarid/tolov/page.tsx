@@ -489,6 +489,16 @@ export default function XaridTolovPage() {
   const totalJamiUsd = useMemo(() => filtered.reduce((s, t) => s + num(t.Summa_dollar), 0), [filtered]);
   const totalJamiSom = useMemo(() => filtered.reduce((s, t) => s + num(t.Summa), 0), [filtered]);
 
+  // Windowing — ro'yxatni bo'lib render qilish (skroll tezligi uchun)
+  const [shown, setShown] = useState(60);
+  const moreRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { setShown(60); }, [filterOy, filterYil, filterT, search]);
+  useEffect(() => {
+    const el = moreRef.current; if (!el) return;
+    const io = new IntersectionObserver(es => { if (es[0].isIntersecting) setShown(n => n + 60); });
+    io.observe(el); return () => io.disconnect();
+  }, [filtered.length]);
+
   const years = useMemo(() => {
     const y = [...new Set(tolovlar.map(t => t.Yil).filter(Boolean))].sort((a, b) => Number(b) - Number(a));
     if (!y.includes(String(now.getFullYear()))) y.unshift(String(now.getFullYear()));
@@ -667,7 +677,7 @@ export default function XaridTolovPage() {
               {/* ── MOBILE cards ── */}
               {isMobile ? (
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  {filtered.map((t, idx) => {
+                  {filtered.slice(0, shown).map((t, idx) => {
                     const tNomi    = tMap[t.Taminotchi_ID] || "—";
                     const somVal   = num(t.Som);
                     const dollarVal = num(t.Dollar);
@@ -747,7 +757,7 @@ export default function XaridTolovPage() {
               ) : (
                 /* ── DESKTOP table rows ── */
                 <>
-                  {filtered.map((t, idx) => {
+                  {filtered.slice(0, shown).map((t, idx) => {
                     const tNomi    = tMap[t.Taminotchi_ID] || "—";
                     const somVal    = num(t.Som);
                     const dollarVal = num(t.Dollar);
@@ -820,6 +830,11 @@ export default function XaridTolovPage() {
                     );
                   })}
                 </>
+              )}
+              {shown < filtered.length && (
+                <div ref={moreRef} style={{ padding: "14px", textAlign: "center", color: "var(--text-3)", fontSize: 12, fontWeight: 600 }}>
+                  Yuklanmoqda… ({shown}/{filtered.length})
+                </div>
               )}
             </div>
           </>

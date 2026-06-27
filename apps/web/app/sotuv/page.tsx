@@ -415,6 +415,9 @@ export default function SotuvPage() {
   const [filterYil, setFilterYil] = useState(String(now.getFullYear()));
   const [filterAgent, setFilterAgent] = useState<string[]>([]);
   const [viewTab, setViewTab] = useState<"all"|"som"|"dollar"|"bosh"|"bugungi"|"berilmagan">("all");
+  // Ro'yxatni bo'lib render qilish (skroll tezligi uchun) — boshda 60 ta, pastga yetganda +60
+  const [shown, setShown] = useState(60);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   const todaySana = nowStr().sana;
 
@@ -931,13 +934,16 @@ export default function SotuvPage() {
     } finally { setDeleting(false); }
   }
 
+  // Mijoz_ID -> Mijoz xaritasi (O(qator×mijoz) .find o'rniga O(1) qidiruv)
+  const mjMap = useMemo(()=>{const m:Record<string,Mijoz>={};mijozlar.forEach(x=>{if(x.Mijoz_ID)m[x.Mijoz_ID]=x;});return m;},[mijozlar]);
+
   // Sana (oy/yil) filtrisiz baza — agent/qidiruv/sotuvchi bo'yicha. "Bo'sh" tab shundan oladi.
   const filteredNoDate = useMemo(()=>sotuvlar.filter(s=>{
     if(!s.Sotuv_ID) return false;
     // Sotuvchi faqat o'z sotuvlarini ko'radi
     if(isSotuvchi && user?.id && s.Agent !== user.id) return false;
     const matchAgent=filterAgent.length===0||filterAgent.includes(s.Agent);
-    const mJozIsi=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID)?.Ism||"";
+    const mJozIsi=(mjMap[s.Mijoz_ID]?.Ism||"");
     const matchSearch=!search||
       mJozIsi.toLowerCase().includes(search.toLowerCase())||
       (s.Sotuv_Raqami||"").includes(search)||
@@ -953,7 +959,7 @@ export default function SotuvPage() {
   }),[filteredNoDate,filterOy,filterYil]);
 
   // "Bo'sh" tab — barcha davrlardagi tasdiqlanmagan (Chek bo'sh) sotuvlar (sana filtridan qat'i nazar)
-  const viewFiltered = (viewTab === "bosh" ? filteredNoDate : filtered).filter(s => {
+  const viewFiltered = useMemo(()=>(viewTab === "bosh" ? filteredNoDate : filtered).filter(s => {
     const hasSom = (savatSomMap[s.Sotuv_ID]||[]).length > 0;
     const hasDollar = (savatDollarMap[s.Sotuv_ID]||[]).length > 0;
     if (viewTab === "som")     return hasSom;
@@ -969,10 +975,33 @@ export default function SotuvPage() {
       });
     }
     return true;
-  });
+  }),[viewTab,filtered,filteredNoDate,savatSomMap,savatDollarMap,todaySana]);
 
   const totalSom    = useMemo(()=>viewFiltered.reduce((s,sv)=>s+(savatSomMap[sv.Sotuv_ID]||[]).reduce((ss,r)=>ss+num(r.Summa_som),0),0),[viewFiltered,savatSomMap]);
   const totalDollar = useMemo(()=>viewFiltered.reduce((s,sv)=>s+(savatDollarMap[sv.Sotuv_ID]||[]).reduce((ss,r)=>ss+num(r.Summa),0),0),[viewFiltered,savatDollarMap]);
+
+  // Tab badge sonlari — bitta o'tishda (har render 6× .filter o'rniga)
+  const tabCounts = useMemo(()=>{
+    let som=0,dollar=0,bugungi=0,berilmagan=0;
+    for(const s of filtered){
+      const sm=savatSomMap[s.Sotuv_ID]||[]; const dm=savatDollarMap[s.Sotuv_ID]||[];
+      if(sm.length>0) som++;
+      if(dm.length>0) dollar++;
+      if(s.Sana===todaySana) bugungi++;
+      if([...sm,...dm].some(r=>(r.Check??"").toString().toUpperCase()==="FALSE")) berilmagan++;
+    }
+    let bosh=0; for(const s of filteredNoDate) if(String(s.Chek||"").trim()==="") bosh++;
+    return {all:filtered.length, som, dollar, bosh, bugungi, berilmagan};
+  },[filtered,filteredNoDate,savatSomMap,savatDollarMap,todaySana]);
+
+  // Filtr/tab/qidiruv o'zgarsa — ko'rsatishni boshiga qaytar
+  useEffect(()=>{ setShown(60); },[viewTab,filterOy,filterYil,filterAgent,search]);
+  // Pastga yetganda yana 60 ta yuklash (infinite scroll)
+  useEffect(()=>{
+    const el=moreRef.current; if(!el) return;
+    const io=new IntersectionObserver(es=>{ if(es[0].isIntersecting) setShown(n=>n+60); });
+    io.observe(el); return ()=>io.disconnect();
+  },[viewTab,viewFiltered.length]);
 
   const years = useMemo(()=>{
     const y=[...new Set(sotuvlar.map(s=>s.Yil).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
@@ -1014,7 +1043,7 @@ export default function SotuvPage() {
   // Tanlangan mijozning eski qarzi (boshlang'ich + jami sotuv - jami to'lov)
   const addMijozEski = useMemo(()=>{
     if(!addMijoz) return null;
-    const mj=mijozlar.find(m=>m.Mijoz_ID===addMijoz);
+    const mj=mjMap[addMijoz];
     let som=num(mj?.Boshlangich_Balans_som), dollar=num(mj?.Boshlangich_Balans_dollar);
     sotuvlar.filter(s=>s.Mijoz_ID===addMijoz && qarzTrue(s)).forEach(s=>{
       (savatSomMap[s.Sotuv_ID]||[]).forEach(r=>{ som+=num(r.Summa_som); });
@@ -1069,12 +1098,12 @@ export default function SotuvPage() {
             {/* View tabs */}
             <div style={{display:"flex",gap:6,flexWrap:"wrap",marginBottom:16}}>
               {([
-                {key:"all",    label:"Barchasi",       count: filtered.length},
-                {key:"som",    label:"So'm",           count: filtered.filter(s=>(savatSomMap[s.Sotuv_ID]||[]).length>0).length},
-                {key:"dollar", label:"Dollar ($)",     count: filtered.filter(s=>(savatDollarMap[s.Sotuv_ID]||[]).length>0).length},
-                {key:"bosh",   label:"Bo'sh",          count: filteredNoDate.filter(s=>String(s.Chek||"").trim()==="").length},
-                {key:"bugungi",    label:"Bugungi",    count: filtered.filter(s=>s.Sana===todaySana).length},
-                {key:"berilmagan", label:"Berilmagan", count: filtered.filter(s=>[...(savatSomMap[s.Sotuv_ID]||[]),...(savatDollarMap[s.Sotuv_ID]||[])].some(r=>(r.Check??"").toString().toUpperCase()==="FALSE")).length},
+                {key:"all",    label:"Barchasi",       count: tabCounts.all},
+                {key:"som",    label:"So'm",           count: tabCounts.som},
+                {key:"dollar", label:"Dollar ($)",     count: tabCounts.dollar},
+                {key:"bosh",   label:"Bo'sh",          count: tabCounts.bosh},
+                {key:"bugungi",    label:"Bugungi",    count: tabCounts.bugungi},
+                {key:"berilmagan", label:"Berilmagan", count: tabCounts.berilmagan},
               ] as const).map(tab=>{
                 const active = viewTab === tab.key;
                 return (
@@ -1157,8 +1186,8 @@ export default function SotuvPage() {
               {/* Mobile cards */}
               {isMobile?(
                 <div style={{display:"flex",flexDirection:"column"}}>
-                  {viewFiltered.map((s,idx)=>{
-                    const mjNomi=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID)?.Ism||"—";
+                  {viewFiltered.slice(0,shown).map((s,idx)=>{
+                    const mjNomi=(mjMap[s.Mijoz_ID]?.Ism||"—");
                     const agNomi=aMap[s.Agent]||"—";
                     const jS=(savatSomMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
                     const jD=(savatDollarMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa),0);
@@ -1233,7 +1262,7 @@ export default function SotuvPage() {
                         {allUndeliveredSom.map((r,idx)=>{
                           const mNomi=mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID;
                           const sv=sotuvlar.find(sv=>sv.Sotuv_ID===r.Sotuv_ID);
-                          const mjNomi=mijozlar.find(m=>m.Mijoz_ID===sv?.Mijoz_ID)?.Ism||"—";
+                          const mjNomi=(mjMap[sv?.Mijoz_ID||""]?.Ism||"—");
                           const isChecked=(r.Check??"").toString().toUpperCase()==="TRUE";
                           const isSav=checkSaving===r.Savat_ID;
                           return (
@@ -1269,7 +1298,7 @@ export default function SotuvPage() {
                         {allUndeliveredDollar.map((r,idx)=>{
                           const mNomi=mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID;
                           const sv=sotuvlar.find(sv=>sv.Sotuv_ID===r.Sotuv_ID);
-                          const mjNomi=mijozlar.find(m=>m.Mijoz_ID===sv?.Mijoz_ID)?.Ism||"—";
+                          const mjNomi=(mjMap[sv?.Mijoz_ID||""]?.Ism||"—");
                           const isChecked=(r.Check??"").toString().toUpperCase()==="TRUE";
                           const isSav=checkSaving===r.Savat_ID;
                           return (
@@ -1297,8 +1326,8 @@ export default function SotuvPage() {
                   </div>
                 ) : (
                   <>
-                    {viewFiltered.map((s,idx)=>{
-                      const mjNomi=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID)?.Ism||"—";
+                    {viewFiltered.slice(0,shown).map((s,idx)=>{
+                      const mjNomi=(mjMap[s.Mijoz_ID]?.Ism||"—");
                       const agNomi=aMap[s.Agent]||"—";
                       const jS=(savatSomMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa_som),0);
                       const jD=(savatDollarMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa),0);
@@ -1346,7 +1375,7 @@ export default function SotuvPage() {
                           <span style={{fontSize:12,color:"var(--text-2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.Izoh||"—"}</span>
                           <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
                             <button onClick={()=>{
-                              const mj=mijozlar.find(m=>m.Mijoz_ID===s.Mijoz_ID);
+                              const mj=mjMap[s.Mijoz_ID];
                               const ag=aMap[s.Agent]||"";
                               const isDollar=(v:string)=>String(v||"").toLowerCase().includes("dollar")||v.trim()==="$";
                               // Eski qarz = snapshot (Sotuv.Balans), To'lov = shu sotuvga qilingan to'lovlar
@@ -1383,6 +1412,11 @@ export default function SotuvPage() {
                     })}
                   </>
                 )
+              )}
+              {viewTab!=="berilmagan" && shown<viewFiltered.length && (
+                <div ref={moreRef} style={{padding:"14px",textAlign:"center",color:"var(--text-3)",fontSize:12,fontWeight:600}}>
+                  Yuklanmoqda… ({shown}/{viewFiltered.length})
+                </div>
               )}
             </div>
           </>

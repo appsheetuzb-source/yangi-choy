@@ -228,8 +228,11 @@ export default function Home() {
     return [...myTolovlar].filter(x=>x.Tolov_ID).sort((a,b)=>key(b).localeCompare(key(a))).slice(0,6);
   },[myTolovlar]);
 
-  const sotuvSumma = (id:string)=> savatS.filter(r=>r.Sotuv_ID===id).reduce((a,r)=>a+num(r.Summa_som),0);
-  const sotuvSummaD = (id:string)=> savatD.filter(r=>r.Sotuv_ID===id).reduce((a,r)=>a+num(r.Summa),0);
+  // Sotuv_ID -> jami summa xaritasi (har chaqiruvda 23k qatorni filter qilmaslik uchun)
+  const sotuvSumMap  = useMemo(()=>{ const m:Record<string,number>={}; savatS.forEach(r=>{ const k=r.Sotuv_ID; m[k]=(m[k]||0)+num(r.Summa_som); }); return m; },[savatS]);
+  const sotuvSumMapD = useMemo(()=>{ const m:Record<string,number>={}; savatD.forEach(r=>{ const k=r.Sotuv_ID; m[k]=(m[k]||0)+num(r.Summa); }); return m; },[savatD]);
+  const sotuvSumma  = (id:string)=> sotuvSumMap[id]||0;
+  const sotuvSummaD = (id:string)=> sotuvSumMapD[id]||0;
 
   const salom = t.soat<12 ? "Xayrli tong" : t.soat<18 ? "Xayrli kun" : "Xayrli kech";
 
