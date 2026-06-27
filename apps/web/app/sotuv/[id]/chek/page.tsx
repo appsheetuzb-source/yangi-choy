@@ -1,9 +1,8 @@
 "use client";
 import { fetchSheet } from "@/lib/sheet-cache";
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
@@ -19,192 +18,6 @@ function num(v: string|number|undefined) { return parseFloat(String(v||"0").repl
 function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
 function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $"; }
 
-function buildPDF(
-  id: string, sana: string, agentNomi: string, mijozIsm: string, mijozTel: string,
-  savatSom: SotuvSavatRow[], savatDollar: SotuvSavatDollarRow[],
-  mMap: Record<string,Mahsulot>,
-  totalSom: number, totalDollar: number,
-  tolovSom: number, tolovDollar: number,
-): jsPDF {
-  const hasTolov = tolovSom > 0 || tolovDollar > 0;
-  const margin = 4;
-  const W = 210;
-  const rowH = 7;
-  const headerH  = 22;
-  const infoH    = 30;
-  const somH     = savatSom.length    > 0 ? 16 + savatSom.length    * rowH + 12 : 0;
-  const dollarH  = savatDollar.length > 0 ? 16 + savatDollar.length * rowH + 12 : 0;
-  const balanceH = hasTolov ? 65 : 55;
-  const footerH  = 14;
-  const totalH   = headerH + infoH + somH + dollarH + balanceH + footerH;
-
-  const doc = new jsPDF({ unit: "mm", format: [W, Math.max(totalH, 80)] });
-  let y = 0;
-
-  // ── Header band ──────────────────────────────────────────────
-  doc.setFillColor(26, 39, 68);
-  doc.rect(0, 0, W, 22, "F");
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
-  doc.text("MUSAFFO TEA", W / 2, 14, { align: "center" });
-
-  y = 28;
-
-  // ── Info grid ────────────────────────────────────────────────
-  const col1 = margin;
-  const col2 = W / 2 + 4;
-  const labelW = 22;
-  const infoRows = [
-    ["Sana", sana||"—",       "Agent",   agentNomi||"—"],
-    ["Mijoz", mijozIsm||"—",  "Telefon", mijozTel||"—"],
-  ];
-  doc.setFillColor(247, 248, 252);
-  doc.rect(0, y - 4, W, infoRows.length * 8 + 6, "F");
-
-  for (const [l1,v1,l2,v2] of infoRows) {
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 39, 68);
-    doc.text(l1 + ":", col1, y);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(45, 51, 72);
-    doc.text(v1, col1 + labelW, y);
-
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(26, 39, 68);
-    doc.text(l2 + ":", col2, y);
-    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(45, 51, 72);
-    doc.text(v2, col2 + labelW, y);
-    y += 8;
-  }
-  y += 4;
-
-  const thisSom    = savatSom.reduce((s,r)=>s+num(r.Summa_som),0);
-  const thisDollar = savatDollar.reduce((s,r)=>s+num(r.Summa),0);
-
-  // ── So'm table ───────────────────────────────────────────────
-  if (savatSom.length > 0) {
-    autoTable(doc, {
-      startY: y,
-      margin: { left: margin, right: margin },
-      head: [["№","Mahsulot","Soni","Narxi (so'm)","Summa (so'm)","Izoh"]],
-      body: savatSom.map((r,i) => [
-        i+1,
-        mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID,
-        num(r.Soni).toFixed(1),
-        num(r.Som_Narx).toLocaleString("ru-RU"),
-        num(r.Summa_som).toLocaleString("ru-RU"),
-        r.Izoh||"",
-      ]),
-      foot: [["","","","Jami:",thisSom.toLocaleString("ru-RU")+" so'm",""]],
-      theme: "grid",
-      styles: { fontStyle:"bold", lineColor:[150,158,185], lineWidth:0.2 },
-      headStyles: { fillColor:[26,39,68], textColor:255, fontStyle:"bold", fontSize:8, lineColor:[26,39,68], lineWidth:0.2 },
-      bodyStyles: { fontSize:9, textColor:[45,51,72], fontStyle:"bold" },
-      footStyles: { fillColor:[238,240,248], textColor:[26,39,68], fontStyle:"bold", fontSize:10 },
-      alternateRowStyles: { fillColor:[247,248,252] },
-      columnStyles: { 0:{halign:"center",cellWidth:10}, 2:{halign:"center",cellWidth:14}, 3:{halign:"right",cellWidth:34}, 4:{halign:"right",cellWidth:38}, 5:{cellWidth:22} },
-      showFoot: "lastPage",
-      willDrawCell: () => { doc.setFont("helvetica","bold"); },
-    });
-    y = (doc as jsPDF & {lastAutoTable:{finalY:number}}).lastAutoTable.finalY + 8;
-  }
-
-  // ── Dollar table ─────────────────────────────────────────────
-  if (savatDollar.length > 0) {
-    autoTable(doc, {
-      startY: y,
-      margin: { left: margin, right: margin },
-      head: [["№","Mahsulot","Soni","Narxi ($)","Summa ($)","Izoh"]],
-      body: savatDollar.map((r,i) => [
-        i+1,
-        mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID,
-        num(r.Soni).toFixed(1),
-        num(r.Narx).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $",
-        num(r.Summa).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $",
-        r.Izoh||"",
-      ]),
-      foot: [["","","","Jami:",thisDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $",""]],
-      theme: "grid",
-      styles: { fontStyle:"bold", lineColor:[150,158,185], lineWidth:0.2 },
-      headStyles: { fillColor:[26,39,68], textColor:255, fontStyle:"bold", fontSize:8, lineColor:[26,39,68], lineWidth:0.2 },
-      bodyStyles: { fontSize:9, textColor:[45,51,72], fontStyle:"bold" },
-      footStyles: { fillColor:[238,240,248], textColor:[26,39,68], fontStyle:"bold", fontSize:10 },
-      alternateRowStyles: { fillColor:[247,248,252] },
-      columnStyles: { 0:{halign:"center",cellWidth:10}, 2:{halign:"center",cellWidth:14}, 3:{halign:"right",cellWidth:34}, 4:{halign:"right",cellWidth:38}, 5:{cellWidth:22} },
-      showFoot: "lastPage",
-      willDrawCell: () => { doc.setFont("helvetica","bold"); },
-    });
-    y = (doc as jsPDF & {lastAutoTable:{finalY:number}}).lastAutoTable.finalY + 8;
-  }
-
-  // ── Balance box ──────────────────────────────────────────────
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(154, 160, 176);
-  doc.text("BALANS XULOSASI", margin, y);
-  doc.setDrawColor(232, 234, 240);
-  doc.line(margin + 34, y - 1, W - margin, y - 1);
-  y += 5;
-
-  const colW = savatSom.length > 0 && savatDollar.length > 0 ? (W - margin*2) / 2 : (W - margin*2);
-  const cols: Array<{label:string; eski:string; tovar:string; tolov:string; yak:string}> = [];
-  if (savatSom.length > 0)    cols.push({ label:"So'm",   eski:fmtSom(totalSom),   tovar:fmtSom(thisSom),   tolov:fmtSom(tolovSom),   yak:fmtSom(totalSom+thisSom-tolovSom) });
-  if (savatDollar.length > 0) cols.push({ label:"Dollar", eski:fmtUsd(totalDollar), tovar:fmtUsd(thisDollar), tolov:fmtUsd(tolovDollar), yak:fmtUsd(totalDollar+thisDollar-tolovDollar) });
-
-  const rows2 = [
-    { key:"Eski qarz:",      bg:[255,255,255] as [number,number,number], bold:false },
-    { key:"Olingan tovar:",  bg:[247,248,252] as [number,number,number], bold:false },
-    ...(hasTolov ? [{ key:"To'lov:", bg:[236,253,243] as [number,number,number], bold:false }] : []),
-    { key:"Yakuniy balans:", bg:[240,244,255] as [number,number,number], bold:true  },
-  ];
-  const vals = [
-    cols.map(c=>c.eski),
-    cols.map(c=>c.tovar),
-    ...(hasTolov ? [cols.map(c=>"− "+c.tolov)] : []),
-    cols.map(c=>c.yak),
-  ];
-
-  // header row
-  doc.setFillColor(26, 39, 68);
-  doc.rect(margin, y, W - margin*2, 8, "F");
-  doc.setTextColor(255,255,255); doc.setFontSize(8); doc.setFont("helvetica","bold");
-  cols.forEach((c,ci) => doc.text(c.label, margin + colW*ci + colW/2, y+5.5, {align:"center"}));
-  y += 8;
-
-  rows2.forEach((row, ri) => {
-    const rowH = row.bold ? 10 : 9;
-    doc.setFillColor(...row.bg);
-    doc.rect(margin, y, W - margin*2, rowH, "F");
-    doc.setDrawColor(232, 234, 240);
-    doc.line(margin, y+rowH, W-margin, y+rowH);
-
-    doc.setFont("helvetica", row.bold?"bold":"normal");
-    doc.setFontSize(row.bold ? 10 : 9);
-    doc.setTextColor(row.bold ? 26 : 122, row.bold ? 39 : 128, row.bold ? 68 : 160);
-    doc.text(row.key, margin+4, y + rowH*0.65);
-
-    vals[ri].forEach((val, ci) => {
-      doc.setFont("helvetica","bold");
-      doc.setFontSize(row.bold ? 10 : 9);
-      doc.setTextColor(26, 39, 68);
-      doc.text(val, margin + colW*(ci+1) - 4, y + rowH*0.65, {align:"right"});
-    });
-
-    if (cols.length > 1) {
-      doc.setDrawColor(232, 234, 240);
-      doc.line(margin + colW, y, margin + colW, y + rowH);
-    }
-    y += rowH;
-  });
-
-  // border around balance
-  doc.setDrawColor(200, 205, 225);
-  doc.rect(margin, y - rows2.reduce((s,r)=>s+(r.bold?10:9),0) - 8, W - margin*2, rows2.reduce((s,r)=>s+(r.bold?10:9),0) + 8);
-
-  // ── Footer ───────────────────────────────────────────────────
-  y += 10;
-  doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor(176, 184, 208);
-  doc.text(`MUSAFFO TEA  ·  ${sana}`, W/2, y, {align:"center"});
-
-  return doc;
-}
 
 function ChekContent() {
   const { id } = useParams<{id:string}>();
@@ -225,6 +38,7 @@ function ChekContent() {
   const [mMap, setMMap]               = useState<Record<string,Mahsulot>>({});
   const [rowsReady, setRowsReady]     = useState(false);
   const [sharing, setSharing]         = useState(false);
+  const chekRef = useRef<HTMLDivElement>(null);
 
 
   useEffect(()=>{
@@ -262,10 +76,25 @@ function ChekContent() {
   const hasDollar = !rowsReady || savatDollar.length > 0;
 
   async function handleShare() {
-    if (!rowsReady || !id) return;
+    if (!rowsReady || !id || !chekRef.current) return;
     setSharing(true);
+    const el = chekRef.current;
+    const prevMinH = el.style.minHeight;
     try {
-      const doc = buildPDF(id, sana, agentNomi, mijozIsm, mijozTel, savatSom, savatDollar, mMap, totalSom, totalDollar, tolovSom, tolovDollar);
+      // Dastur oynasidagi (HTML) chekni AYNAN rasmga olamiz — ulashilgan PDF ko'rinish/pechat bilan bir xil bo'ladi
+      el.style.minHeight = "auto";   // 100vh bo'sh joyni olib tashlaymiz
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        ignoreElements: (e) => (e as HTMLElement).classList?.contains("no-print"),
+      });
+      const imgData = canvas.toDataURL("image/jpeg", 0.95);
+      const imgW = 210;                                   // A4 eni (mm)
+      const imgH = (canvas.height * imgW) / canvas.width;
+      const doc = new jsPDF({ unit: "mm", format: [imgW, imgH] });
+      doc.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
       const pdfBlob = doc.output("blob");
       const fileName = `chek-${id}.pdf`;
 
@@ -281,6 +110,7 @@ function ChekContent() {
         URL.revokeObjectURL(url);
       }
     } finally {
+      el.style.minHeight = prevMinH;
       setSharing(false);
     }
   }
@@ -563,7 +393,7 @@ function ChekContent() {
       </div>
 
       <div className="chek-sheet">
-        <div className="chek-wrap">{renderInner()}</div>
+        <div className="chek-wrap" ref={chekRef}>{renderInner()}</div>
       </div>
     </>
   );
