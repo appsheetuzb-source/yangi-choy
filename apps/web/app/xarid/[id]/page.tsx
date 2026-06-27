@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -119,14 +119,14 @@ export default function XaridDetailPage() {
   function loadData() {
     setLoading(true);
     Promise.all([
-      fetchSheet("Xarid"),
-      fetchSheet("Xarid_Savat"),
+      fetchSheetWhere("Xarid", "Xarid_ID", id),
+      fetchSheetWhere("Xarid_Savat", "Xarid_ID", id),
       fetchSheet("Taminotchi"),
       fetchSheet("Mahsulot"),
     ]).then(([xR, xsR, tR, mR]) => {
-      const x = (xR.data as Xarid[]).find(x => x.Xarid_ID === id) || null;
+      const x = (xR.data as Xarid[])[0] || null;
       setXarid(x);
-      setSavat((xsR.data as XaridSavat[]).filter(s => s.Xarid_ID === id));
+      setSavat(xsR.data as XaridSavat[]);
       const t = tR.data as Taminotchi[];
       setTaminotchilar(t);
       const tm: Record<string, string> = {};

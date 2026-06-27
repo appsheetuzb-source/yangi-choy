@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 
@@ -67,15 +67,16 @@ export default function SotuvTolovDetailPage() {
 
   const loadData = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      fetchSheet("S_tolov"),
-      fetchSheet("Mijozlar"),
-      fetchSheet("Foydalanuvchi"),
-      fetchSheet("Sotuv"),
-      fetchSheet("Gazna"),
-    ]).then(([tR, mR, fR, sR, gzR]) => {
-      const found = (tR.data as STolov[]).find(t => t.Tolov_ID === id);
+    fetchSheetWhere("S_tolov", "Tolov_ID", id)
+    .then(async (tR) => {
+      const found = (tR.data as STolov[])[0];
       if (!found) { setError("To'lov topilmadi"); return; }
+      const [mR, fR, sR, gzR] = await Promise.all([
+        found.Mijoz_ID ? fetchSheetWhere("Mijozlar", "Mijoz_ID", found.Mijoz_ID) : Promise.resolve({ headers: [], data: [] }),
+        found.Agent ? fetchSheetWhere("Foydalanuvchi", "Foydalanuvchi_ID", found.Agent) : Promise.resolve({ headers: [], data: [] }),
+        found.Sotuv_ID ? fetchSheetWhere("Sotuv", "Sotuv_ID", found.Sotuv_ID) : Promise.resolve({ headers: [], data: [] }),
+        fetchSheet("Gazna"),
+      ]);
       setTolov(found);
       setMijozlar((mR.data || []) as Mijoz[]);
       setAgentlar((fR.data || []) as Foydalanuvchi[]);

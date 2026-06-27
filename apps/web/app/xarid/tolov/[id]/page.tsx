@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 
@@ -64,14 +64,15 @@ export default function XaridTolovDetailPage() {
 
   const loadData = useCallback(() => {
     setLoading(true);
-    Promise.all([
-      fetchSheet("X_Tolov"),
-      fetchSheet("Taminotchi"),
-      fetchSheet("Xarid"),
-      fetchSheet("Gazna"),
-    ]).then(([tR, tmR, xR, gzR]) => {
-      const found = (tR.data as XTolov[]).find(t => t.X_Tolov_ID === id);
+    fetchSheetWhere("X_Tolov", "X_Tolov_ID", id)
+    .then(async (tR) => {
+      const found = (tR.data as XTolov[])[0];
       if (!found) { setError("To'lov topilmadi"); return; }
+      const [tmR, xR, gzR] = await Promise.all([
+        found.Taminotchi_ID ? fetchSheetWhere("Taminotchi", "Taminotchi_ID", found.Taminotchi_ID) : Promise.resolve({ headers: [], data: [] }),
+        found.Xarid_ID ? fetchSheetWhere("Xarid", "Xarid_ID", found.Xarid_ID) : Promise.resolve({ headers: [], data: [] }),
+        fetchSheet("Gazna"),
+      ]);
       setTolov(found);
       setTaminotchilar(tmR.data as Taminotchi[]);
       setXaridlar(xR.data as Xarid[]);
