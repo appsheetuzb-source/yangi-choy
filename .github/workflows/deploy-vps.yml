@@ -60,14 +60,14 @@ jobs:
             -e "ssh -i ~/.ssh/vps_key" \
             apps/web/.next/ "$VPS_USER@$VPS_HOST:$VPS_APP_DIR/apps/web/.next/"
 
-      - name: Install runtime dependencies and reload PM2
+      - name: Reload PM2
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
         run: |
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" \
-            "timeout 180 bash -lc 'cd $VPS_APP_DIR && npm install --omit=dev --no-audit --no-fund --package-lock=false && git reset --hard --quiet $GITHUB_SHA && pm2 reload yangi-choy --update-env >/tmp/yangi-choy-pm2-reload.log 2>&1'"
+            "timeout 60 bash -lc 'cd $VPS_APP_DIR && git reset --hard --quiet $GITHUB_SHA && pm2 reload yangi-choy --update-env >/tmp/yangi-choy-pm2-reload.log 2>&1'"
 
       - name: Smoke test
         env:

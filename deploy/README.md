@@ -99,6 +99,10 @@ GitHub Linux runner'da `next build` qiladi, VPS'dagi source'ni shu commitga rese
 
 Manual deploy kerak bo'lsa GitHub'da **Actions → Deploy VPS → Run workflow** bosing.
 
+`package.json` yoki `package-lock.json` o'zgargan kamyob holatda VPS'da runtime dependency'larni
+alohida maintenance oynasida yangilang; odatiy deploy buni qilmaydi, chunki bu qadam kichik VPS'da
+sekin va ba'zan `node_modules` rename xatolari beradi.
+
 Eski server ichida build qiladigan fallback:
 ```bash
 cd /var/www/yangi-choy
