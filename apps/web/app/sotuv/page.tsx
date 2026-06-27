@@ -403,6 +403,8 @@ export default function SotuvPage() {
   const [stolovMap, setStolovMap]           = useState<Record<string,STolov[]>>({});
   // Mijoz_ID bo'yicha to'lovlar (Sotuv_ID bo'sh — umumiy to'lovlar ham hisoblanadi)
   const [stolovByMijoz, setStolovByMijoz]   = useState<Record<string,{som:number,dollar:number}>>({});
+  // Og'ir balans ma'lumoti (savat+to'lov) to'liq yuklandimi — snapshot to'g'ri bo'lishi uchun saqlash shungacha bloklanadi
+  const [balansReady, setBalansReady]       = useState(false);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string|null>(null);
   const [search, setSearch]                 = useState("");
@@ -516,8 +518,10 @@ export default function SotuvPage() {
       }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
         .finally(()=>{
           setLoading(false);
+          setBalansReady(false);
           // Faza 2 — og'ir savat sheet'lari FONDA (JAMI/statistika ~1-2s da to'ladi)
-          fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]).then((rr)=>{
+          // MUHIM: Mijoz balansi snapshot'i shu ma'lumotga bog'liq — ikkalasi yuklanmaguncha saqlash bloklanadi (balansReady)
+          const p1 = fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]).then((rr)=>{
             const sm:Record<string,SotuvSavatRow[]>={};
             ((rr["Sotuv_Savat"]?.data||[]) as SotuvSavatRow[]).forEach(r=>{
               const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
@@ -530,9 +534,9 @@ export default function SotuvPage() {
               if(!dm[k])dm[k]=[]; dm[k].push(r);
             });
             setSavatDollarMap(dm);
-          }).catch(()=>{});
+          });
           // S_tolov ham fonda
-          fetchSheet("S_tolov").then(stR=>{
+          const p2 = fetchSheet("S_tolov").then(stR=>{
             const stm: Record<string,STolov[]> = {};
             const sbm: Record<string,{som:number,dollar:number}> = {};
             ((stR.data||[]) as STolov[]).forEach((r:STolov)=>{
@@ -547,7 +551,9 @@ export default function SotuvPage() {
             });
             setStolovMap(stm);
             setStolovByMijoz(sbm);
-          }).catch(()=>{});
+          });
+          // Ikkala fon yuklanish tugaganда — balans tayyor, snapshot to'g'ri saqlanadi
+          Promise.all([p1,p2]).then(()=>setBalansReady(true)).catch(()=>setBalansReady(true));
         });
     }, delay);
   },[]);
@@ -711,6 +717,8 @@ export default function SotuvPage() {
 
   async function handleSave() {
     if(!addMijoz||!addAgent) return;
+    // Snapshot to'g'ri bo'lishi uchun — balans ma'lumoti to'liq yuklanmasdan saqlamaymiz
+    if(!balansReady){ alert("Mijoz balansi hali yuklanmoqda — bir lahza kuting (1-2 soniya) va qayta saqlang."); return; }
     const valid=savat.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx)));
     if(valid.length===0) return;
     setSaving(true);
@@ -1501,8 +1509,8 @@ export default function SotuvPage() {
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setAddOpen(false)}>Bekor</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleSave}
-                disabled={saving||!addMijoz||!addAgent||savat.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0||savat.some(s=>isBelowCost(s,addKurs,mMap))}>
-                {saving&&<span className="spinner"/>} Saqlash
+                disabled={saving||!addMijoz||!addAgent||savat.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0||savat.some(s=>isBelowCost(s,addKurs,mMap))||(!!addMijoz&&!balansReady)}>
+                {saving&&<span className="spinner"/>} {addMijoz&&!balansReady?"Balans yuklanmoqda…":"Saqlash"}
               </button>
             </div>
           </div>
