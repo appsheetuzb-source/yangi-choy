@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { getCurrentKurs } from "@/lib/kurs";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
@@ -352,19 +352,19 @@ export default function SotuvDetailPage() {
   function loadData() {
     setLoading(true);
     Promise.all([
-      fetchSheet("Sotuv"),
-      fetchSheet("Sotuv_Savat"),
-      fetchSheet("Sotuv_savat_dollar"),
+      fetchSheetWhere("Sotuv", "Sotuv_ID", id),
+      fetchSheetWhere("Sotuv_Savat", "Sotuv_ID", id),
+      fetchSheetWhere("Sotuv_savat_dollar", "Sotuv_ID", id),
       fetchSheet("Foydalanuvchi"),
       fetchSheet("Mijozlar"),
       fetchSheet("Mahsulot"),
-      fetchSheet("S_tolov"),
+      fetchSheetWhere("S_tolov", "Sotuv_ID", id),
       fetchSheet("Gazna"),
     ]).then(([sR,ssR,sdR,fR,mzR,mhR,stR,gzR])=>{
-      const s=(sR.data as Sotuv[]).find(x=>x.Sotuv_ID===id)||null;
+      const s=(sR.data as Sotuv[])[0]||null;
       setSotuv(s);
-      setSavatSom((ssR.data as SotuvSavatRow[]).filter(r=>r.Sotuv_ID===id));
-      setSavatDollar((sdR.data as SotuvSavatDollarRow[]).filter(r=>r.Sotuv_ID===id));
+      setSavatSom(ssR.data as SotuvSavatRow[]);
+      setSavatDollar(sdR.data as SotuvSavatDollarRow[]);
       const fArr=fR.data as Foydalanuvchi[];
       setAgentlar(fArr);
       const am:Record<string,string>={};
@@ -376,7 +376,7 @@ export default function SotuvDetailPage() {
       const mm:Record<string,Mahsulot>={};
       mhArr.forEach(m=>{mm[m.Mahsulot_ID]=m;});
       setMMap(mm);
-      const sorted=((stR.data||[]) as STolov[]).filter(r=>r.Sotuv_ID===id).sort((a,b)=>{
+      const sorted=((stR.data||[]) as STolov[]).sort((a,b)=>{
         const p=(s:string)=>{const [d,mo,y]=(s||"").split(".").map(Number);return (y||0)*10000+(mo||0)*100+(d||0);};
         const t2s=(v:string)=>{const [h,m,s]=(v||"").split(":").map(Number);return (h||0)*3600+(m||0)*60+(s||0);};
         const dd=p(b.Sana)-p(a.Sana); return dd!==0?dd:t2s(b.Vaqt)-t2s(a.Vaqt);
@@ -692,11 +692,11 @@ export default function SotuvDetailPage() {
     const sid=sotuv.Sotuv_ID;
     try {
       const [ssRes,sdRes]=await Promise.all([
-        fetchSheet("Sotuv_Savat"),
-        fetchSheet("Sotuv_savat_dollar"),
+        fetchSheetWhere("Sotuv_Savat", "Sotuv_ID", sid),
+        fetchSheetWhere("Sotuv_savat_dollar", "Sotuv_ID", sid),
       ]);
-      const somItems=((ssRes.data||[]) as {Savat_ID:string;Sotuv_ID:string}[]).filter(r=>String(r.Sotuv_ID||"").trim()===sid);
-      const dollarItems=((sdRes.data||[]) as {Savat_ID:string;Sotuv_ID:string}[]).filter(r=>String(r.Sotuv_ID||"").trim()===sid);
+      const somItems=(ssRes.data||[]) as {Savat_ID:string;Sotuv_ID:string}[];
+      const dollarItems=(sdRes.data||[]) as {Savat_ID:string;Sotuv_ID:string}[];
       for(const r of somItems){
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID})});

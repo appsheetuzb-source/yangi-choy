@@ -1,22 +1,32 @@
 import { google } from "googleapis";
-import type { Pool } from "pg"; // FAQAT tip — runtime'da pg lazy yuklanadi (pastdagi getPool)
+import type { Pool, QueryResult } from "pg"; // FAQAT tip — runtime'da pg lazy yuklanadi (pastdagi getPool)
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_ID;
+const USE_POSTGRES = process.env.USE_POSTGRES === "true";
+
+function postgresTableName(sheetName: string): string {
+  return sheetName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+export function sheetCacheKey(sheetName?: string): string {
+  const resolved = sheetName || process.env.GOOGLE_SHEET_NAME || "Sheet1";
+  return USE_POSTGRES ? postgresTableName(resolved) : resolved;
+}
 
 // ── In-memory cache (5 daqiqa TTL) ────────────────────
 const _cache: Record<string, { data: unknown; ts: number }> = {};
 const CACHE_TTL = 5 * 60_000; // 5 minutes
 
-function cacheGet(key: string) {
-  const entry = _cache[key];
+function cacheGet(sheetName: string) {
+  const entry = _cache[sheetCacheKey(sheetName)];
   if (entry && Date.now() - entry.ts < CACHE_TTL) return entry.data;
   return null;
 }
-function cacheSet(key: string, data: unknown) {
-  _cache[key] = { data, ts: Date.now() };
+function cacheSet(sheetName: string, data: unknown) {
+  _cache[sheetCacheKey(sheetName)] = { data, ts: Date.now() };
 }
 export function invalidateCache(sheetName?: string) {
-  if (sheetName) { delete _cache[sheetName]; }
+  if (sheetName) { delete _cache[sheetCacheKey(sheetName)]; }
   else { for (const k of Object.keys(_cache)) delete _cache[k]; }
 }
 // ─────────────────────────────────────────────────────
@@ -26,7 +36,6 @@ export function invalidateCache(sheetName?: string) {
 // Sheets bilan AYNAN bir xil { headers, data } shaklini qaytaradi
 // (ustun nomlari case-sensitive saqlangan, NULL -> "").
 // ══════════════════════════════════════════════════════
-const USE_POSTGRES = process.env.USE_POSTGRES === "true";
 let _pool: Pool | null = null;
 // pg LAZY yuklanadi — statik import bo'lsa, pg topilmasa BUTUN sayt qulardi.
 // Bu yo'l faqat USE_POSTGRES yo'llarida chaqiriladi; Sheets rejimида pg umuman yuklanmaydi.
@@ -46,7 +55,7 @@ async function getPool(): Promise<Pool> {
 }
 // Sheet nomi -> jadval nomi (migratsiya bilan AYNAN bir xil qoida)
 function pgTable(sheetName: string): string {
-  return sheetName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  return postgresTableName(sheetName);
 }
 function pgQ(name: string): string { return '"' + String(name).replace(/"/g, '""') + '"'; }
 // "true"/"false" -> "TRUE"/"FALSE" (Sheets checkbox bilan bir xil; migratsiya shunday saqlagan)
@@ -71,19 +80,50 @@ async function pgColumns(table: string): Promise<string[]> {
   return cols;
 }
 
+function pgResultToSheet(r: QueryResult<Record<string, unknown>>): { headers: string[]; data: Record<string, string>[] } {
+  const headers = r.fields.map((f) => f.name).filter((n) => n !== "_ord");
+  const data = r.rows.map((row) => {
+    const obj: Record<string, string> = {};
+    for (const h of headers) {
+      const v = row[h];
+      obj[h] = v === null || v === undefined ? "" : String(v);
+    }
+    return obj;
+  });
+  return { headers, data };
+}
+
 async function pgGetSheet(range: string): Promise<{ headers: string[]; data: Record<string, string>[] }> {
   const table = pgTable(range);
   try {
     // _ord = varaq tartibi (BIGSERIAL PK). ORDER BY _ord -> Sheets bilan aynan bir xil tartib.
-    const r = await (await getPool()).query(`SELECT * FROM ${pgQ(table)} ORDER BY _ord`);
-    const headers = r.fields.map((f) => f.name).filter((n) => n !== "_ord");
-    const data = r.rows.map((row) => {
-      const obj: Record<string, string> = {};
-      const rec = row as Record<string, unknown>;
-      for (const h of headers) { const v = rec[h]; obj[h] = v === null || v === undefined ? "" : String(v); }
-      return obj;
-    });
-    return { headers, data };
+    const r = await (await getPool()).query<Record<string, unknown>>(`SELECT * FROM ${pgQ(table)} ORDER BY _ord`);
+    return pgResultToSheet(r);
+  } catch {
+    return { headers: [], data: [] };
+  }
+}
+
+async function pgGetSheetWhere(
+  range: string,
+  filterColumn: string,
+  filterValues: string[],
+): Promise<{ headers: string[]; data: Record<string, string>[] }> {
+  const table = pgTable(range);
+  const values = filterValues.map((v) => String(v || "").trim()).filter(Boolean);
+  if (!filterColumn || values.length === 0) return { headers: [], data: [] };
+  try {
+    const cols = await pgColumns(table);
+    if (!cols.includes(filterColumn)) return { headers: [], data: [] };
+    const where = values.length === 1
+      ? `btrim(${pgQ(filterColumn)}) = $1`
+      : `btrim(${pgQ(filterColumn)}) = ANY($1::text[])`;
+    const params = values.length === 1 ? [values[0]] : [values];
+    const r = await (await getPool()).query<Record<string, unknown>>(
+      `SELECT * FROM ${pgQ(table)} WHERE ${where} ORDER BY _ord`,
+      params,
+    );
+    return pgResultToSheet(r);
   } catch {
     return { headers: [], data: [] };
   }
@@ -317,6 +357,17 @@ export async function getSheetData(range?: string) {
   const result = parseRows(response.data.values as unknown[][]);
   if (result.headers.length > 0) cacheSet(fullRange, result);
   return result;
+}
+
+export async function getSheetDataWhere(range: string, filterColumn: string, filterValues: string[]) {
+  if (USE_POSTGRES) return pgGetSheetWhere(range, filterColumn, filterValues);
+  const result = await getSheetData(range);
+  const wanted = new Set(filterValues.map((v) => String(v || "").trim()).filter(Boolean));
+  if (!filterColumn || wanted.size === 0) return { headers: result.headers, data: [] };
+  return {
+    headers: result.headers,
+    data: result.data.filter((row) => wanted.has(String(row[filterColumn] || "").trim())),
+  };
 }
 
 export async function getSheetNames() {

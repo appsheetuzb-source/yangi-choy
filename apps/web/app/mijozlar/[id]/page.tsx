@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
 
 import { useEffect, useState, useMemo } from "react";
@@ -87,21 +87,26 @@ export default function MijozDetailPage() {
     if (!id) return;
     setLoading(true);
     Promise.all([
-      fetchSheet("Mijozlar"),
-      fetchSheet("Sotuv"),
-      fetchSheet("Sotuv_Savat"),
-      fetchSheet("Sotuv_savat_dollar").catch(() => ({ data: [] })),
-      fetchSheet("S_tolov").catch(() => ({ data: [] })),
+      fetchSheetWhere("Mijozlar", "Mijoz_ID", id),
+      fetchSheetWhere("Sotuv", "Mijoz_ID", id),
+      fetchSheetWhere("S_tolov", "Mijoz_ID", id).catch(() => ({ headers: [], data: [] })),
       fetchSheet("Foydalanuvchi").catch(() => ({ data: [] })),
-    ]).then(([mR, sR, svR, sdR, tR, fR]) => {
+    ]).then(async ([mR, sR, tR, fR]) => {
       // Mijoz
-      const m = (mR.data as Mijoz[]).find(x => x.Mijoz_ID === id) || null;
+      const m = (mR.data as Mijoz[])[0] || null;
       setMijoz(m);
 
       // Sotuvlar for this mijoz, sorted by date desc
-      const mySotuv = ((sR.data || []) as Sotuv[]).filter(s => s.Mijoz_ID === id);
+      const mySotuv = ((sR.data || []) as Sotuv[]);
       mySotuv.sort((a, b) => parseDate(b.Sana) - parseDate(a.Sana));
       setSotuvlar(mySotuv);
+      const sotuvIds = mySotuv.map(s => String(s.Sotuv_ID || "").trim()).filter(Boolean);
+      const [svR, sdR] = sotuvIds.length
+        ? await Promise.all([
+          fetchSheetWhere("Sotuv_Savat", "Sotuv_ID", sotuvIds).catch(() => ({ headers: [], data: [] })),
+          fetchSheetWhere("Sotuv_savat_dollar", "Sotuv_ID", sotuvIds).catch(() => ({ headers: [], data: [] })),
+        ])
+        : [{ data: [] }, { data: [] }];
 
       // Sotuv_Savat map by Sotuv_ID
       const sm: Record<string, SotuvSavatRow[]> = {};
@@ -124,7 +129,7 @@ export default function MijozDetailPage() {
       setSavatDolMap(sdm);
 
       // S_tolov for this mijoz, sorted desc
-      const myTolov = ((tR.data || []) as STolov[]).filter(t => t.Mijoz_ID === id);
+      const myTolov = ((tR.data || []) as STolov[]);
       myTolov.sort((a, b) => parseDate(b.Sana) - parseDate(a.Sana));
       setTolovlar(myTolov);
 

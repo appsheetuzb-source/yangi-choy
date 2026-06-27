@@ -11,13 +11,13 @@ export default function CacheWarmer() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    // Yengil, ko'p ishlatiladigan sheet'lar — darrov
-    fetchSheets(["Mahsulot", "Mijozlar", "Foydalanuvchi", "Gazna", "Kurs", "Sotuv"]).catch(() => {});
-    // Og'irlari — joriy sahifa yuklanishiga xalal bermasligi uchun biroz keyin
+    // Kichik reference sheet'lar — darrov. Transaction sheet'lar sahifa kerak qilganda olinadi.
+    fetchSheets(["Mahsulot", "Foydalanuvchi", "Gazna", "Kurs"]).catch(() => {});
+    // Mijozlar ko'p ishlatiladi, lekin katta bo'lishi mumkin; biroz keyinroq iliqlatamiz.
     const t = setTimeout(() => {
       if (cancelled) return;
-      fetchSheets(["Sotuv_Savat", "Sotuv_savat_dollar", "S_tolov"]).catch(() => {});
-    }, 1800);
+      fetchSheets(["Mijozlar"]).catch(() => {});
+    }, 2200);
     return () => { cancelled = true; clearTimeout(t); };
   }, [user]);
   return null;
