@@ -75,4 +75,4 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" \
-            "curl -fsS -o /tmp/yangi-choy-smoke.json 'http://127.0.0.1:3000/api/sheets?range=Kurs&filterColumn=Kurs_ID&filterValue=__github_actions_missing__' && cat /tmp/yangi-choy-smoke.json"
+            "for i in {1..30}; do curl -fsS -o /tmp/yangi-choy-smoke.json 'http://127.0.0.1:3000/api/sheets?range=Kurs&filterColumn=Kurs_ID&filterValue=__github_actions_missing__' && cat /tmp/yangi-choy-smoke.json && exit 0; sleep 2; done; pm2 list; cat /tmp/yangi-choy-pm2-reload.log 2>/dev/null || true; exit 1"
