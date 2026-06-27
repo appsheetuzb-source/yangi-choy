@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
 import AppShell from "@/components/AppShell";
+import CacheWarmer from "@/components/CacheWarmer";
 
 // Barcha sahifalar dynamic (statik prerender YO'Q) — Next.js javobga
 // `no-store` Cache-Control qo'yadi, shuning uchun deploydan keyin brauzer
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="uz">
       <body>
         <AuthProvider>
+          <CacheWarmer />
           <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
