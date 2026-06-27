@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -74,6 +74,9 @@ function inRange(sana: string, from: string, to: string) {
   if (to)   { const t = new Date(to);   t.setHours(23,59,59,999); if (d > t) return false; }
   return true;
 }
+function uniq(values: Array<string | undefined>) {
+  return Array.from(new Set(values.map(v => String(v || "").trim()).filter(Boolean)));
+}
 
 export default function MahsulotDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -100,21 +103,36 @@ export default function MahsulotDetailPage() {
     if (!id) return;
     setLoading(true);
     Promise.all([
-      fetchSheet("Mahsulot"),
-      fetchSheet("Xarid_Savat"),
-      fetchSheet("Xarid"),
-      fetchSheet("Taminotchi"),
-      fetchSheet("Sotuv_Savat"),
-      fetchSheet("Sotuv_Savat_Dollar"),
-      fetchSheet("Sotuv"),
-      fetchSheet("Mijozlar"),
-    ]).then(([mRes, xsRes, xRes, tRes, ssRes, ssdRes, sotRes, mijRes]) => {
-      const m = (mRes.data as Mahsulot[]).find(x => x.Mahsulot_ID === id) || null;
+      fetchSheetWhere("Mahsulot", "Mahsulot_ID", id),
+      fetchSheetWhere("Xarid_Savat", "Mahsulot_ID", id),
+      fetchSheetWhere("Sotuv_Savat", "Mahsulot_ID", id),
+      fetchSheetWhere("Sotuv_Savat_Dollar", "Mahsulot_ID", id),
+    ]).then(async ([mRes, xsRes, ssRes, ssdRes]) => {
+      const m = (mRes.data as Mahsulot[])[0] || null;
       setMahsulot(m);
       if (m) setPrices({
         Sotuv_som: m.Sotuv_som || "", Sotuv_dollar: m.Sotuv_dollar || "",
         Tan_som: m.Tan_som || "", Tan_dollar: m.Tan_dollar || "",
       });
+
+      const xaridIds = uniq((xsRes.data as XaridSavat[]).map(r => r.Xarid_ID));
+      const sotuvIds = uniq([
+        ...(ssRes.data as SotuvSavatRow[]).map(r => r.Sotuv_ID),
+        ...(ssdRes.data as SotuvSavatDollarRow[]).map(r => r.Sotuv_ID),
+      ]);
+      const [xRes, sotRes] = await Promise.all([
+        xaridIds.length ? fetchSheetWhere("Xarid", "Xarid_ID", xaridIds) : { data: [] },
+        sotuvIds.length ? fetchSheetWhere("Sotuv", "Sotuv_ID", sotuvIds) : { data: [] },
+      ]);
+      const taminotchiIds = uniq((xRes.data as Xarid[]).map(x => x.Taminotchi_ID));
+      const mijozIds = uniq((sotRes.data as Sotuv[]).flatMap(s => {
+        const raw = s.Mijoz_ID || "";
+        return raw.includes(".") ? [raw, raw.split(".")[1]] : [raw];
+      }));
+      const [tRes, mijRes] = await Promise.all([
+        taminotchiIds.length ? fetchSheetWhere("Taminotchi", "Taminotchi_ID", taminotchiIds) : { data: [] },
+        mijozIds.length ? fetchSheetWhere("Mijozlar", "Mijoz_ID", mijozIds) : { data: [] },
+      ]);
 
       const xaridMap: Record<string, Xarid> = {};
       (xRes.data as Xarid[]).forEach(x => { xaridMap[x.Xarid_ID] = x; });

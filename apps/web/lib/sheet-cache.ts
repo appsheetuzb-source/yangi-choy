@@ -21,23 +21,51 @@ const STALE = 30 * 60_000;   // 30min — bu vaqt ichida keshdan qaytarib, fonda
 // Hozir ketayotgan so'rovlar (range bo'yicha) — takroriy fetch'ni oldini oladi
 const pending: Record<string, Promise<SheetData>> = {};
 
-function ageOf(range: string) {
-  const e = STORE[range];
+function cacheKey(range: string) {
+  return range.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+}
+
+function filterKey(range: string, column: string, values: string[]) {
+  const encodedValues = values.map((v) => encodeURIComponent(String(v || "").trim())).join(",");
+  return `${cacheKey(range)}__where__${cacheKey(column)}__${encodedValues}`;
+}
+
+function deleteRangeCache(range: string) {
+  const base = cacheKey(range);
+  for (const key of Object.keys(STORE)) {
+    if (key === base || key.startsWith(`${base}__where__`)) delete STORE[key];
+  }
+}
+
+function ageOfKey(key: string) {
+  const e = STORE[key];
   return e ? Date.now() - e.ts : Infinity;
 }
 
+function ageOf(range: string) {
+  return ageOfKey(cacheKey(range));
+}
+
+function cachedDataByKey(key: string) {
+  return STORE[key]?.data;
+}
+
+function cachedData(range: string) {
+  return cachedDataByKey(cacheKey(range));
+}
+
 export function getCachedSheet(range: string): SheetData | null {
-  const e = STORE[range];
+  const e = STORE[cacheKey(range)];
   if (e && Date.now() - e.ts < STALE) return e.data;
   return null;
 }
 
 function setCachedSheet(range: string, data: SheetData) {
-  STORE[range] = { data, ts: Date.now() };
+  STORE[cacheKey(range)] = { data, ts: Date.now() };
 }
 
 export function invalidateSheet(range?: string) {
-  if (range) delete STORE[range];
+  if (range) deleteRangeCache(range);
   else Object.keys(STORE).forEach((k) => delete STORE[k]);
 }
 
@@ -46,9 +74,18 @@ export function invalidateSheet(range?: string) {
 function fetchRangesNow(ranges: string[]): Record<string, Promise<SheetData>> {
   const result: Record<string, Promise<SheetData>> = {};
   const toFetch: string[] = [];
+  const queued: Record<string, string> = {};
+  const queuedAliases: Record<string, string[]> = {};
   for (const r of ranges) {
-    if (r in pending) result[r] = pending[r];
-    else toFetch.push(r);
+    const key = cacheKey(r);
+    if (key in pending) result[r] = pending[key];
+    else {
+      if (!(key in queued)) {
+        queued[key] = r;
+        toFetch.push(r);
+      }
+      (queuedAliases[key] ||= []).push(r);
+    }
   }
   if (toFetch.length > 0) {
     const batchP = (async (): Promise<Record<string, SheetData>> => {
@@ -67,11 +104,12 @@ function fetchRangesNow(ranges: string[]): Record<string, Promise<SheetData>> {
       return results;
     })();
     for (const r of toFetch) {
+      const key = cacheKey(r);
       const p = batchP
         .then((results) => results[r] || { headers: [], data: [] })
-        .finally(() => { delete pending[r]; });
-      pending[r] = p;
-      result[r] = p;
+        .finally(() => { delete pending[key]; });
+      pending[key] = p;
+      for (const alias of queuedAliases[key] || [r]) result[alias] = p;
     }
   }
   return result;
@@ -79,10 +117,31 @@ function fetchRangesNow(ranges: string[]): Record<string, Promise<SheetData>> {
 
 export async function fetchSheet(range: string): Promise<SheetData> {
   const a = ageOf(range);
-  if (a < FRESH) return STORE[range].data;                 // yangi — darhol
+  if (a < FRESH) return cachedData(range)!;                // yangi — darhol
   const ps = fetchRangesNow([range]);
-  if (a < STALE) return STORE[range].data;                 // eskirgan — keshdan + fonda yangilanadi
+  if (a < STALE) return cachedData(range)!;                // eskirgan — keshdan + fonda yangilanadi
   return ps[range];                                         // umuman yo'q / juda eski — kutamiz
+}
+
+export async function fetchSheetWhere(range: string, column: string, value: string | string[]): Promise<SheetData> {
+  const values = (Array.isArray(value) ? value : [value]).map((v) => String(v || "").trim()).filter(Boolean);
+  if (values.length === 0) return { headers: [], data: [] };
+  const key = filterKey(range, column, values);
+  const a = ageOfKey(key);
+  if (a < FRESH) return cachedDataByKey(key)!;
+  if (!(key in pending)) {
+    pending[key] = (async () => {
+      const params = new URLSearchParams({ range, filterColumn: column });
+      if (values.length === 1) params.set("filterValue", values[0]);
+      else params.set("filterValues", values.join(","));
+      const res = await fetch(`/api/sheets?${params.toString()}`, { cache: "no-store" });
+      const data = await res.json() as SheetData;
+      if (data.headers?.length > 0) STORE[key] = { data, ts: Date.now() };
+      return data;
+    })().finally(() => { delete pending[key]; });
+  }
+  if (a < STALE) return cachedDataByKey(key)!;
+  return pending[key];
 }
 
 // Bir nechta jadval — yangi/eskirganlarini keshdan, faqat kerak bo'lganini kutamiz
@@ -92,11 +151,11 @@ export async function fetchSheets(ranges: string[]): Promise<Record<string, Shee
   const awaitList: string[] = [];  // age >= STALE — natijani kutamiz
   for (const r of ranges) {
     const a = ageOf(r);
-    if (a < FRESH) { out[r] = STORE[r].data; }
+    if (a < FRESH) { out[r] = cachedData(r)!; }
     else {
       need.push(r);
       if (a >= STALE) awaitList.push(r);
-      else out[r] = STORE[r].data;  // eskirgan — keshdan darhol (fonda yangilanadi)
+      else out[r] = cachedData(r)!;  // eskirgan — keshdan darhol (fonda yangilanadi)
     }
   }
   if (need.length > 0) {
@@ -108,5 +167,5 @@ export async function fetchSheets(ranges: string[]): Promise<Record<string, Shee
 
 // Yozish operatsiyalaridan keyin chaqiriladi — keshni tozalaydi (keyingi fetch fresh bo'ladi)
 export function afterWrite(sheetName: string) {
-  delete STORE[sheetName];
+  deleteRangeCache(sheetName);
 }

@@ -1,5 +1,5 @@
 "use client";
-import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
 
 import { useEffect, useState, useMemo } from "react";
@@ -67,17 +67,20 @@ export default function TaminotchiDetailPage() {
     if (!id) return;
     setLoading(true);
     Promise.all([
-      fetchSheet("Taminotchi"),
-      fetchSheet("Xarid"),
-      fetchSheet("Xarid_Savat"),
-      fetchSheet("X_Tolov").catch(() => ({ data: [] })),
-    ]).then(([tR, xR, xsR, tolvR]) => {
-      const t = (tR.data as Taminotchi[]).find(t => t.Taminotchi_ID === id) || null;
+      fetchSheetWhere("Taminotchi", "Taminotchi_ID", id),
+      fetchSheetWhere("Xarid", "Taminotchi_ID", id),
+      fetchSheetWhere("X_Tolov", "Taminotchi_ID", id).catch(() => ({ headers: [], data: [] })),
+    ]).then(async ([tR, xR, tolvR]) => {
+      const t = (tR.data as Taminotchi[])[0] || null;
       setTaminotchi(t);
 
-      const myXarid = (xR.data as Xarid[]).filter(x => x.Taminotchi_ID === id);
+      const myXarid = (xR.data as Xarid[]);
       myXarid.sort((a, b) => num(b.Sotuv_Raqami) - num(a.Sotuv_Raqami));
       setXaridlar(myXarid);
+      const xaridIds = myXarid.map(x => String(x.Xarid_ID || "").trim()).filter(Boolean);
+      const xsR = xaridIds.length
+        ? await fetchSheetWhere("Xarid_Savat", "Xarid_ID", xaridIds).catch(() => ({ headers: [], data: [] }))
+        : { data: [] };
 
       const sm: Record<string, XaridSavat[]> = {};
       (xsR.data as XaridSavat[]).forEach(s => {
@@ -88,7 +91,7 @@ export default function TaminotchiDetailPage() {
       });
       setSavatMap(sm);
 
-      const myTolov = (tolvR.data as XTolov[] || []).filter(t => t.Taminotchi_ID === id);
+      const myTolov = (tolvR.data as XTolov[] || []);
       myTolov.sort((a, b) => {
         const p = (s: string) => { const [d,mo,y] = (s||"").split(".").map(Number); return y*10000+mo*100+d; };
         return p(b.Sana) - p(a.Sana);

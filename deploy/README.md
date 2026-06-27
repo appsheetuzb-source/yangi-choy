@@ -99,6 +99,17 @@ npm run build --workspace=web
 pm2 restart yangi-choy
 ```
 
+## PostgreSQL sekinlashsa: index hotfix
+
+Sheets'dan PostgreSQL'ga ko'chirilgan jadval nomlari va `btrim()` bilan ishlaydigan ID qidiruvlari uchun tayyor index script:
+
+```bash
+cd /var/www/yangi-choy
+psql "$DATABASE_URL" -f deploy/postgres-performance-indexes.sql
+```
+
+Script `CREATE INDEX CONCURRENTLY` ishlatadi, shuning uchun uni `BEGIN/COMMIT` ichida ishga tushirmang. Agar ixtiyoriy jadval yoki ustun prod bazada yo'q bo'lsa, o'sha index qatorini olib tashlab qayta ishga tushiring.
+
 ## Foydali komandalar
 ```bash
 pm2 logs yangi-choy      # loglar
