@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 const nextConfig: NextConfig = {
   compress: true,
+  output: "standalone",
+  outputFileTracingRoot: path.join(__dirname, "../.."),
 
   // FAQAT dev rejim uchun — LAN IP (telefon/boshqa qurilma) orqali dev serverni ochishga ruxsat.
   // Next.js 15+ standart holatda localhost'dan tashqari origin'larning dev-asset/HMR so'rovlarini

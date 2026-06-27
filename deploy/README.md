@@ -94,22 +94,15 @@ Avtomatik yangilanish o'rnatiladi. Endi: **https://musaffotea.uz** ✅
 
 Asosiy production deploy endi GitHub Actions orqali yuradi: `main` branch'ga push/merge bo'lsa,
 GitHub Linux runner'da `next build` qiladi, VPS'dagi source'ni shu commitga reset qiladi, tayyor
-`.next` artifact'ni yuboradi va PM2 reload qiladi. Shuning uchun kichik VPS endi sekin
-`next build` bilan band bo'lmaydi.
+standalone runtime artifact'ni yuboradi va PM2 configdan reload qiladi. Shuning uchun kichik VPS
+endi sekin `next build` yoki odatiy deployda `npm install` bilan band bo'lmaydi.
 
 Manual deploy kerak bo'lsa GitHub'da **Actions → Deploy VPS → Run workflow** bosing.
 
-`package.json` yoki `package-lock.json` o'zgargan kamyob holatda VPS'da runtime dependency'larni
-alohida maintenance oynasida yangilang; odatiy deploy buni qilmaydi, chunki bu qadam kichik VPS'da
-sekin va ba'zan `node_modules` rename xatolari beradi.
-
-Eski server ichida build qiladigan fallback:
+Server ichida build qiladigan fallback faqat GitHub Actions ishlamasa kerak bo'ladi:
 ```bash
 cd /var/www/yangi-choy
-git pull
-npm install
-npm run build --workspace=web
-pm2 restart yangi-choy
+bash deploy/deploy.sh
 ```
 
 ## PostgreSQL sekinlashsa: index hotfix

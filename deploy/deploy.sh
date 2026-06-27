@@ -11,10 +11,10 @@
 # Muammo: oldin `next build` jonli ilovaning `.next` papkasi ustiga yozardi va
 # kichik VPS'ni band qilib ~10 daqiqa saytni o'chirardi.
 #
-# Yechim: build ALOHIDA klonda (/var/www/yc-build) bajariladi — jonli sayt o'z
-# `.next`idan ishlab turaveradi. Build past CPU/IO prioritetda (nice/ionice), shu
-# sabab sayt sekinlashmaydi. Tayyor bo'lgach `.next` atomik almashtirilib, PM2
-# graceful `reload` qilinadi (eski ishchi yangi tayyor bo'lgach almashadi).
+# Yechim: build ALOHIDA klonda (/var/www/yc-build) bajariladi va Next standalone
+# runtime tayyorlanadi — jonli sayt o'z artifactidan ishlab turaveradi. Build past
+# CPU/IO prioritetda (nice/ionice), shu sabab sayt sekinlashmaydi. Tayyor bo'lgach
+# `.next` atomik almashtirilib, PM2 configdan qayta yuklanadi.
 #
 # Ishlatish (serverda):  sudo bash /var/www/yangi-choy/deploy/deploy.sh
 set -euo pipefail
@@ -38,22 +38,24 @@ echo "==> [3/5] Build (past prioritet — jonli sayt ishlab turadi)"
 find "$BUILD/$APP/.next" -mindepth 1 -maxdepth 1 ! -name cache -exec rm -rf {} + 2>/dev/null || true
 NODE_OPTIONS=--max-old-space-size=2048 nice -n 19 ionice -c3 \
   npm run build --workspace=web
+mkdir -p "$BUILD/$APP/.next/standalone/$APP/.next"
+cp -a "$BUILD/$APP/.next/static" "$BUILD/$APP/.next/standalone/$APP/.next/static"
+if [ -d "$BUILD/$APP/public" ]; then
+  cp -a "$BUILD/$APP/public" "$BUILD/$APP/.next/standalone/$APP/public"
+fi
 
 echo "==> [4/5] Live source'ni yangilab, .next'ni atomik almashtirish"
 cd "$LIVE"
 git fetch --quiet origin main
 git reset --hard --quiet origin/main
-# LIVE node_modules'ni yangilash — yangi paketlar (masalan pg) runtime'da topilishi uchun.
-# next start LIVE node_modules'dan require qiladi; build klonidagi o'rnatish bu yerga ko'chmaydi.
-npm install --no-audit --no-fund
 rm -rf "$LIVE/$APP/.next.new" "$LIVE/$APP/.next.old"
 cp -a "$BUILD/$APP/.next" "$LIVE/$APP/.next.new"
 cd "$LIVE/$APP"
 mv .next .next.old 2>/dev/null || true
 mv .next.new .next
 
-echo "==> [5/5] PM2 graceful reload (uzilishsiz)"
+echo "==> [5/5] PM2 standalone runtime'ni reload qilish"
 cd "$LIVE"
-pm2 reload yangi-choy --update-env
+pm2 startOrReload deploy/ecosystem.config.js --only yangi-choy --update-env
 rm -rf "$LIVE/$APP/.next.old"
 echo "✅ ZERO-DOWNTIME DEPLOY OK"

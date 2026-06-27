@@ -34,6 +34,14 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
 
+      - name: Package standalone runtime
+        run: |
+          mkdir -p apps/web/.next/standalone/apps/web/.next
+          cp -a apps/web/.next/static apps/web/.next/standalone/apps/web/.next/static
+          if [ -d apps/web/public ]; then
+            cp -a apps/web/public apps/web/.next/standalone/apps/web/public
+          fi
+
       - name: Prepare SSH
         run: |
           mkdir -p ~/.ssh
@@ -50,7 +58,7 @@ jobs:
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" \
             "git config --global --add safe.directory '$VPS_APP_DIR' && cd '$VPS_APP_DIR' && git fetch --quiet origin main && git reset --hard --quiet '$GITHUB_SHA'"
 
-      - name: Sync Next build artifact to VPS
+      - name: Sync standalone runtime to VPS
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
@@ -58,7 +66,7 @@ jobs:
         run: |
           rsync -az --delete \
             -e "ssh -i ~/.ssh/vps_key" \
-            apps/web/.next/ "$VPS_USER@$VPS_HOST:$VPS_APP_DIR/apps/web/.next/"
+            apps/web/.next/standalone/ "$VPS_USER@$VPS_HOST:$VPS_APP_DIR/apps/web/.next/standalone/"
 
       - name: Reload PM2
         env:
@@ -67,7 +75,7 @@ jobs:
           VPS_APP_DIR: ${{ secrets.VPS_APP_DIR }}
         run: |
           ssh -i ~/.ssh/vps_key "$VPS_USER@$VPS_HOST" \
-            "timeout 60 bash -lc 'cd $VPS_APP_DIR && git reset --hard --quiet $GITHUB_SHA && pm2 reload yangi-choy --update-env >/tmp/yangi-choy-pm2-reload.log 2>&1'"
+            "timeout 60 bash -lc 'cd $VPS_APP_DIR && git reset --hard --quiet $GITHUB_SHA && if [ -f apps/web/.env.local ]; then install -m 600 apps/web/.env.local apps/web/.next/standalone/apps/web/.env.local; fi && pm2 startOrReload deploy/ecosystem.config.js --only yangi-choy --update-env >/tmp/yangi-choy-pm2-reload.log 2>&1 && pm2 save --force >>/tmp/yangi-choy-pm2-reload.log 2>&1'"
 
       - name: Smoke test
         env:
