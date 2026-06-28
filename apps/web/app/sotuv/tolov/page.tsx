@@ -36,12 +36,14 @@ function GaznaButtons({ turi, shakli, value, onChange, disabled }: {
       {filtered.map(g => (
         <button key={g.Gazna_ID} type="button"
           onClick={disabled ? undefined : () => onChange(value === g.Gazna_ID ? "" : g.Gazna_ID)}
-          style={{ flex: "1 1 auto", padding: "10px 8px", borderRadius: "var(--radius)",
+          style={{ flex: "1 1 auto", position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px 8px", borderRadius: "var(--radius)",
             border: `1.5px solid ${value === g.Gazna_ID ? color : "var(--border)"}`,
             background: value === g.Gazna_ID ? bg : "var(--white)",
             fontSize: 13, fontWeight: 700, cursor: disabled ? "default" : "pointer",
-            color: value === g.Gazna_ID ? color : "var(--text-2)" }}>
+            color: value === g.Gazna_ID ? "var(--text)" : "var(--text-2)" }}>
+          <span style={{ display: "flex", color }}>{turiIcon(g.Shakli || g.Nomi)}</span>
           {g.Nomi}
+          {value === g.Gazna_ID && <span style={{ position: "absolute", top: 7, right: 7, display: "flex" }}>{CHECK_ICON}</span>}
         </button>
       ))}
     </>
@@ -69,6 +71,33 @@ function num(v: string|number|undefined) {
 }
 function fmtUsd(v: number) {
   return "$" + v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+// Valyuta inputlari uchun ichki ikonkalar
+const SOM_ICON = (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>);
+const USD_ICON = (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5.5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>);
+const KURS_ICON = (<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>);
+function CurInput({ icon, iconColor, ...rest }: { icon: React.ReactNode; iconColor: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+      <span style={{ position: "absolute", left: 11, display: "flex", alignItems: "center", pointerEvents: "none", color: iconColor }}>{icon}</span>
+      <input {...rest} style={{ ...(rest.style || {}), paddingLeft: 34 }} />
+    </div>
+  );
+}
+// To'lov turi / hisob ikonkalari
+const NAQD_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>);
+const BANK_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="21" x2="21" y2="21"/><path d="M3 10l9-6 9 6"/><line x1="5" y1="21" x2="5" y2="10"/><line x1="19" y1="21" x2="19" y2="10"/><line x1="10" y1="21" x2="10" y2="10"/><line x1="14" y1="21" x2="14" y2="10"/></svg>);
+const KARTA_ICON = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>);
+const KASSA_ICON = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>);
+const CALC_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg>);
+const SAVE_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>);
+const CHECK_ICON = (<svg width="16" height="16" viewBox="0 0 24 24" fill="#2563eb" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" stroke="none"/><polyline points="8 12 11 15 16 9"/></svg>);
+function turiIcon(t: string) {
+  const s = (t || "").toLowerCase();
+  if (s.includes("bank")) return BANK_ICON;
+  if (s.includes("karta") || s.includes("card")) return KARTA_ICON;
+  if (s.includes("kassa")) return KASSA_ICON;
+  return NAQD_ICON;
 }
 function nowStr() {
   const d=new Date();
@@ -687,14 +716,19 @@ export default function SotuvTolovPage() {
 
   const modalOverlay: React.CSSProperties = {
     position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)",
-    display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center",
-    padding: isMobile ? 0 : 20,
+    display: "flex", alignItems: isMobile ? "flex-end" : "stretch", justifyContent: "center",
+    padding: 0,
   };
+  // Web'da to'liq ekran; mobilda pastki varaq
   const modalBox: React.CSSProperties = {
-    background: "var(--white)", width: "100%", maxWidth: isMobile ? "100%" : 520,
-    borderRadius: isMobile ? "20px 20px 0 0" : 16,
-    display: "flex", flexDirection: "column", maxHeight: isMobile ? "92dvh" : "90vh",
+    background: "var(--white)", width: "100%", maxWidth: isMobile ? "100%" : "none",
+    borderRadius: isMobile ? "20px 20px 0 0" : 0,
+    display: "flex", flexDirection: "column",
+    height: isMobile ? "auto" : "100dvh",
+    maxHeight: isMobile ? "92dvh" : "100dvh",
   };
+  // To'liq ekranda content markazda (kiritishlar cho'zilmasin) — body/footer'ga qo'shiladi
+  const modalCenter: React.CSSProperties = isMobile ? {} : { width: "100%", maxWidth: 760, alignSelf: "center" };
 
   return (
     <>
@@ -860,7 +894,7 @@ export default function SotuvTolovPage() {
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+            <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: isMobile ? undefined : 1, ...modalCenter }}>
               {/* Sotuv bog'lash */}
               {editSotuvItems.length > 0 && (
                 <div>
@@ -885,17 +919,17 @@ export default function SotuvTolovPage() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
-                  <input value={editSumma} onChange={e => setEditSumma(e.target.value)} placeholder="0" inputMode="numeric"
+                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={editSumma} onChange={e => setEditSumma(e.target.value)} placeholder="0" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}/>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 6 }}>Dollar</label>
-                  <input value={editDollar} onChange={e => setEditDollar(e.target.value)} placeholder="0.00" inputMode="decimal"
+                  <CurInput icon={USD_ICON} iconColor="#2563eb" value={editDollar} onChange={e => setEditDollar(e.target.value)} placeholder="0.00" inputMode="decimal"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #2563eb", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", color: "#2563eb", boxSizing: "border-box" }}/>
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: num(editKurs) < 11000 ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi <span style={{ color: "#ef4444" }}>*</span></label>
-                  <input value={editKurs} onChange={e => setEditKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
+                  <CurInput icon={KURS_ICON} iconColor="#16a34a" value={editKurs} onChange={e => setEditKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${num(editKurs) < 11000 ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
                 </div>
               </div>
@@ -944,7 +978,7 @@ export default function SotuvTolovPage() {
                   style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16 }}>
+            <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16, ...modalCenter, boxSizing: "border-box" }}>
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setEditTarget(null)}>Bekor</button>
               <button className="btn btn--primary" style={{ flex: 2 }} onClick={handleEditSave} disabled={editSaving || num(editKurs) < 11000}>
                 {editSaving && <span className="spinner"/>} Saqlash
@@ -980,36 +1014,37 @@ export default function SotuvTolovPage() {
               <div style={{ width: 40, height: 40, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="18" height="18" fill="none" stroke="#16a34a" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
               </div>
-              <h2 style={{ fontSize: 16, fontWeight: 800, flex: 1 }}>Yangi to&apos;lov</h2>
+              <div style={{ flex: 1 }}>
+                <h2 style={{ fontSize: 16, fontWeight: 800 }}>Yangi to&apos;lov</h2>
+                <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 500, marginTop: 1 }}>To&apos;lov ma&apos;lumotlarini kiriting va saqlang</p>
+              </div>
               <button onClick={() => setAddOpen(false)} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
-              {/* Mijoz */}
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)" }}>Mijoz *</label>
-                  {mijozQoldi && (
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", justifyContent: "flex-end" }}>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>QOLDIQ:</span>
-                      {mijozQoldi.som !== 0 && (
-                        <span style={{ fontSize: 12, fontWeight: 800, color: mijozQoldi.som > 0 ? "#ef4444" : "#16a34a" }}>
-                          {mijozQoldi.som.toLocaleString("ru-RU")} so&apos;m
-                        </span>
-                      )}
-                      {mijozQoldi.usd !== 0 && (
-                        <span style={{ fontSize: 12, fontWeight: 800, color: mijozQoldi.usd > 0 ? "#ef4444" : "#16a34a" }}>
-                          {fmtUsd(mijozQoldi.usd)}
-                        </span>
-                      )}
-                      {mijozQoldi.som === 0 && mijozQoldi.usd === 0 && (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "#16a34a" }}>0</span>
-                      )}
-                    </div>
-                  )}
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: isMobile ? undefined : 1, ...modalCenter }}>
+              {/* Mijoz + QOLDIQ (yonma-yon) */}
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Mijoz *</label>
+                  <SearchSelect items={mItems} value={addMijoz} onChange={v=>{setAddMijoz(v);setAddSotuvId("");}} placeholder="Mijoz tanlang..."/>
                 </div>
-                <SearchSelect items={mItems} value={addMijoz} onChange={v=>{setAddMijoz(v);setAddSotuvId("");}} placeholder="Mijoz tanlang..."/>
+                {mijozQoldi && (
+                  <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 14px", background: "var(--bg)", minWidth: 170, display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>Qoldiq</span>
+                      <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                        {mijozQoldi.som === 0 && mijozQoldi.usd === 0
+                          ? <span style={{ fontSize: 15, fontWeight: 800, color: "#16a34a" }}>0</span>
+                          : <>
+                              {mijozQoldi.som !== 0 && <span style={{ fontSize: 15, fontWeight: 800, color: mijozQoldi.som > 0 ? "#ef4444" : "#16a34a" }}>{mijozQoldi.som.toLocaleString("ru-RU")} so&apos;m</span>}
+                              {mijozQoldi.usd !== 0 && <span style={{ fontSize: 13, fontWeight: 700, color: mijozQoldi.usd > 0 ? "#ef4444" : "#16a34a" }}>≈ {fmtUsd(mijozQoldi.usd)}</span>}
+                            </>}
+                      </div>
+                    </div>
+                    <span style={{ width: 34, height: 34, borderRadius: 9, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", flexShrink: 0 }}>{KARTA_ICON}</span>
+                  </div>
+                )}
               </div>
               {/* Valyuta */}
               <div>
@@ -1038,57 +1073,53 @@ export default function SotuvTolovPage() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
-                  <input value={addSumma} onChange={e => setAddSumma(e.target.value)} placeholder="0" inputMode="numeric"
+                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={addSumma} onChange={e => setAddSumma(e.target.value)} placeholder="0" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}/>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 6 }}>Dollar</label>
-                  <input value={addDollar} onChange={e => setAddDollar(e.target.value)} placeholder="0.00" inputMode="decimal"
+                  <CurInput icon={USD_ICON} iconColor="#2563eb" value={addDollar} onChange={e => setAddDollar(e.target.value)} placeholder="0.00" inputMode="decimal"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #2563eb", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", color: "#2563eb", boxSizing: "border-box" }}/>
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: (num(addDollar) > 0 && num(addKurs) < 11000) ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi {num(addDollar) > 0 && <span style={{ color: "#ef4444" }}>*</span>}{num(addDollar) > 0 && num(addKurs) > 0 && num(addKurs) < 11000 && <span style={{ fontWeight: 400, marginLeft: 6 }}>min: 11 000</span>}</label>
-                  <input value={addKurs} onChange={e => setAddKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
+                  <CurInput icon={KURS_ICON} iconColor="#16a34a" value={addKurs} onChange={e => setAddKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${(num(addDollar) > 0 && num(addKurs) < 11000) ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
                 </div>
               </div>
-              {/* Preview */}
+              {/* Jami to'lov + To'lovdan keyingi qoldiq (yonma-yon) */}
               {(() => {
                 const s = num(addSumma), d = num(addDollar), k = num(addKurs);
-                const res = addValyuta === "Som" ? s + d * k : d + (k > 0 ? s / k : 0);
-                return res > 0 ? (
-                  <div style={{ padding: "10px 14px", background: addValyuta === "Som" ? "#f0fdf4" : "#eff6ff", borderRadius: "var(--radius)", display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}>Jami {addValyuta === "Som" ? "so'm" : "dollar"}:</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: addValyuta === "Som" ? "#16a34a" : "#2563eb" }}>
-                      {addValyuta === "Som" ? res.toLocaleString("ru-RU") + " so'm" : fmtUsd(res)}
-                    </span>
-                  </div>
-                ) : null;
-              })()}
-              {/* After-payment balance */}
-              {mijozQoldi && (() => {
-                const s = num(addSumma), d = num(addDollar), k = num(addKurs);
                 const isSom = addValyuta === "Som";
+                const res = isSom ? s + d * k : d + (k > 0 ? s / k : 0);
+                if (res <= 0) return null;
                 const paidSom = isSom ? s + d * k : 0;
                 const paidUsd = !isSom ? d + (k > 0 ? s / k : 0) : 0;
-                const afterSom = mijozQoldi.som - paidSom;
-                const afterUsd = mijozQoldi.usd - paidUsd;
-                if (paidSom === 0 && paidUsd === 0) return null;
                 return (
-                  <div style={{ padding: "10px 14px", background: "#f8fafc", borderRadius: "var(--radius)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}>To&apos;lovdan keyingi qoldiq:</span>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {(afterSom !== 0 || afterUsd === 0) && (
-                        <span style={{ fontSize: 13, fontWeight: 800, color: afterSom > 0 ? "#ef4444" : "#16a34a" }}>
-                          {afterSom.toLocaleString("ru-RU")} so&apos;m
-                        </span>
-                      )}
-                      {afterUsd !== 0 && (
-                        <span style={{ fontSize: 13, fontWeight: 800, color: afterUsd > 0 ? "#ef4444" : "#16a34a" }}>
-                          {fmtUsd(afterUsd)}
-                        </span>
-                      )}
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 200px", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: isSom ? "#f0fdf4" : "#eff6ff", borderRadius: "var(--radius)" }}>
+                      <span style={{ width: 34, height: 34, borderRadius: 9, background: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", color: isSom ? "#16a34a" : "#2563eb", flexShrink: 0 }}>{KASSA_ICON}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Jami to&apos;lov</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: isSom ? "#16a34a" : "#2563eb" }}>{isSom ? res.toLocaleString("ru-RU") + " so'm" : fmtUsd(res)}</div>
+                      </div>
                     </div>
+                    {mijozQoldi && (() => {
+                      const afterSom = mijozQoldi.som - paidSom;
+                      const afterUsd = mijozQoldi.usd - paidUsd;
+                      return (
+                        <div style={{ flex: "1 1 200px", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#f8fafc", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                          <span style={{ width: 34, height: 34, borderRadius: 9, background: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", flexShrink: 0 }}>{CALC_ICON}</span>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>To&apos;lovdan keyingi qoldiq</div>
+                            <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                              {(afterSom !== 0 || afterUsd === 0) && <span style={{ fontSize: 15, fontWeight: 800, color: afterSom > 0 ? "#ef4444" : "#16a34a" }}>{afterSom.toLocaleString("ru-RU")} so&apos;m</span>}
+                              {afterUsd !== 0 && <span style={{ fontSize: 13, fontWeight: 700, color: afterUsd > 0 ? "#ef4444" : "#16a34a" }}>≈ {fmtUsd(afterUsd)}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })()}
@@ -1096,12 +1127,16 @@ export default function SotuvTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>To&apos;lov turi</label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {TURI_LIST.map(t => (
+                  {TURI_LIST.map(t => {
+                    const active = addTuri === t;
+                    return (
                     <button key={t} onClick={() => selectAddTuri(t)}
-                      style={{ flex: 1, padding: "10px 8px", borderRadius: "var(--radius)", border: `1.5px solid ${addTuri === t ? "var(--primary)" : "var(--border)"}`, background: addTuri === t ? "#f0fdf4" : "var(--white)", fontSize: 13, fontWeight: 700, cursor: "pointer", color: addTuri === t ? "var(--primary)" : "var(--text-2)" }}>
+                      style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px 8px", borderRadius: "var(--radius)", border: `1.5px solid ${active ? "#2563eb" : "var(--border)"}`, background: active ? "#eff6ff" : "var(--white)", fontSize: 13, fontWeight: 700, cursor: "pointer", color: active ? "var(--text)" : "var(--text-2)" }}>
+                      <span style={{ display: "flex", color: t === "Naqd" ? "#16a34a" : t === "Bank" ? "#64748b" : "#7c3aed" }}>{turiIcon(t)}</span>
                       {t}
+                      {active && <span style={{ position: "absolute", top: 7, right: 7, display: "flex" }}>{CHECK_ICON}</span>}
                     </button>
-                  ))}
+                  );})}
                 </div>
               </div>
               {addValyuta !== "Dollar" && (
@@ -1124,15 +1159,18 @@ export default function SotuvTolovPage() {
               )}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
-                <input value={addIzoh} onChange={e => setAddIzoh(e.target.value)} placeholder="Ixtiyoriy..."
-                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+                <div style={{ position: "relative" }}>
+                  <textarea value={addIzoh} onChange={e => setAddIzoh(e.target.value.slice(0, 255))} placeholder="Izoh yozing (ixtiyoriy)..." rows={2}
+                    style={{ width: "100%", padding: "10px 12px 22px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", minHeight: 64 }}/>
+                  <span style={{ position: "absolute", right: 10, bottom: 7, fontSize: 10, color: "var(--text-3)", pointerEvents: "none" }}>{addIzoh.length} / 255</span>
+                </div>
               </div>
             </div>
-            <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16 }}>
+            <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16, ...modalCenter, boxSizing: "border-box" }}>
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setAddOpen(false)}>Bekor</button>
-              <button className="btn btn--primary" style={{ flex: 2 }} onClick={handleSave}
+              <button className="btn btn--primary" style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={handleSave}
                 disabled={saving || !addMijoz || (!num(addSumma) && !num(addDollar)) || (num(addDollar) > 0 && num(addKurs) < 11000) || !addTuri || (addValyuta === "Som" ? !addGazna : !addGaznaDollar)}>
-                {saving && <span className="spinner"/>} Saqlash
+                {saving ? <span className="spinner"/> : <span style={{ display: "flex" }}>{SAVE_ICON}</span>} Saqlash
               </button>
             </div>
           </div>

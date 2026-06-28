@@ -136,21 +136,25 @@ function nowStr() {
   return { sana:`${dd}.${mm}.${yy}`, oy:String(t.getMonth()+1), yil:yy, vaqt:`${hh}:${mi}:${ss}` };
 }
 
-function SearchSelect({ items, value, onChange, placeholder, borderColor }: {
-  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; borderColor?:string;
+function SearchSelect({ items, value, onChange, placeholder, borderColor, compact }: {
+  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; borderColor?:string; compact?:boolean;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
   const [pos,setPos]=useState<{left:number;width:number;top?:number;bottom?:number;listMaxH:number}|null>(null);
   const selected=items.find(i=>i.id===value);
   const place=()=>{
     const el=ref.current; if(!el) return; const r=el.getBoundingClientRect();
-    const vh=window.innerHeight;
+    const vw=window.innerWidth, vh=window.innerHeight;
     const spaceBelow=vh-r.bottom-8, spaceAbove=r.top-8;
     const up = spaceBelow < 240 && spaceAbove > spaceBelow;     // pastda joy yetmasa — yuqoriga
     const avail = up ? spaceAbove : spaceBelow;
     const listMaxH = Math.max(120, Math.min(280, avail - 56));   // 56 ~ qidiruv qutisi
-    if(up) setPos({left:r.left,width:r.width,bottom:vh-r.top+4,listMaxH});
-    else setPos({left:r.left,width:r.width,top:r.bottom+4,listMaxH});
+    // Dropdown kamida 260px (tor katakda ham mahsulot nomi o'qilsin), ekranga sig'sin
+    const width = Math.min(Math.max(r.width, 260), vw - 16);
+    let left = r.left;
+    if (left + width > vw - 8) left = Math.max(8, vw - 8 - width);  // o'ng chetdan oshmasin
+    if(up) setPos({left,width,bottom:vh-r.top+4,listMaxH});
+    else setPos({left,width,top:r.bottom+4,listMaxH});
   };
   useEffect(()=>{
     if(!open) return;
@@ -164,9 +168,9 @@ function SearchSelect({ items, value, onChange, placeholder, borderColor }: {
   return (
     <div ref={ref} style={{position:"relative"}}>
       <div onClick={()=>{ if(!open) place(); setOpen(o=>!o); setQ(""); }}
-        style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:`1px solid ${borderColor||"var(--border)"}`,borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,fontWeight:selected?400:600,color:selected?"var(--text)":"var(--text-2)"}}>
-        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selected?selected.label:placeholder||"Tanlang..."}</span>
-        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s",flexShrink:0}}>
+        style={{display:"flex",alignItems:"center",justifyContent:compact?"flex-start":"space-between",gap:compact?3:6,padding:compact?"8px 7px":"10px 14px",background:"var(--bg)",border:`1px solid ${borderColor||"var(--border)"}`,borderRadius:"var(--radius)",cursor:"pointer",fontSize:compact?13:14,fontWeight:selected?400:600,color:selected?"var(--text)":"var(--text-2)"}}>
+        <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",minWidth:0}}>{selected?selected.label:placeholder||"Tanlang..."}</span>
+        <svg width={compact?11:14} height={compact?11:14} fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{color:"var(--text-3)",transform:open?"rotate(180deg)":"none",transition:"transform .15s",flexShrink:0}}>
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
         </svg>
       </div>
@@ -278,7 +282,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
         {!isMobile&&somRows.length>0&&(
           <div style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
             {["№","MAHSULOT","MIQDOR","NARX (so'm)","JAMI",""].map(h=>(
-              <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
+              <span key={h} style={{fontSize:isMobile?9:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".03em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h}</span>
             ))}
           </div>
         )}
@@ -286,21 +290,15 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jS=num(s.Soni)*num(s.Som_Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{padding:"8px 0 10px",borderBottom:"1px solid var(--border)",marginBottom:4}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-                <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",minWidth:16,flexShrink:0,textAlign:"center"}}>{idx+1}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-                </div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
-                  style={{flex:1,minWidth:0,padding:"9px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
-                  style={{flex:1,minWidth:0,padding:"9px 6px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <div style={{flex:1,minWidth:0,fontSize:12,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jS?jS.toLocaleString("ru-RU"):"—")}</div>
-                <button onClick={()=>onRemove(s.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:18,fontWeight:700}}>−</button>
-              </div>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 46px 62px minmax(0,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
+              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
+                style={{minWidth:0,width:"100%",padding:"8px 2px",border:"1px solid var(--border)",borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+              <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
+                style={{minWidth:0,width:"100%",padding:"8px 2px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+              <div style={{minWidth:0,fontSize:11,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jS?jS.toLocaleString("ru-RU"):"—")}</div>
+              <button onClick={()=>onRemove(s.id)} style={{width:22,height:30,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16,fontWeight:700,padding:0}}>−</button>
             </div>
           );
           return (
@@ -329,7 +327,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
         {!isMobile&&dollarRows.length>0&&(
           <div style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
             {["№","MAHSULOT","MIQDOR","NARX ($)","JAMI",""].map(h=>(
-              <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>{h}</span>
+              <span key={h} style={{fontSize:isMobile?9:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".03em",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{h}</span>
             ))}
           </div>
         )}
@@ -337,21 +335,15 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jU=num(s.Soni)*num(s.Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{padding:"8px 0 10px",borderBottom:"1px solid var(--border)",marginBottom:4}}>
-              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:7}}>
-                <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",minWidth:16,flexShrink:0,textAlign:"center"}}>{idx+1}</span>
-                <div style={{flex:1,minWidth:0}}>
-                  <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-                </div>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
-                  style={{flex:1,minWidth:0,padding:"9px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                  style={{flex:1,minWidth:0,padding:"9px 6px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
-                <div style={{flex:1,minWidth:0,fontSize:12,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#2563eb",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jU?fmtUsd(jU):"—")}</div>
-                <button onClick={()=>onRemove(s.id)} style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:18,fontWeight:700}}>−</button>
-              </div>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 46px 62px minmax(0,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
+              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
+                style={{minWidth:0,width:"100%",padding:"8px 2px",border:"1px solid var(--border)",borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+              <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
+                style={{minWidth:0,width:"100%",padding:"8px 2px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb",boxSizing:"border-box"}}/>
+              <div style={{minWidth:0,fontSize:11,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#2563eb",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jU?fmtUsd(jU):"—")}</div>
+              <button onClick={()=>onRemove(s.id)} style={{width:22,height:30,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16,fontWeight:700,padding:0}}>−</button>
             </div>
           );
           return (
@@ -1548,7 +1540,7 @@ export default function SotuvPage() {
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setAddOpen(false)}>Bekor</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleSave}
-                disabled={saving||!addMijoz||!addAgent||savat.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0||savat.some(s=>isBelowCost(s,addKurs,mMap))||(!!addMijoz&&!balansReady)}>
+                disabled={saving||!addMijoz||!addAgent||savat.some(s=>isBelowCost(s,addKurs,mMap))||(!!addMijoz&&!balansReady)}>
                 {saving&&<span className="spinner"/>} {addMijoz&&!balansReady?"Balans yuklanmoqda…":"Saqlash"}
               </button>
             </div>
