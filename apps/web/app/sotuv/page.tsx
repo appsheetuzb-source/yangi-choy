@@ -1378,12 +1378,17 @@ export default function SotuvPage() {
                               const mj=mjMap[s.Mijoz_ID];
                               const ag=aMap[s.Agent]||"";
                               const isDollar=(v:string)=>String(v||"").toLowerCase().includes("dollar")||v.trim()==="$";
-                              // Eski qarz = snapshot (Sotuv.Balans), To'lov = shu sotuvga qilingan to'lovlar
-                              const eskiSom=num(s.Balans);
-                              const eskiDollar=num(s.Balans_dollar);
                               const curPay=stolovMap[s.Sotuv_ID]||[];
                               const tolovSom=curPay.reduce((t,r)=>t+(!isDollar(r.Valyuta)?num(r.Summa):0),0);
                               const tolovDollar=curPay.reduce((t,r)=>t+(isDollar(r.Valyuta)?num(r.Summa_dollar):0),0);
+                              // Eski qarz = JONLI: boshlang'ich + tasdiqlangan sotuvlar (shu sotuvdan tashqari) − barcha to'lov (shu sotuvnikidan tashqari)
+                              let eskiSom=num(mj?.Boshlangich_Balans_som), eskiDollar=num(mj?.Boshlangich_Balans_dollar);
+                              sotuvlar.forEach(x=>{ if(x.Mijoz_ID===s.Mijoz_ID && String(x.Chek||"").trim()!=="" && x.Sotuv_ID!==s.Sotuv_ID){
+                                (savatSomMap[x.Sotuv_ID]||[]).forEach(r=>{eskiSom+=num(r.Summa_som);});
+                                (savatDollarMap[x.Sotuv_ID]||[]).forEach(r=>{eskiDollar+=num(r.Summa);});
+                              }});
+                              const allTl=stolovByMijoz[s.Mijoz_ID]||{som:0,dollar:0};
+                              eskiSom-=(allTl.som-tolovSom); eskiDollar-=(allTl.dollar-tolovDollar);
                               sessionStorage.setItem(`chek_${s.Sotuv_ID}`,JSON.stringify({savatSom:savatSomMap[s.Sotuv_ID]||[],savatDollar:savatDollarMap[s.Sotuv_ID]||[],mMap}));
                               const params=new URLSearchParams({sana:s.Sana||"",agent:ag,mijozIsm:mj?.Ism||"",mijozTel:mj?.Telefon||"",totalSom:String(eskiSom),totalDollar:String(eskiDollar),tolovSom:String(tolovSom),tolovDollar:String(tolovDollar)});
                               router.push(`/sotuv/${s.Sotuv_ID}/chek?${params}`);

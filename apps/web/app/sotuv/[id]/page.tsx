@@ -384,9 +384,43 @@ export default function SotuvDetailPage() {
       setStolovlar(sorted);
       setGaznalar(((gzR.data||[]) as Gazna[]).filter(g=>g.Gazna_ID));
 
-      // Mijoz balansi = sotuv yaratilgan paytdagi joriy qarz snapshot (Sotuv.Balans) — qotgan, o'zgarmaydi
+      // Dastlab snapshot (darhol ko'rinadi), so'ng JONLI aniq qiymat bilan almashtiriladi
       setMijozQarzSom(num(s?.Balans));
       setMijozQarzDollar(num(s?.Balans_dollar));
+
+      // Mijoz balansi (eski qarz) — JONLI: boshlang'ich + TASDIQLANGAN sotuvlar (shu sotuvdan tashqari)
+      // − barcha to'lov (shu sotuvnikidan tashqari). Snapshot o'rniga: har qanday to'lov darhol aks etadi,
+      // faqat tasdiqlangan sotuv hisoblanadi. Fonda hisoblanadi (sahifani kechiktirmaydi).
+      const mid = String(s?.Mijoz_ID||"").trim();
+      if (mid) {
+        (async () => {
+          try {
+            const mjC = (mzR.data as Mijoz[]).find(m=>m.Mijoz_ID===mid);
+            const [mSalesR, mTolovR] = await Promise.all([
+              fetchSheetWhere("Sotuv", "Mijoz_ID", mid),
+              fetchSheetWhere("S_tolov", "Mijoz_ID", mid),
+            ]);
+            const confIds = (mSalesR.data as Sotuv[])
+              .filter(x=>String(x.Chek||"").trim()!=="" && x.Sotuv_ID!==id)
+              .map(x=>x.Sotuv_ID);
+            let eSom = num(mjC?.Boshlangich_Balans_som), eDol = num(mjC?.Boshlangich_Balans_dollar);
+            if (confIds.length) {
+              const [csR, cdR] = await Promise.all([
+                fetchSheetWhere("Sotuv_Savat", "Sotuv_ID", confIds),
+                fetchSheetWhere("Sotuv_savat_dollar", "Sotuv_ID", confIds),
+              ]);
+              (csR.data as SotuvSavatRow[]).forEach(r=>{ eSom += num(r.Summa_som); });
+              (cdR.data as SotuvSavatDollarRow[]).forEach(r=>{ eDol += num(r.Summa); });
+            }
+            ((mTolovR.data||[]) as STolov[]).forEach(t=>{
+              if(t.Sotuv_ID===id) return;
+              if(t.Valyuta==="Dollar") eDol -= num(t.Summa_dollar); else eSom -= num(t.Summa);
+            });
+            setMijozQarzSom(eSom);
+            setMijozQarzDollar(eDol);
+          } catch { /* xato bo'lsa snapshot qoladi */ }
+        })();
+      }
     }).finally(()=>setLoading(false));
   }
 

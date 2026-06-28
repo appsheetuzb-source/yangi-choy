@@ -97,18 +97,33 @@ function ChekContent() {
       doc.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
       const pdfBlob = doc.output("blob");
       const fileName = `chek-${id}.pdf`;
+      el.style.minHeight = prevMinH;   // ko'rinishni darhol tiklaymiz
 
-      const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
       const file = new File([pdfBlob], fileName, { type: "application/pdf" });
 
-      if (isMobile && navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: `Chek #${id} — Musaffo Tea` });
-      } else {
-        const url = URL.createObjectURL(pdfBlob);
-        const a = document.createElement("a");
-        a.href = url; a.download = fileName; a.click();
-        URL.revokeObjectURL(url);
+      // 1) Web Share (fayl bilan) — qo'llab-quvvatlasa
+      if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file], title: `Chek #${id} — Musaffo Tea` });
+          return;
+        } catch (e) {
+          // foydalanuvchi bekor qilgan bo'lsa — jimgina chiqamiz
+          if (e instanceof Error && (e.name === "AbortError" || (e.name === "NotAllowedError" && /cancel/i.test(e.message)))) return;
+          // aks holda pastdagi zaxiraga o'tamiz
+        }
       }
+
+      // 2) Zaxira: PDF'ni yangi oynada ochish (mobilda ishonchli — ko'rib/saqlab/ulashish mumkin)
+      const url = URL.createObjectURL(pdfBlob);
+      const win = window.open(url, "_blank");
+      if (!win) {
+        const a = document.createElement("a");
+        a.href = url; a.download = fileName;
+        document.body.appendChild(a); a.click(); a.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      alert("Chekni ulashishda xatolik: " + (err instanceof Error ? err.message : String(err)));
     } finally {
       el.style.minHeight = prevMinH;
       setSharing(false);
