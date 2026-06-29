@@ -2,7 +2,7 @@
 import { fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 interface Taminotchi {
@@ -32,6 +32,10 @@ function num(v: string | number | undefined) {
 function fmtUsd(v: number) {
   return "$" + v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function sanaKey(sana: string) {
+  const [d, m, y] = (sana || "").split(".");
+  return `${y || "0000"}${(m || "00").padStart(2, "0")}${(d || "00").padStart(2, "0")}`;
+}
 
 export default function TaminotchiDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -55,6 +59,19 @@ export default function TaminotchiDetailPage() {
   const [form, setForm]           = useState<Partial<Taminotchi>>({});
   const [saving, setSaving]       = useState(false);
   const [toggling, setToggling]   = useState<Record<string, boolean>>({});
+
+  const xaridRef = useRef<HTMLDivElement>(null);
+  const tolovRef = useRef<HTMLDivElement>(null);
+  const [flash, setFlash]         = useState<"xarid" | "tolov" | null>(null);
+  const [qFrom, setQFrom]         = useState("");
+  const [qTo, setQTo]             = useState("");
+  const [qSum, setQSum]           = useState("");
+  function goSection(target: "xarid" | "tolov") {
+    const ref = target === "xarid" ? xaridRef : tolovRef;
+    ref.current?.scrollIntoView({ behavior: "smooth", block: isMobile ? "start" : "center" });
+    setFlash(target);
+    setTimeout(() => setFlash(f => (f === target ? null : f)), 1400);
+  }
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -107,6 +124,34 @@ export default function TaminotchiDetailPage() {
     s + (savatMap[x.Xarid_ID] || []).reduce((ss, r) => ss + num(r.Jami_Summa), 0), 0), [xaridlar, savatMap]);
   const jamiTolovSom = useMemo(() => tolovlar.reduce((s, t) => s + num(t.Summa), 0), [tolovlar]);
   const jamiTolovUsd = useMemo(() => tolovlar.reduce((s, t) => s + num(t.Summa_dollar), 0), [tolovlar]);
+
+  const fromKey = qFrom ? qFrom.replace(/-/g, "") : "";
+  const toKey   = qTo ? qTo.replace(/-/g, "") : "";
+  const sumQ    = qSum.replace(/\D/g, "");
+  const qActive = !!(fromKey || toKey || sumQ);
+  const fXarid = useMemo(() => {
+    if (!qActive) return xaridlar;
+    return xaridlar.filter(x => {
+      if (fromKey || toKey) { const k = sanaKey(x.Sana); if ((fromKey && k < fromKey) || (toKey && k > toKey)) return false; }
+      if (sumQ) {
+        const sv = savatMap[x.Xarid_ID] || [];
+        const som = sv.reduce((s, r) => s + num(r.Summa_Som), 0);
+        const usd = sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
+        if (!`${Math.round(som)} ${Math.round(usd)}`.includes(sumQ)) return false;
+      }
+      return true;
+    });
+  }, [xaridlar, savatMap, fromKey, toKey, sumQ, qActive]);
+  const fTolov = useMemo(() => {
+    if (!qActive) return tolovlar;
+    return tolovlar.filter(t => {
+      if (fromKey || toKey) { const k = sanaKey(t.Sana); if ((fromKey && k < fromKey) || (toKey && k > toKey)) return false; }
+      if (sumQ) {
+        if (!`${Math.round(num(t.Som))} ${Math.round(num(t.Dollar))} ${Math.round(num(t.Summa))}`.includes(sumQ)) return false;
+      }
+      return true;
+    });
+  }, [tolovlar, fromKey, toKey, sumQ, qActive]);
 
   const bSom = num(taminotchi?.Boshlangich_som);
   const bUsd = num(taminotchi?.Boshlangich_Balans);
@@ -211,7 +256,7 @@ export default function TaminotchiDetailPage() {
   );
 
   const COLS_X = "40px 100px 80px 1fr 1fr 112px";
-  const COLS_T = "40px 100px 90px 100px 1fr 1fr 1fr 110px 1fr";
+  const COLS_T = "26px 70px 48px 1fr 1fr 1fr 88px 96px";
 
   return (
     <>
@@ -264,7 +309,7 @@ export default function TaminotchiDetailPage() {
         </div>
       )}
 
-      <div className="page-content" style={{ maxWidth: 1100 }}>
+      <div className="page-content" style={{ maxWidth: 1320 }}>
 
         {/* Stats */}
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(5,1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 24 }}>
@@ -279,14 +324,26 @@ export default function TaminotchiDetailPage() {
             {bUsd !== 0 && <p style={{ fontSize: isMobile ? 13 : 15, fontWeight: 800, color: "#2563eb", marginTop: 4 }}>{fmtUsd(bUsd)}</p>}
             {bSom === 0 && bUsd === 0 && <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800, color: "var(--text-3)" }}>0</p>}
           </div>
-          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "14px 16px" : "20px 24px" }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 8 }}>JAMI XARID SUMMASI</p>
+          <div onClick={() => goSection("xarid")} title="Xaridlar ro'yxatiga o'tish"
+            style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "14px 16px" : "20px 24px", cursor: "pointer", transition: "box-shadow .15s, transform .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(30,64,124,.14)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "none"; }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", margin: 0 }}>JAMI XARID SUMMASI</p>
+              <svg width="13" height="13" fill="none" stroke="var(--text-3)" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+            </div>
             {jamiXaridSom !== 0 && <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800 }}>{jamiXaridSom.toLocaleString("ru-RU")}</p>}
             {jamiXaridUsd !== 0 && <p style={{ fontSize: isMobile ? 13 : 15, fontWeight: 800, color: "#2563eb", marginTop: 4 }}>{fmtUsd(jamiXaridUsd)}</p>}
             {jamiXaridSom === 0 && jamiXaridUsd === 0 && <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800, color: "var(--text-3)" }}>0</p>}
           </div>
-          <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "14px 16px" : "20px 24px" }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 8 }}>JAMI AYRILGAN PULLAR</p>
+          <div onClick={() => goSection("tolov")} title="To'lovlar tarixiga o'tish"
+            style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "14px 16px" : "20px 24px", cursor: "pointer", transition: "box-shadow .15s, transform .15s" }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = "0 6px 20px rgba(30,64,124,.14)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = "var(--shadow-sm)"; e.currentTarget.style.transform = "none"; }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", margin: 0 }}>JAMI AYRILGAN PULLAR</p>
+              <svg width="13" height="13" fill="none" stroke="var(--text-3)" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+            </div>
             {jamiTolovSom !== 0 && <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800, color: "#16a34a" }}>{jamiTolovSom.toLocaleString("ru-RU")}</p>}
             {jamiTolovUsd !== 0 && <p style={{ fontSize: isMobile ? 13 : 15, fontWeight: 800, color: "#16a34a", marginTop: 4 }}>{fmtUsd(jamiTolovUsd)}</p>}
             {jamiTolovSom === 0 && jamiTolovUsd === 0 && <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800, color: "var(--text-3)" }}>0</p>}
@@ -299,24 +356,45 @@ export default function TaminotchiDetailPage() {
           </div>
         </div>
 
+        {/* Sana va summa bo'yicha qidiruv */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "10px 12px" : "12px 16px", marginBottom: isMobile ? 14 : 16 }}>
+          <svg width="16" height="16" fill="none" stroke="var(--text-2)" viewBox="0 0 24 24" style={{ flexShrink: 0 }}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M8 7V3m8 4V3M3 11h18M5 5h14a2 2 0 012 2v12a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2z"/></svg>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-2)" }}>Sana:</span>
+          <input type="date" value={qFrom} onChange={e => setQFrom(e.target.value)} style={{ padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg)", color: "var(--text)" }} />
+          <span style={{ color: "var(--text-3)" }}>–</span>
+          <input type="date" value={qTo} onChange={e => setQTo(e.target.value)} style={{ padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg)", color: "var(--text)" }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-2)", marginLeft: 6 }}>Summa:</span>
+          <input type="text" inputMode="numeric" value={qSum} onChange={e => setQSum(e.target.value)} placeholder="masalan 20670000"
+            style={{ padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg)", color: "var(--text)", width: 150 }} />
+          {qActive && (
+            <button onClick={() => { setQFrom(""); setQTo(""); setQSum(""); }} style={{ padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "flex", alignItems: "center", gap: 4 }}>
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg> Tozalash
+            </button>
+          )}
+          {qActive && <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", marginLeft: "auto" }}>{fXarid.length} xarid · {fTolov.length} to&apos;lov</span>}
+        </div>
+
+        {/* Xaridlar va To'lovlar — yonma-yon */}
+        <div style={{ display: isMobile ? "block" : "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+
         {/* Xaridlar */}
-        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden", marginBottom: 20 }}>
+        <div ref={xaridRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "xarid" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", marginBottom: isMobile ? 16 : 0, transition: "box-shadow .25s", scrollMarginTop: 80 }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>Xaridlar soni: {xaridlar.length} ta</span>
+            <span style={{ fontSize: 15, fontWeight: 700 }}>Xaridlar soni: {fXarid.length} ta</span>
           </div>
 
-          {xaridlar.length === 0 ? (
-            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>Xarid topilmadi</div>
+          {fXarid.length === 0 ? (
+            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{qActive ? "Mos xarid topilmadi" : "Xarid topilmadi"}</div>
           ) : isMobile ? (
             <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-              {xaridlar.map((x, i) => {
+              {fXarid.map((x, i) => {
                 const sv = savatMap[x.Xarid_ID] || [];
                 const som = sv.reduce((s, r) => s + num(r.Summa_Som), 0);
                 const usd = sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
                 const isHa = String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                 return (
                   <div key={x.Xarid_ID} onClick={() => router.push(`/xarid/${x.Xarid_ID}`)}
-                    style={{ background: isHa ? "#dcfce7" : "#fee2e2", borderRadius: "var(--radius)", padding: "12px 14px", cursor: "pointer", border: `1px solid ${isHa ? "#86efac" : "#fca5a5"}` }}>
+                    style={{ background: isHa ? "#86efac" : "#fca5a5", borderRadius: "var(--radius)", padding: "12px 14px", cursor: "pointer", border: `1px solid ${isHa ? "#14532d" : "#7f1d1d"}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>#{i+1}</span>
@@ -339,35 +417,35 @@ export default function TaminotchiDetailPage() {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"} <span style={{ fontSize: 10 }}>so&apos;m</span></span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{usd !== 0 ? fmtUsd(usd) : "$0,00"}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"} <span style={{ fontSize: 10 }}>so&apos;m</span></span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{usd !== 0 ? fmtUsd(usd) : "$0,00"}</span>
                     </div>
                   </div>
                 );
               })}
             </div>
           ) : (
-            <>
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 560 }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
                 {["#","SANA","RAQAM","SUMMA (SO'M)","SUMMA ($)","AKT"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
-              {xaridlar.map((x, i) => {
+              {fXarid.map((x, i) => {
                 const sv = savatMap[x.Xarid_ID] || [];
                 const som = sv.reduce((s, r) => s + num(r.Summa_Som), 0);
                 const usd = sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
                 const isHa = String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                 return (
                   <div key={x.Xarid_ID} onClick={() => router.push(`/xarid/${x.Xarid_ID}`)}
-                    style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "12px 20px", alignItems: "center", borderBottom: i < xaridlar.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isHa ? "#dcfce7" : "#fee2e2" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = isHa ? "#bbf7d0" : "#fecaca")}
-                    onMouseLeave={e => (e.currentTarget.style.background = isHa ? "#dcfce7" : "#fee2e2")}>
-                    <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{x.Sana}</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", background: "#f0fdf4", padding: "2px 8px", borderRadius: 6, display: "inline-block" }}>#{x.Sotuv_Raqami}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{usd !== 0 ? fmtUsd(usd) : "$0,00"}</span>
+                    style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "12px 20px", alignItems: "center", borderBottom: i < fXarid.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isHa ? "#86efac" : "#fca5a5" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = isHa ? "#4ade80" : "#f87171")}
+                    onMouseLeave={e => (e.currentTarget.style.background = isHa ? "#86efac" : "#fca5a5")}>
+                    <span style={{ fontSize: 11, color: isHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{x.Sana}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: isHa ? "#14532d" : "#7f1d1d", background: "rgba(255,255,255,.55)", padding: "2px 8px", borderRadius: 6, display: "inline-block" }}>#{x.Sotuv_Raqami}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{usd !== 0 ? fmtUsd(usd) : "$0,00"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                       {["True","False"].map(val => {
                         const isActive = val === "True" ? isHa : !isHa;
@@ -385,28 +463,28 @@ export default function TaminotchiDetailPage() {
                   </div>
                 );
               })}
-            </>
+            </div></div>
           )}
         </div>
 
         {/* To'lovlar tarixi */}
-        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden" }}>
+        <div ref={tolovRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "tolov" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", transition: "box-shadow .25s", scrollMarginTop: 80 }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>To&apos;lovlar tarixi</span>
           </div>
 
-          {tolovlar.length === 0 ? (
-            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>To&apos;lov topilmadi</div>
+          {fTolov.length === 0 ? (
+            <div style={{ padding: "32px", textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>{qActive ? "Mos to'lov topilmadi" : "To'lov topilmadi"}</div>
           ) : isMobile ? (
             <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
-              {tolovlar.map((t, i) => {
+              {fTolov.map((t, i) => {
                 const somVal = num(t.Som);
                 const usdVal = num(t.Dollar);
                 const jamiSom = num(t.Summa);
                 const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
                   <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
-                    style={{ background: tIsHa ? "#dcfce7" : "#fee2e2", borderRadius: "var(--radius)", padding: "12px 14px", border: `1px solid ${tIsHa ? "#86efac" : "#fca5a5"}`, cursor: "pointer" }}>
+                    style={{ background: tIsHa ? "#86efac" : "#fca5a5", borderRadius: "var(--radius)", padding: "12px 14px", border: `1px solid ${tIsHa ? "#14532d" : "#7f1d1d"}`, cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>#{i+1}</span>
@@ -431,9 +509,9 @@ export default function TaminotchiDetailPage() {
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 13, fontWeight: 700 }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"} <span style={{ fontSize: 10 }}>so&apos;m</span></span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
-                      {jamiSom !== 0 && <span style={{ fontSize: 12, fontWeight: 700, color: "#16a34a" }}>{jamiSom.toLocaleString("ru-RU")}</span>}
+                      <span style={{ fontSize: 13, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"} <span style={{ fontSize: 10 }}>so&apos;m</span></span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
+                      {jamiSom !== 0 && <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiSom.toLocaleString("ru-RU")}</span>}
                     </div>
                     {t.Izoh && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{t.Izoh}</p>}
                   </div>
@@ -441,31 +519,30 @@ export default function TaminotchiDetailPage() {
               })}
             </div>
           ) : (
-            <>
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 520 }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#","SANA","XARID","TURI","SO'M","DOLLAR","JAMI (SO'M)","AKT","IZOH"].map(h => (
+                {["#","SANA","TURI","SO'M","DOLLAR","JAMI (SO'M)","AKT","IZOH"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
-              {tolovlar.map((t, i) => {
+              {fTolov.map((t, i) => {
                 const somVal = num(t.Som);
                 const usdVal = num(t.Dollar);
                 const jamiSom = num(t.Summa);
                 const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
                   <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
-                    style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "12px 20px", alignItems: "center", borderBottom: i < tolovlar.length - 1 ? "1px solid var(--border)" : "none", background: tIsHa ? "#dcfce7" : "#fee2e2", cursor: "pointer" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = tIsHa ? "#bbf7d0" : "#fecaca")}
-                    onMouseLeave={e => (e.currentTarget.style.background = tIsHa ? "#dcfce7" : "#fee2e2")}>
-                    <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{t.Sana || "—"}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)" }}>{t.Xarid_Raqami ? `#${t.Xarid_Raqami}` : "—"}</span>
-                    <span style={{ fontSize: 11, background: t.Turi ? "#f1f5f9" : "transparent", padding: t.Turi ? "2px 8px" : 0, borderRadius: 10, fontWeight: 600, color: "var(--text-2)", display: "inline-block" }}>
+                    style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "12px 20px", alignItems: "center", borderBottom: i < fTolov.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: tIsHa ? "#86efac" : "#fca5a5" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = tIsHa ? "#4ade80" : "#f87171")}
+                    onMouseLeave={e => (e.currentTarget.style.background = tIsHa ? "#86efac" : "#fca5a5")}>
+                    <span style={{ fontSize: 11, color: tIsHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{t.Sana || "—"}</span>
+                    <span style={{ fontSize: 11, background: t.Turi ? "rgba(255,255,255,.55)" : "transparent", padding: t.Turi ? "2px 6px" : 0, borderRadius: 10, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d", display: "inline-block" }}>
                       {t.Turi || "—"}
                     </span>
-                    <span style={{ fontSize: 13, fontWeight: 700 }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                       {["True","False"].map(val => {
                         const tHa = String(t.Check||"").toUpperCase()==="TRUE"; const isActive = val === "True" ? tHa : !tHa;
@@ -480,12 +557,13 @@ export default function TaminotchiDetailPage() {
                         );
                       })}
                     </div>
-                    <span style={{ fontSize: 12, color: "var(--text-3)" }}>{t.Izoh || "—"}</span>
+                    <span title={t.Izoh || ""} style={{ fontSize: 12, color: tIsHa ? "#14532d" : "#7f1d1d", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.Izoh || "—"}</span>
                   </div>
                 );
               })}
-            </>
+            </div></div>
           )}
+        </div>
         </div>
       </div>
 

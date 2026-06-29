@@ -38,6 +38,9 @@ function isDollarValyuta(v: string) {
   const lv = String(v || "").toLowerCase().trim();
   return lv.includes("dollar") || lv === "$" || lv.includes("usd");
 }
+function hasSomValyuta(v: string) {
+  return !isDollarValyuta(v) || /so.?m/i.test(String(v || ""));
+}
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function num(v: string | number | undefined) {
@@ -103,6 +106,7 @@ export default function MijozlarPage() {
   const [error, setError]               = useState<string | null>(null);
   const [search, setSearch]             = useState("");
   const [activeAgent, setActiveAgent]   = useState<string>("all");
+  const [curFilter, setCurFilter]       = useState<"all" | "som" | "dollar">("all");
   const [isMobile, setIsMobile]         = useState(false);
 
   const [drawerOpen, setDrawerOpen]     = useState(false);
@@ -194,12 +198,16 @@ export default function MijozlarPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = useMemo(()=>mijozlar.filter(m => {
+  const baseList = useMemo(()=>mijozlar.filter(m => {
     // Sotuvchi faqat o'z mijozlarini ko'radi
     if (isSotuvchi && user?.id && (m.Agent || "").trim() !== user.id) return false;
     return String(m.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
       String(m.Telefon || "").includes(search);
   }),[mijozlar,isSotuvchi,user,search]);
+  const somCount    = useMemo(()=>baseList.filter(m => hasSomValyuta(m.Valyuta)).length,[baseList]);
+  const dollarCount = useMemo(()=>baseList.filter(m => isDollarValyuta(m.Valyuta)).length,[baseList]);
+  const filtered = useMemo(()=> curFilter === "all" ? baseList
+    : baseList.filter(m => curFilter === "som" ? hasSomValyuta(m.Valyuta) : isDollarValyuta(m.Valyuta)),[baseList,curFilter]);
 
   // Group by Agent (bitta o'tishda — har agent uchun qayta filter o'rniga)
   const agentGroups = useMemo(()=>{
@@ -382,6 +390,26 @@ export default function MijozlarPage() {
                     <p style={{ fontSize: 15, fontWeight: 800, color: "#16a34a" }}>0</p>
                   )}
                 </div>
+              </div>
+
+              {/* ── Valyuta bo'yicha ajratish ── */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: isMobile ? 14 : 16 }}>
+                {([
+                  { k: "all" as const, label: "Hammasi", count: baseList.length, color: "var(--primary)" },
+                  { k: "som" as const, label: "So'm mijozlar", count: somCount, color: "#16a34a" },
+                  { k: "dollar" as const, label: "Dollar mijozlar", count: dollarCount, color: "#2563eb" },
+                ]).map(t => {
+                  const active = curFilter === t.k;
+                  return (
+                    <button key={t.k} onClick={() => setCurFilter(t.k)}
+                      style={{ padding: "8px 18px", borderRadius: 20, border: "1.5px solid " + (active ? t.color : "var(--border)"),
+                        background: active ? t.color : "var(--white)", color: active ? "#fff" : "var(--text-2)",
+                        fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                      {t.label}
+                      <span style={{ fontSize: 11, fontWeight: 700, background: active ? "rgba(255,255,255,.25)" : "var(--bg)", padding: "1px 7px", borderRadius: 10 }}>{t.count}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Mobile search */}

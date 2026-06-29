@@ -290,7 +290,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jS=num(s.Soni)*num(s.Som_Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 46px 62px minmax(0,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 44px 58px minmax(74px,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
@@ -335,7 +335,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jU=num(s.Soni)*num(s.Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 46px 62px minmax(0,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 44px 58px minmax(74px,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
