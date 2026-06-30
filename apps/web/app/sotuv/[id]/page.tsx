@@ -49,8 +49,8 @@ function fmt(v: string|number|undefined) { const n=num(v); return n?n.toLocaleSt
 function fmtSom(v: string|number|undefined) { const n=num(v); return n?n.toLocaleString("ru-RU")+" so'm":"—"; }
 function fmtUsd(v: string|number|undefined) { const n=num(v); return n?"$"+n.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}):"—"; }
 
-function SearchSelect({ items, value, onChange, placeholder }: {
-  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string;
+function SearchSelect({ items, value, onChange, placeholder, compact }: {
+  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; compact?:boolean;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
   const [pos,setPos]=useState<{left:number;width:number;top?:number;bottom?:number;listMaxH:number}|null>(null);
@@ -76,9 +76,9 @@ function SearchSelect({ items, value, onChange, placeholder }: {
   const list=items.filter(i=>i.label.toLowerCase().includes(q.toLowerCase())).slice(0,60);
   return (
     <div ref={ref} style={{position:"relative"}}>
-      <div onClick={()=>{ if(!open) place(); setOpen(o=>!o); setQ(""); }} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",fontSize:14,color:selected?"var(--text)":"var(--text-3)"}}>
-        <span>{selected?selected.label:placeholder||"Tanlang..."}</span>
-        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
+      <div onClick={()=>{ if(!open) place(); setOpen(o=>!o); setQ(""); }} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:compact?"9px 8px":"10px 14px",background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",cursor:"pointer",fontSize:compact?13:14,color:selected?"var(--text)":"var(--text-3)"}}>
+        <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{selected?selected.label:placeholder||"Tanlang..."}</span>
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{flexShrink:0,marginLeft:6,transform:open?"rotate(180deg)":"none",transition:"transform .15s"}}><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/></svg>
       </div>
       {open&&pos&&(
         <div style={{position:"fixed",top:pos.top,bottom:pos.bottom,left:pos.left,width:pos.width,zIndex:1000,background:"var(--white)",border:"1px solid var(--border)",borderRadius:"var(--radius)",boxShadow:"var(--shadow)",overflow:"hidden"}}>
@@ -972,7 +972,7 @@ export default function SotuvDetailPage() {
         {(savatSom.length>0||addSomRows.length>0||savatDollar.length>0||addDollarRows.length>0)&&(
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",marginBottom:16,overflowX:isMobile?"auto":undefined}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
-              <span style={{fontSize:15,fontWeight:700}}>So&apos;m mahsulotlar</span>
+              {isMobile?<span style={{fontSize:13,fontWeight:700,color:"#16a34a",letterSpacing:".05em"}}>SO&apos;M SAVAT</span>:<span style={{fontSize:15,fontWeight:700}}>So&apos;m mahsulotlar</span>}
               <div style={{display:"flex",gap:8}}>
                 <button onClick={()=>bulkMode?exitBulk():setBulkMode(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:`1px solid ${bulkMode?"var(--primary)":"var(--border)"}`,borderRadius:"var(--radius)",background:bulkMode?"var(--primary-glow)":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:bulkMode?"var(--primary)":"var(--text-2)"}}>
                   <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> {bulkMode?"Bekor":"Ommaviy"}
@@ -1125,29 +1125,17 @@ export default function SotuvDetailPage() {
               );
             })}
             {addSomRows.map((row,ri)=>(isMobile ? (
-              <div key={row.id} ref={ri===addSomRows.length-1?addSomRef:undefined} style={{padding:"12px 16px",borderTop:(savatSom.length>0||ri>0)?"1px solid var(--border)":"none",background:"#f0f9ff"}}>
-                <div style={{marginBottom:8}}>
-                  <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updSomRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot tanlang..."/>
-                </div>
-                <input value={row.Izoh} onChange={e=>updSomRow(row.id,"Izoh",e.target.value)} placeholder="Izoh (ixtiyoriy)"
-                  style={{width:"100%",marginBottom:8,padding:"8px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-                <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"nowrap"}}>
-                  <input value={row.Soni} onChange={e=>updSomRow(row.id,"Soni",e.target.value)} placeholder="Soni" type="number"
-                    style={{width:46,flexShrink:0,padding:"8px 4px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
-                  <span style={{color:"var(--text-3)",flexShrink:0}}>×</span>
+              <div key={row.id} ref={ri===addSomRows.length-1?addSomRef:undefined} style={{padding:"10px 14px",borderTop:(savatSom.length>0||ri>0)?"1px solid var(--border)":"none",background:"#f0f9ff"}}>
+                <div style={{display:"grid",gridTemplateColumns:"13px minmax(0,1fr) 40px 54px minmax(46px,auto)",gap:5,alignItems:"center"}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{savatSom.length+ri+1}</span>
+                  <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updSomRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot..." compact/>
+                  <input value={row.Soni} onChange={e=>updSomRow(row.id,"Soni",e.target.value)} placeholder="0" type="number"
+                    style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid var(--primary)",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
                   <input value={row.Narx} onChange={e=>updSomRow(row.id,"Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
-                    style={{width:72,flexShrink:0,padding:"8px 4px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
-                  <span style={{fontSize:12,fontWeight:800,color:"var(--primary)",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>= {fmtSom(num(row.Soni)*num(row.Narx))}</span>
-                  <div style={{display:"flex",gap:6,flexShrink:0}}>
-                    <button onClick={()=>saveAddRow(row,"som")} disabled={!row.Mahsulot_ID||!row.Soni||savingIds.has(row.id)}
-                      style={{width:32,height:32,borderRadius:8,border:"none",background:"#dcfce7",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#16a34a"}}>
-                      {savingIds.has(row.id)?<span className="spinner" style={{width:14,height:14}}/>:<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>}
-                    </button>
-                    <button onClick={()=>rmSomRow(row.id)}
-                      style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444"}}>
-                      <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                  </div>
+                    style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid var(--primary)",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+                  {(num(row.Soni)*num(row.Narx))
+                    ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:"var(--primary)",whiteSpace:"nowrap"}}>{(num(row.Soni)*num(row.Narx)).toLocaleString("ru-RU")}</span>
+                    : <button onClick={()=>rmSomRow(row.id)} title="Qatorni o'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
                 </div>
               </div>
             ) : (
@@ -1183,7 +1171,7 @@ export default function SotuvDetailPage() {
         {(savatDollar.length>0||addDollarRows.length>0||savatSom.length>0||addSomRows.length>0)&&(
         <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",overflowX:isMobile?"auto":undefined}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
-            <span style={{fontSize:15,fontWeight:700}}>Dollar mahsulotlar</span>
+            {isMobile?<span style={{fontSize:13,fontWeight:700,color:"#2563eb",letterSpacing:".05em"}}>DOLLAR SAVAT</span>:<span style={{fontSize:15,fontWeight:700}}>Dollar mahsulotlar</span>}
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>bulkMode?exitBulk():setBulkMode(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:`1px solid ${bulkMode?"var(--primary)":"var(--border)"}`,borderRadius:"var(--radius)",background:bulkMode?"var(--primary-glow)":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:bulkMode?"var(--primary)":"var(--text-2)"}}>
                 <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> {bulkMode?"Bekor":"Ommaviy"}
@@ -1336,29 +1324,17 @@ export default function SotuvDetailPage() {
             );
           })}
           {addDollarRows.map((row,ri)=>(isMobile ? (
-            <div key={row.id} ref={ri===addDollarRows.length-1?addDollarRef:undefined} style={{padding:"12px 16px",borderTop:(savatDollar.length>0||ri>0)?"1px solid var(--border)":"none",background:"#eff6ff"}}>
-              <div style={{marginBottom:8}}>
-                <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updDollarRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot tanlang..."/>
-              </div>
-              <input value={row.Izoh} onChange={e=>updDollarRow(row.id,"Izoh",e.target.value)} placeholder="Izoh (ixtiyoriy)"
-                style={{width:"100%",marginBottom:8,padding:"8px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
-              <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"nowrap"}}>
-                <input value={row.Soni} onChange={e=>updDollarRow(row.id,"Soni",e.target.value)} placeholder="Soni" type="number"
-                  style={{width:46,flexShrink:0,padding:"8px 4px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
-                <span style={{color:"var(--text-3)",flexShrink:0}}>×</span>
-                <input value={row.Narx} onChange={e=>updDollarRow(row.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                  style={{width:72,flexShrink:0,padding:"8px 4px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
-                <span style={{fontSize:12,fontWeight:800,color:"#2563eb",flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>= {fmtUsd(num(row.Soni)*num(row.Narx))}</span>
-                <div style={{display:"flex",gap:6,flexShrink:0}}>
-                  <button onClick={()=>saveAddRow(row,"dollar")} disabled={!row.Mahsulot_ID||!row.Soni||savingIds.has(row.id)}
-                    style={{width:32,height:32,borderRadius:8,border:"none",background:"#dcfce7",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#16a34a"}}>
-                    {savingIds.has(row.id)?<span className="spinner" style={{width:14,height:14}}/>:<svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>}
-                  </button>
-                  <button onClick={()=>rmDollarRow(row.id)}
-                    style={{width:32,height:32,borderRadius:8,border:"none",background:"#fee2e2",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444"}}>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                  </button>
-                </div>
+            <div key={row.id} ref={ri===addDollarRows.length-1?addDollarRef:undefined} style={{padding:"10px 14px",borderTop:(savatDollar.length>0||ri>0)?"1px solid var(--border)":"none",background:"#eff6ff"}}>
+              <div style={{display:"grid",gridTemplateColumns:"13px minmax(0,1fr) 40px 54px minmax(46px,auto)",gap:5,alignItems:"center"}}>
+                <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{savatDollar.length+ri+1}</span>
+                <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updDollarRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot..." compact/>
+                <input value={row.Soni} onChange={e=>updDollarRow(row.id,"Soni",e.target.value)} placeholder="0" type="number"
+                  style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid #2563eb",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+                <input value={row.Narx} onChange={e=>updDollarRow(row.id,"Narx",e.target.value)} placeholder="$" inputMode="decimal"
+                  style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid #2563eb",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb",boxSizing:"border-box"}}/>
+                {(num(row.Soni)*num(row.Narx))
+                  ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:"#2563eb",whiteSpace:"nowrap"}}>{fmtUsd(num(row.Soni)*num(row.Narx))}</span>
+                  : <button onClick={()=>rmDollarRow(row.id)} title="Qatorni o'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
               </div>
             </div>
           ) : (
