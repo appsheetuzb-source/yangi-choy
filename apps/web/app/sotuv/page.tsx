@@ -290,15 +290,16 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jS=num(s.Soni)*num(s.Som_Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,1fr) 40px 60px 78px 18px",gap:4,alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"13px minmax(0,1fr) 40px 54px minmax(46px,auto)",gap:5,alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
-                style={{minWidth:0,width:"100%",padding:"8px 2px",border:"1px solid var(--border)",borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+                style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid var(--primary)",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
-                style={{minWidth:0,width:"100%",padding:"8px 2px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
-              <div style={{minWidth:0,fontSize:11,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jS?jS.toLocaleString("ru-RU"):"—")}</div>
-              <button onClick={()=>onRemove(s.id)} style={{width:22,height:30,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16,fontWeight:700,padding:0}}>−</button>
+                style={{minWidth:0,width:"100%",padding:"9px 2px",border:`1.5px solid ${bc?"#ef4444":"var(--primary)"}`,borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+              {jS
+                ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bc?"past!":jS.toLocaleString("ru-RU")}</span>
+                : <button onClick={()=>onRemove(s.id)} title="O'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
             </div>
           );
           return (
@@ -335,15 +336,16 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jU=num(s.Soni)*num(s.Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,1fr) 40px 60px 78px 18px",gap:4,alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"13px minmax(0,1fr) 40px 54px minmax(46px,auto)",gap:5,alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
-                style={{minWidth:0,width:"100%",padding:"8px 2px",border:"1px solid var(--border)",borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+                style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid #2563eb",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
-                style={{minWidth:0,width:"100%",padding:"8px 2px",border:`1px solid ${bc?"#ef4444":"var(--border)"}`,borderRadius:7,fontSize:12,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb",boxSizing:"border-box"}}/>
-              <div style={{minWidth:0,fontSize:11,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#2563eb",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{bc?"past!":(jU?fmtUsd(jU):"—")}</div>
-              <button onClick={()=>onRemove(s.id)} style={{width:22,height:30,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:16,fontWeight:700,padding:0}}>−</button>
+                style={{minWidth:0,width:"100%",padding:"9px 2px",border:`1.5px solid ${bc?"#ef4444":"#2563eb"}`,borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb",boxSizing:"border-box"}}/>
+              {jU
+                ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#2563eb",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bc?"past!":fmtUsd(jU)}</span>
+                : <button onClick={()=>onRemove(s.id)} title="O'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
             </div>
           );
           return (
@@ -481,7 +483,30 @@ export default function SotuvPage() {
 
   const loadData = useCallback((delay=0)=>{
     setLoading(true);
+    setBalansReady(false);
     setTimeout(()=>{
+      // Faza 2 — og'ir savat/to'lov sheet'lari Faza 1 bilan PARALLEL boshlanadi (kutmaydi → JAMI ustunlari tezroq to'ladi).
+      // Sovuq server / tarmoq uzilishida bo'sh/xato javobda QAYTA urinadi.
+      const loadHeavy = (attempt:number)=>{
+        Promise.all([
+          fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]),
+          fetchSheet("S_tolov"),
+        ]).then(([rr, stR])=>{
+          const savatR = rr["Sotuv_Savat"], savatDR = rr["Sotuv_savat_dollar"];
+          if(!savatR?.headers?.length || savatR.error || !savatDR?.headers?.length || !stR?.headers?.length || stR.error)
+            throw new Error("heavy incomplete");
+          const sm:Record<string,SotuvSavatRow[]>={};
+          ((savatR.data||[]) as SotuvSavatRow[]).forEach(r=>{ const k=String(r.Sotuv_ID||"").trim(); if(!k) return; if(!sm[k])sm[k]=[]; sm[k].push(r); });
+          setSavatSomMap(sm);
+          const dm:Record<string,SotuvSavatDollarRow[]>={};
+          ((savatDR.data||[]) as SotuvSavatDollarRow[]).forEach(r=>{ const k=String(r.Sotuv_ID||"").trim(); if(!k) return; if(!dm[k])dm[k]=[]; dm[k].push(r); });
+          setSavatDollarMap(dm);
+          const stm: Record<string,STolov[]> = {}; const sbm: Record<string,{som:number,dollar:number}> = {};
+          ((stR.data||[]) as STolov[]).forEach((r:STolov)=>{ const k=String(r.Sotuv_ID||"").trim(); if(k){ if(!stm[k]) stm[k]=[]; stm[k].push(r); } const mid=String(r.Mijoz_ID||"").trim(); if(!mid) return; if(!sbm[mid]) sbm[mid]={som:0,dollar:0}; const isD=String(r.Valyuta||"").toLowerCase().includes("dollar"); sbm[mid].som += (!isD?num(r.Summa):0); sbm[mid].dollar += (isD?num(r.Summa_dollar):0); });
+          setStolovMap(stm); setStolovByMijoz(sbm); setBalansReady(true);
+        }).catch(()=>{ if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000)); else setBalansReady(true); });
+      };
+      loadHeavy(0);
       // Faza 1 — yengil sheet'lar (list DARHOL ko'rinadi)
       fetchSheets(["Sotuv","Foydalanuvchi","Mijozlar","Mahsulot","Kurs"])
       .then((rr)=>{
@@ -511,57 +536,7 @@ export default function SotuvPage() {
           setDefaultKurs(kursArr[kursArr.length-1].Kurs);
         }
       }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
-        .finally(()=>{
-          setLoading(false);
-          setBalansReady(false);
-          // Faza 2 — og'ir savat sheet'lari FONDA (JAMI/statistika ~1-2s da to'ladi)
-          // MUHIM: Mijoz balansi snapshot'i shu ma'lumotga bog'liq — yuklanmaguncha saqlash bloklanadi (balansReady)
-          // Sovuq server / tarmoq uzilishida JIM xato bo'lmasin — bo'sh yoki xato javobda QAYTA urinadi.
-          // (shu sabab "oynani yangilangandan keyin chiqadi" muammosi yo'qoladi.)
-          const loadHeavy = (attempt:number)=>{
-            Promise.all([
-              fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]),
-              fetchSheet("S_tolov"),
-            ]).then(([rr, stR])=>{
-              const savatR = rr["Sotuv_Savat"], savatDR = rr["Sotuv_savat_dollar"];
-              // Bu jadvallarda DOIM minglab qator bor — bo'sh/xato javob = yuklanmadi → qayta urin
-              if(!savatR?.headers?.length || savatR.error || !savatDR?.headers?.length || !stR?.headers?.length || stR.error)
-                throw new Error("heavy incomplete");
-              const sm:Record<string,SotuvSavatRow[]>={};
-              ((savatR.data||[]) as SotuvSavatRow[]).forEach(r=>{
-                const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
-                if(!sm[k])sm[k]=[]; sm[k].push(r);
-              });
-              setSavatSomMap(sm);
-              const dm:Record<string,SotuvSavatDollarRow[]>={};
-              ((savatDR.data||[]) as SotuvSavatDollarRow[]).forEach(r=>{
-                const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
-                if(!dm[k])dm[k]=[]; dm[k].push(r);
-              });
-              setSavatDollarMap(dm);
-              const stm: Record<string,STolov[]> = {};
-              const sbm: Record<string,{som:number,dollar:number}> = {};
-              ((stR.data||[]) as STolov[]).forEach((r:STolov)=>{
-                const k=String(r.Sotuv_ID||"").trim();
-                if(k){ if(!stm[k]) stm[k]=[]; stm[k].push(r); }
-                // Mijoz_ID bo'yicha barcha to'lovlar (Sotuv_ID bo'sh bo'lsa ham)
-                const mid=String(r.Mijoz_ID||"").trim(); if(!mid) return;
-                if(!sbm[mid]) sbm[mid]={som:0,dollar:0};
-                const isD=String(r.Valyuta||"").toLowerCase().includes("dollar");
-                sbm[mid].som    += (!isD?num(r.Summa):0);
-                sbm[mid].dollar += (isD?num(r.Summa_dollar):0);
-              });
-              setStolovMap(stm);
-              setStolovByMijoz(sbm);
-              setBalansReady(true);   // hammasi yuklandi — snapshot to'g'ri saqlanadi
-            }).catch(()=>{
-              // Sovuq server / tarmoq — qayta urinish (1s,2s,4s,8s...), 5 martagacha
-              if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000));
-              else setBalansReady(true); // urinishlar tugadi — bloklamaymiz
-            });
-          };
-          loadHeavy(0);
-        });
+        .finally(()=>{ setLoading(false); });
     }, delay);
   },[]);
 

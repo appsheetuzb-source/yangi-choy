@@ -940,12 +940,12 @@ export default function SotuvTolovPage() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
-                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={editSumma} onChange={e => setEditSumma(e.target.value.replace(/[^\d-]/g,"").replace(/(?!^)-/g,""))} placeholder="0" inputMode="numeric"
+                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={editSumma} onChange={e => setEditSumma((e.target.value.includes("-")?"-":"")+e.target.value.replace(/\D/g,""))} placeholder="0" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}/>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 6 }}>Dollar</label>
-                  <CurInput icon={USD_ICON} iconColor="#2563eb" value={editDollar} onChange={e => setEditDollar(e.target.value)} placeholder="0.00" inputMode="decimal"
+                  <CurInput icon={USD_ICON} iconColor="#2563eb" value={editDollar} onChange={e => setEditDollar((e.target.value.includes("-")?"-":"")+e.target.value.replace(/[^\d.]/g,"").replace(/(\..*)\./g,"$1"))} placeholder="0.00" inputMode="decimal"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #2563eb", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", color: "#2563eb", boxSizing: "border-box" }}/>
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
@@ -1094,12 +1094,12 @@ export default function SotuvTolovPage() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
-                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={addSumma} onChange={e => setAddSumma(e.target.value.replace(/[^\d-]/g,"").replace(/(?!^)-/g,""))} placeholder="0" inputMode="numeric"
+                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={addSumma} onChange={e => setAddSumma((e.target.value.includes("-")?"-":"")+e.target.value.replace(/\D/g,""))} placeholder="0" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}/>
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", display: "block", marginBottom: 6 }}>Dollar</label>
-                  <CurInput icon={USD_ICON} iconColor="#2563eb" value={addDollar} onChange={e => setAddDollar(e.target.value)} placeholder="0.00" inputMode="decimal"
+                  <CurInput icon={USD_ICON} iconColor="#2563eb" value={addDollar} onChange={e => setAddDollar((e.target.value.includes("-")?"-":"")+e.target.value.replace(/[^\d.]/g,"").replace(/(\..*)\./g,"$1"))} placeholder="0.00" inputMode="decimal"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid #2563eb", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", color: "#2563eb", boxSizing: "border-box" }}/>
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
