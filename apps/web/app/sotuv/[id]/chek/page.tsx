@@ -74,6 +74,9 @@ function ChekContent() {
 
   const hasSom    = !rowsReady || savatSom.length > 0;
   const hasDollar = !rowsReady || savatDollar.length > 0;
+  // Balans xulosasi uchun: o'sha valyutada mahsulot bo'lmasa ham, qarz yoki to'lov bo'lsa ustun ko'rsatiladi
+  const showSomBal    = !rowsReady || savatSom.length > 0    || eskiQarzSom !== 0    || tolovSom !== 0    || thisSom !== 0;
+  const showDollarBal = !rowsReady || savatDollar.length > 0 || eskiQarzDollar !== 0 || tolovDollar !== 0 || thisDollar !== 0;
 
   async function handleShare() {
     if (!rowsReady || !id || !chekRef.current) return;
@@ -551,26 +554,26 @@ function ChekContent() {
         <div className="chek-section-title">Balans xulosasi</div>
         <div className="chek-balance">
           <div className="chek-balance__header">
-            {hasSom    && <div className="chek-balance__header-cell">So&apos;m</div>}
-            {hasDollar && <div className="chek-balance__header-cell">Dollar</div>}
+            {showSomBal    && <div className="chek-balance__header-cell">So&apos;m</div>}
+            {showDollarBal && <div className="chek-balance__header-cell">Dollar</div>}
           </div>
           <div className="chek-balance__row">
-            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(eskiQarzSom)}</span></div>}
-            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(eskiQarzDollar)}</span></div>}
+            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(eskiQarzSom)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(eskiQarzDollar)}</span></div>}
           </div>
           <div className="chek-balance__row">
-            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(thisSom)}</span></div>}
-            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(thisDollar)}</span></div>}
+            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(thisSom)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(thisDollar)}</span></div>}
           </div>
           {(tolovSom>0||tolovDollar>0) && (
           <div className="chek-balance__row">
-            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtSom(tolovSom)}</span></div>}
-            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtUsd(tolovDollar)}</span></div>}
+            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtSom(tolovSom)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtUsd(tolovDollar)}</span></div>}
           </div>
           )}
           <div className="chek-balance__row chek-balance__row--total">
-            {hasSom    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(totalSom+thisSom-tolovSom)}</span></div>}
-            {hasDollar && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd(totalDollar+thisDollar-tolovDollar)}</span></div>}
+            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(totalSom+thisSom-tolovSom)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd(totalDollar+thisDollar-tolovDollar)}</span></div>}
           </div>
         </div>
 

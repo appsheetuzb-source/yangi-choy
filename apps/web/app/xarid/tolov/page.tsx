@@ -486,6 +486,26 @@ export default function XaridTolovPage() {
           } }) });
       localStorage.setItem("dollar_kurs", editKurs);
       const taminotchiE = taminotchilar.find(t => t.Taminotchi_ID === editTarget.Taminotchi_ID);
+
+      // Telegram bot xabari — firmaga to'lov TAHRIRLANDI (o'zgargan summa)
+      {
+        const nS = (v: number) => String(Math.round(v));
+        const nU = (v: number) => String(Math.round(v * 100) / 100);
+        const yangiQoldiSom = taminotchiE ? num(taminotchiE.Qoldi_som) + num(editTarget.Som) - somVal : 0;
+        const yangiQoldiUsd = taminotchiE ? num(taminotchiE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal : 0;
+        const tgMsg =
+          `✏️ Firmaga to'lov tahrirlandi\n\n` +
+          `📅 Sana: ${editTarget.Sana || ""}\n` +
+          `👤 Taminotchi: ${taminotchiE?.Ism || "—"}${taminotchiE?.Telefon ? " | " + taminotchiE.Telefon : ""}\n` +
+          `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
+          `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
+          `💵 Jami so'm: ${nS(num(summa))}\n` +
+          `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
+          (taminotchiE ? `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` : "") +
+          `📝 Izoh: ${editIzohV && editIzohV.trim() ? editIzohV : "null"}`;
+        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
+      }
+
       if (taminotchiE) {
         try {
           await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
@@ -905,7 +925,7 @@ export default function XaridTolovPage() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
-                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={editSumma} onChange={e => setEditSumma(e.target.value)} placeholder="0" inputMode="numeric"
+                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={editSumma} onChange={e => setEditSumma(e.target.value.replace(/\D/g,""))} placeholder="0" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}/>
                 </div>
                 <div>
@@ -915,7 +935,7 @@ export default function XaridTolovPage() {
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: num(editKurs) < 11000 ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi <span style={{ color: "#ef4444" }}>*</span>{num(editKurs) > 0 && num(editKurs) < 11000 && <span style={{ fontWeight: 400, marginLeft: 6 }}>min: 11 000</span>}</label>
-                  <CurInput icon={KURS_ICON} iconColor="#16a34a" value={editKurs} onChange={e => setEditKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
+                  <CurInput icon={KURS_ICON} iconColor="#16a34a" value={editKurs} onChange={e => setEditKurs(e.target.value.replace(/\D/g,""))} placeholder="Min: 11 000" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${num(editKurs) < 11000 ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
                 </div>
               </div>
@@ -1068,7 +1088,7 @@ export default function XaridTolovPage() {
               <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
-                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={addSumma} onChange={e => setAddSumma(e.target.value)} placeholder="0" inputMode="numeric"
+                  <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={addSumma} onChange={e => setAddSumma(e.target.value.replace(/\D/g,""))} placeholder="0" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" }}/>
                 </div>
                 <div>
@@ -1078,7 +1098,7 @@ export default function XaridTolovPage() {
                 </div>
                 <div style={{ gridColumn: isMobile ? "1 / -1" : undefined }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: num(addKurs) < 11000 ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi <span style={{ color: "#ef4444" }}>*</span>{num(addKurs) > 0 && num(addKurs) < 11000 && <span style={{ fontWeight: 400, marginLeft: 6 }}>min: 11 000</span>}</label>
-                  <CurInput icon={KURS_ICON} iconColor="#16a34a" value={addKurs} onChange={e => setAddKurs(e.target.value)} placeholder="Min: 11 000" inputMode="numeric"
+                  <CurInput icon={KURS_ICON} iconColor="#16a34a" value={addKurs} onChange={e => setAddKurs(e.target.value.replace(/\D/g,""))} placeholder="Min: 11 000" inputMode="numeric"
                     style={{ width: "100%", padding: "10px 12px", border: `1.5px solid ${num(addKurs) < 11000 ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
                 </div>
               </div>

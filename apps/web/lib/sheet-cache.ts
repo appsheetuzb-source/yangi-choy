@@ -169,3 +169,50 @@ export async function fetchSheets(ranges: string[]): Promise<Record<string, Shee
 export function afterWrite(sheetName: string) {
   deleteRangeCache(sheetName);
 }
+
+function deleteFilteredKeys(range: string) {
+  const base = cacheKey(range);
+  for (const key of Object.keys(STORE)) {
+    if (key.startsWith(`${base}__where__`)) delete STORE[key];
+  }
+}
+
+// To'liq range keshini O'CHIRMASDAN yangilaydi — yangi qatorlarni qo'shadi.
+// Shunda og'ir jadval (masalan Sotuv_Savat) qayta to'liq tortilmaydi va ro'yxat
+// summalar bilan DARHOL ko'rinadi. Filtrlangan (__where__) keshlar tozalanadi (kichik, qayta yuklanadi).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function appendSheetRows(range: string, rows: any[]) {
+  const base = cacheKey(range);
+  const e = STORE[base];
+  if (e && rows.length > 0) {
+    STORE[base] = { data: { headers: e.data.headers, data: [...e.data.data, ...rows] }, ts: Date.now() };
+  }
+  deleteFilteredKeys(range);
+}
+
+// To'liq range keshidan berilgan id'lar bo'yicha qatorlarni olib tashlaydi (kesh iliq qoladi).
+export function removeSheetRows(range: string, idColumn: string, ids: string[]) {
+  const base = cacheKey(range);
+  const e = STORE[base];
+  if (e) {
+    const idSet = new Set(ids.map((x) => String(x)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const next = (e.data.data as any[]).filter((r) => !idSet.has(String(r?.[idColumn])));
+    STORE[base] = { data: { headers: e.data.headers, data: next }, ts: Date.now() };
+  }
+  deleteFilteredKeys(range);
+}
+
+// Eski qatorlarni olib tashlab, yangilarini qo'shadi (tahrirlash uchun).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function replaceSheetRows(range: string, idColumn: string, removeIds: string[], addRows: any[]) {
+  const base = cacheKey(range);
+  const e = STORE[base];
+  if (e) {
+    const idSet = new Set(removeIds.map((x) => String(x)));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const kept = (e.data.data as any[]).filter((r) => !idSet.has(String(r?.[idColumn])));
+    STORE[base] = { data: { headers: e.data.headers, data: [...kept, ...addRows] }, ts: Date.now() };
+  }
+  deleteFilteredKeys(range);
+}

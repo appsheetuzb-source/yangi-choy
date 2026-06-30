@@ -35,7 +35,7 @@ export default function AktSverkaPage() {
   const [isMobile, setIsMobile] = useState(false);
 
   const [selMijoz, setSelMijoz] = useState("");
-  const [fromISO, setFromISO] = useState("2022-01-01");
+  const [fromISO, setFromISO] = useState("2025-09-01");
   const now = new Date();
   const [toISO, setToISO] = useState(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`);
 

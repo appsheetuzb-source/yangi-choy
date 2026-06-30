@@ -1,5 +1,5 @@
 ﻿"use client";
-import { fetchSheet, fetchSheets, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheets, afterWrite, appendSheetRows } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
@@ -290,7 +290,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jS=num(s.Soni)*num(s.Som_Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 44px 58px minmax(74px,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,1fr) 40px 60px 78px 18px",gap:4,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
@@ -335,7 +335,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           const jU=num(s.Soni)*num(s.Narx);
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
-            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,max-content) 44px 58px minmax(74px,1fr) 20px",gap:4,alignItems:"center",marginBottom:6}}>
+            <div key={s.id} style={{display:"grid",gridTemplateColumns:"14px minmax(0,1fr) 40px 60px 78px 18px",gap:4,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
@@ -715,7 +715,7 @@ export default function SotuvPage() {
     // Snapshot to'g'ri bo'lishi uchun — balans ma'lumoti to'liq yuklanmasdan saqlamaymiz
     if(!balansReady){ alert("Mijoz balansi hali yuklanmoqda — bir lahza kuting (1-2 soniya) va qayta saqlang."); return; }
     const valid=savat.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx)));
-    if(valid.length===0) return;
+    // Bo'sh savat bilan ham saqlashga ruxsat beriladi — keyin mahsulot qo'shilsa avtomat saqlanadi
     setSaving(true);
     const {sana:snStr,oy,yil,vaqt}=nowStr();
     const sotuvId=uid();
@@ -794,8 +794,12 @@ export default function SotuvPage() {
       setSotuvlar(prev=>[newSotuv,...prev]);
       setSavatSomMap(prev=>({...prev,[sotuvId]:somRows}));
       setSavatDollarMap(prev=>({...prev,[sotuvId]:dollarRows}));
-      afterWrite("Sotuv"); afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
+      afterWrite("Sotuv");
+      // Og'ir savat keshini o'chirmasdan yangilaymiz — ro'yxat summalar bilan darhol ko'rinadi
+      appendSheetRows("Sotuv_Savat", somSheetRows);
+      appendSheetRows("Sotuv_savat_dollar", dollarSheetRows);
       setAddOpen(false);
+      router.push(`/sotuv/${sotuvId}`);   // sotuv ochiladi — mahsulotni shu yerda qo'shasiz (qo'shilishi bilan saqlanadi)
     } catch(e) {
       alert("Saqlashda xatolik: "+(e instanceof Error?e.message:"noma'lum")+". Internet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setSaving(false); }
