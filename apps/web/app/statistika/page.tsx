@@ -131,12 +131,19 @@ export default function StatistikaPage() {
     }).finally(() => {
       setLoading(false);
       // Faza 2 — og'ir savat/to'lov FONDA (grafik/statistika ~1-2s da to'ladi)
-      fetchSheets(["Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","Xarid_Savat"]).then(r => {
-        setSavat(r["Sotuv_Savat"]?.data || []);
-        setSavatD(r["Sotuv_Savat_Dollar"]?.data || []);
-        setTolovlar(r["S_tolov"]?.data || []);
-        setXSavat(r["Xarid_Savat"]?.data || []);
-      }).catch(()=>{});
+      // Sovuq server / tarmoq uzilishida bo'sh/xato javobda QAYTA urinadi (refresh kerak bo'lmasin)
+      const loadHeavy = (attempt:number)=>{
+        fetchSheets(["Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","Xarid_Savat"]).then(r => {
+          if(!r["Sotuv_Savat"]?.headers?.length || r["Sotuv_Savat"]?.error) throw new Error("heavy incomplete");
+          setSavat(r["Sotuv_Savat"]?.data || []);
+          setSavatD(r["Sotuv_Savat_Dollar"]?.data || []);
+          setTolovlar(r["S_tolov"]?.data || []);
+          setXSavat(r["Xarid_Savat"]?.data || []);
+        }).catch(()=>{
+          if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000));
+        });
+      };
+      loadHeavy(0);
     });
   }, []);
 

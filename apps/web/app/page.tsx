@@ -99,10 +99,17 @@ export default function Home() {
     }).finally(()=>{
       setLoading(false);
       // Faza 2 — og'ir savat/to'lov/xarajat FONDA (KPI/grafik ~1-2s da to'ladi)
-      fetchSheets(["Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","X_tolov","Xarajat"]).then(r=>{
-        setSavatS(r["Sotuv_Savat"]?.data||[]); setSavatD(r["Sotuv_Savat_Dollar"]?.data||[]);
-        setTolovlar(r["S_tolov"]?.data||[]); setXtolov(r["X_tolov"]?.data||[]); setXarajatlar(r["Xarajat"]?.data||[]);
-      }).catch(()=>{});
+      // Sovuq server / tarmoq uzilishida bo'sh/xato javobda QAYTA urinadi (refresh kerak bo'lmasin)
+      const loadHeavy = (attempt:number)=>{
+        fetchSheets(["Sotuv_Savat","Sotuv_Savat_Dollar","S_tolov","X_tolov","Xarajat"]).then(r=>{
+          if(!r["Sotuv_Savat"]?.headers?.length || r["Sotuv_Savat"]?.error) throw new Error("heavy incomplete");
+          setSavatS(r["Sotuv_Savat"]?.data||[]); setSavatD(r["Sotuv_Savat_Dollar"]?.data||[]);
+          setTolovlar(r["S_tolov"]?.data||[]); setXtolov(r["X_tolov"]?.data||[]); setXarajatlar(r["Xarajat"]?.data||[]);
+        }).catch(()=>{
+          if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000));
+        });
+      };
+      loadHeavy(0);
     });
   }, [user]);
 

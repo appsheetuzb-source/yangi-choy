@@ -241,17 +241,24 @@ export default function XaridPage() {
         .finally(()=>{
           setLoading(false);
           // Faza 2 — og'ir Xarid_Savat + X_Tolov FONDA (jami/qoldiq ~1-2s da to'ladi)
-          Promise.all([fetchSheet("Xarid_Savat"), fetchSheet("X_Tolov")]).then(([xsR,xtR])=>{
-            const sm:Record<string,XaridSavat[]>={};
-            ((xsR.data||[]) as XaridSavat[]).forEach(s=>{
-              const key=String(s.Xarid_ID||"").trim();
-              if(!key) return;
-              if(!sm[key])sm[key]=[];
-              sm[key].push(s);
+          // Sovuq server / tarmoq uzilishida bo'sh/xato javobda QAYTA urinadi (refresh kerak bo'lmasin)
+          const loadHeavy = (attempt:number)=>{
+            Promise.all([fetchSheet("Xarid_Savat"), fetchSheet("X_Tolov")]).then(([xsR,xtR])=>{
+              if(!xsR?.headers?.length || xsR.error) throw new Error("heavy incomplete");
+              const sm:Record<string,XaridSavat[]>={};
+              ((xsR.data||[]) as XaridSavat[]).forEach(s=>{
+                const key=String(s.Xarid_ID||"").trim();
+                if(!key) return;
+                if(!sm[key])sm[key]=[];
+                sm[key].push(s);
+              });
+              setSavatMap(sm);
+              setXtolov((xtR.data as XTolov[]) || []);
+            }).catch(()=>{
+              if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000));
             });
-            setSavatMap(sm);
-            setXtolov((xtR.data as XTolov[]) || []);
-          }).catch(()=>{});
+          };
+          loadHeavy(0);
         });
     },delay);
   },[]);

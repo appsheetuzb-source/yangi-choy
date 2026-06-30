@@ -515,40 +515,52 @@ export default function SotuvPage() {
           setLoading(false);
           setBalansReady(false);
           // Faza 2 — og'ir savat sheet'lari FONDA (JAMI/statistika ~1-2s da to'ladi)
-          // MUHIM: Mijoz balansi snapshot'i shu ma'lumotga bog'liq — ikkalasi yuklanmaguncha saqlash bloklanadi (balansReady)
-          const p1 = fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]).then((rr)=>{
-            const sm:Record<string,SotuvSavatRow[]>={};
-            ((rr["Sotuv_Savat"]?.data||[]) as SotuvSavatRow[]).forEach(r=>{
-              const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
-              if(!sm[k])sm[k]=[]; sm[k].push(r);
+          // MUHIM: Mijoz balansi snapshot'i shu ma'lumotga bog'liq — yuklanmaguncha saqlash bloklanadi (balansReady)
+          // Sovuq server / tarmoq uzilishida JIM xato bo'lmasin — bo'sh yoki xato javobda QAYTA urinadi.
+          // (shu sabab "oynani yangilangandan keyin chiqadi" muammosi yo'qoladi.)
+          const loadHeavy = (attempt:number)=>{
+            Promise.all([
+              fetchSheets(["Sotuv_Savat","Sotuv_savat_dollar"]),
+              fetchSheet("S_tolov"),
+            ]).then(([rr, stR])=>{
+              const savatR = rr["Sotuv_Savat"], savatDR = rr["Sotuv_savat_dollar"];
+              // Bu jadvallarda DOIM minglab qator bor — bo'sh/xato javob = yuklanmadi → qayta urin
+              if(!savatR?.headers?.length || savatR.error || !savatDR?.headers?.length || !stR?.headers?.length || stR.error)
+                throw new Error("heavy incomplete");
+              const sm:Record<string,SotuvSavatRow[]>={};
+              ((savatR.data||[]) as SotuvSavatRow[]).forEach(r=>{
+                const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
+                if(!sm[k])sm[k]=[]; sm[k].push(r);
+              });
+              setSavatSomMap(sm);
+              const dm:Record<string,SotuvSavatDollarRow[]>={};
+              ((savatDR.data||[]) as SotuvSavatDollarRow[]).forEach(r=>{
+                const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
+                if(!dm[k])dm[k]=[]; dm[k].push(r);
+              });
+              setSavatDollarMap(dm);
+              const stm: Record<string,STolov[]> = {};
+              const sbm: Record<string,{som:number,dollar:number}> = {};
+              ((stR.data||[]) as STolov[]).forEach((r:STolov)=>{
+                const k=String(r.Sotuv_ID||"").trim();
+                if(k){ if(!stm[k]) stm[k]=[]; stm[k].push(r); }
+                // Mijoz_ID bo'yicha barcha to'lovlar (Sotuv_ID bo'sh bo'lsa ham)
+                const mid=String(r.Mijoz_ID||"").trim(); if(!mid) return;
+                if(!sbm[mid]) sbm[mid]={som:0,dollar:0};
+                const isD=String(r.Valyuta||"").toLowerCase().includes("dollar");
+                sbm[mid].som    += (!isD?num(r.Summa):0);
+                sbm[mid].dollar += (isD?num(r.Summa_dollar):0);
+              });
+              setStolovMap(stm);
+              setStolovByMijoz(sbm);
+              setBalansReady(true);   // hammasi yuklandi — snapshot to'g'ri saqlanadi
+            }).catch(()=>{
+              // Sovuq server / tarmoq — qayta urinish (1s,2s,4s,8s...), 5 martagacha
+              if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000));
+              else setBalansReady(true); // urinishlar tugadi — bloklamaymiz
             });
-            setSavatSomMap(sm);
-            const dm:Record<string,SotuvSavatDollarRow[]>={};
-            ((rr["Sotuv_savat_dollar"]?.data||[]) as SotuvSavatDollarRow[]).forEach(r=>{
-              const k=String(r.Sotuv_ID||"").trim(); if(!k) return;
-              if(!dm[k])dm[k]=[]; dm[k].push(r);
-            });
-            setSavatDollarMap(dm);
-          });
-          // S_tolov ham fonda
-          const p2 = fetchSheet("S_tolov").then(stR=>{
-            const stm: Record<string,STolov[]> = {};
-            const sbm: Record<string,{som:number,dollar:number}> = {};
-            ((stR.data||[]) as STolov[]).forEach((r:STolov)=>{
-              const k=String(r.Sotuv_ID||"").trim();
-              if(k){ if(!stm[k]) stm[k]=[]; stm[k].push(r); }
-              // Mijoz_ID bo'yicha barcha to'lovlar (Sotuv_ID bo'sh bo'lsa ham)
-              const mid=String(r.Mijoz_ID||"").trim(); if(!mid) return;
-              if(!sbm[mid]) sbm[mid]={som:0,dollar:0};
-              const isD=String(r.Valyuta||"").toLowerCase().includes("dollar");
-              sbm[mid].som    += (!isD?num(r.Summa):0);
-              sbm[mid].dollar += (isD?num(r.Summa_dollar):0);
-            });
-            setStolovMap(stm);
-            setStolovByMijoz(sbm);
-          });
-          // Ikkala fon yuklanish tugaganда — balans tayyor, snapshot to'g'ri saqlanadi
-          Promise.all([p1,p2]).then(()=>setBalansReady(true)).catch(()=>setBalansReady(true));
+          };
+          loadHeavy(0);
         });
     }, delay);
   },[]);
@@ -1053,7 +1065,7 @@ export default function SotuvPage() {
   const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
   // Sotuv add formi — (deyarli) to'liq ekran (mahsulot dropdown'i sig'sin)
-  const addModalBox:React.CSSProperties={background:"var(--white)",width:isMobile?"100%":"97vw",maxWidth:isMobile?"100%":1500,height:isMobile?"100dvh":"97vh",borderRadius:isMobile?0:16,display:"flex",flexDirection:"column",overflow:"hidden"};
+  const addModalBox:React.CSSProperties={background:"var(--white)",width:isMobile?"100%":"97vw",maxWidth:isMobile?"100%":1500,height:isMobile?undefined:"97vh",maxHeight:isMobile?"92dvh":undefined,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",overflow:"hidden"};
 
   return (
     <>
@@ -1221,7 +1233,7 @@ export default function SotuvPage() {
                         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
                           {jS>0&&<span style={{fontSize:13,fontWeight:800,color:"#16a34a"}}>{jS.toLocaleString("ru-RU")} so&apos;m</span>}
                           {jD>0&&<span style={{fontSize:13,fontWeight:800,color:"#2563eb"}}>{fmtUsd(jD)}</span>}
-                          {!jS&&!jD&&<span style={{fontSize:12,color:"var(--text-3)"}}>Savat bo&apos;sh</span>}
+                          {!jS&&!jD&&<span style={{fontSize:12,color:"var(--text-3)"}}>{balansReady?"Savat bo’sh":"Yuklanmoqda…"}</span>}
                         </div>
                         {(paidSom>0||paidDollar>0)&&(
                           <div style={{display:"flex",gap:8,flexWrap:"wrap",marginTop:4}}>
@@ -1356,17 +1368,17 @@ export default function SotuvPage() {
                             <p style={{fontSize:13,fontWeight:800,color:"var(--primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{mjNomi}</p>
                           </div>
                           <span style={{fontSize:12,fontWeight:600,color:"var(--text-2)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{agNomi}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:jS?"#16a34a":"var(--text-3)"}}>{jS?jS.toLocaleString("ru-RU")+" so'm":"—"}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:jD?"#2563eb":"var(--text-3)"}}>{jD?fmtUsd(jD):"—"}</span>
+                          <span style={{fontSize:13,fontWeight:700,color:jS?"#16a34a":"var(--text-3)"}}>{jS?jS.toLocaleString("ru-RU")+" so'm":(balansReady?"—":"…")}</span>
+                          <span style={{fontSize:13,fontWeight:700,color:jD?"#2563eb":"var(--text-3)"}}>{jD?fmtUsd(jD):(balansReady?"—":"…")}</span>
                           <div>
                             {paidSom>0&&<p style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{paidSom.toLocaleString("ru-RU")} so&apos;m</p>}
                             {paidDollar>0&&<p style={{fontSize:12,fontWeight:700,color:"#2563eb",marginTop:paidSom>0?2:0}}>{fmtUsd(paidDollar)}</p>}
-                            {!paidSom&&!paidDollar&&<span style={{fontSize:12,color:"var(--text-3)"}}>—</span>}
+                            {!paidSom&&!paidDollar&&<span style={{fontSize:12,color:"var(--text-3)"}}>{balansReady?"—":"…"}</span>}
                           </div>
                           <div>
                             {jS>0&&<p style={{fontSize:12,fontWeight:700,color:qarzSom>0?"#ef4444":qarzSom<0?"#2563eb":"#16a34a"}}>{qarzSom>0?"Qarz: "+qarzSom.toLocaleString("ru-RU")+" so'm":qarzSom<0?"Ortiq: "+Math.abs(qarzSom).toLocaleString("ru-RU")+" so'm":"To'liq so'm"}</p>}
                             {jD>0&&<p style={{fontSize:12,fontWeight:700,color:qarzDollar>0?"#ef4444":qarzDollar<0?"#2563eb":"#16a34a",marginTop:jS>0?2:0}}>{qarzDollar>0?"Qarz: "+fmtUsd(qarzDollar):qarzDollar<0?"Ortiq: "+fmtUsd(Math.abs(qarzDollar)):"To'liq $"}</p>}
-                            {!jS&&!jD&&<span style={{fontSize:12,color:"var(--text-3)"}}>—</span>}
+                            {!jS&&!jD&&<span style={{fontSize:12,color:"var(--text-3)"}}>{balansReady?"—":"…"}</span>}
                           </div>
                           <span style={{fontSize:12,color:"var(--text-2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.Izoh||"—"}</span>
                           <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>

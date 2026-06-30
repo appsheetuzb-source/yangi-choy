@@ -486,9 +486,9 @@ export default function XaridDetailPage() {
 
       {/* ── Yangi mahsulot Modal (add mode) ── */}
       {editOpen && isAddMode && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        <div style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 20 }}
           onClick={() => setEditOpen(false)}>
-          <div style={{ background: "var(--white)", borderRadius: isMobile ? 0 : 16, width: isMobile ? "100%" : "97vw", maxWidth: isMobile ? "100%" : 900, height: isMobile ? "100dvh" : "92vh", display: "flex", flexDirection: "column", overflow: "hidden" }}
+          <div style={{ background: "var(--white)", borderRadius: isMobile ? "20px 20px 0 0" : 16, width: isMobile ? "100%" : "97vw", maxWidth: isMobile ? "100%" : 900, height: isMobile ? undefined : "92vh", maxHeight: isMobile ? "92dvh" : undefined, display: "flex", flexDirection: "column", overflow: "hidden" }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 24px", borderBottom: "1px solid var(--border)" }}>
               <div style={{ width: 44, height: 44, borderRadius: 12, background: "#fff7ed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
