@@ -134,6 +134,8 @@ export default function FoydaPage() {
   }, [effMijoz, clientProduct, productAll, mahMap, qMahsulot, kurs]);
 
   const selName = effMijoz ? (mijozMap[effMijoz] || effMijoz) : null;
+  // JAMI kartalari: klient tanlangan bo'lsa o'sha klient foydasi, aks holda umumiy jami
+  const displayJami = effMijoz ? (clientProfit[effMijoz] || { som: 0, usd: 0 }) : jami;
 
   // ── UI qismlari ──
   const ProfitCell = ({ som, usd }: { som: number; usd: number }) => (
@@ -182,12 +184,14 @@ export default function FoydaPage() {
             {/* KPI — jami foyda */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>JAMI FOYDA · SO&apos;M</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: jami.som >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(jami.som) : "Yuklanmoqda…"}</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · SO'M" : "JAMI FOYDA · SO'M"}</p>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: displayJami.som >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(displayJami.som) : "Yuklanmoqda…"}</p>
+                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
               </div>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>JAMI FOYDA · DOLLAR</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: jami.usd >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(jami.usd) : "Yuklanmoqda…"}</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · DOLLAR" : "JAMI FOYDA · DOLLAR"}</p>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: displayJami.usd >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(displayJami.usd) : "Yuklanmoqda…"}</p>
+                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
               </div>
             </div>
 
