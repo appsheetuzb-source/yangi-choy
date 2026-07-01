@@ -269,7 +269,9 @@ export default function MijozDetailPage() {
     return lines.join("\n");
   }
   function shareTgText() {
-    window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(tgMessage())}`, "_blank");
+    // Matnni url paramiga qo'yamiz — Telegram uni oddiy matn sifatida yuboradi (URL emas → link/preview yo'q),
+    // lekin param bo'sh emas, shuning uchun ulashish oynasi ochiladi va userga yuboriladi.
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(tgMessage())}`, "_blank");
     setTgOpen(false);
   }
   function buildDebtImage(): Promise<Blob | null> {

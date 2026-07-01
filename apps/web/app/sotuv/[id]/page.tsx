@@ -977,9 +977,6 @@ export default function SotuvDetailPage() {
                 <button onClick={()=>bulkMode?exitBulk():setBulkMode(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:`1px solid ${bulkMode?"var(--primary)":"var(--border)"}`,borderRadius:"var(--radius)",background:bulkMode?"var(--primary-glow)":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:bulkMode?"var(--primary)":"var(--text-2)"}}>
                   <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> {bulkMode?"Bekor":"Ommaviy"}
                 </button>
-                <button onClick={()=>addSomBlank()} disabled={bulkMode} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",cursor:(bulkMode)?"default":"pointer",fontSize:13,fontWeight:600,color:"var(--text-2)",opacity:(bulkMode)?0.5:1}}>
-                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
-                </button>
               </div>
             </div>
             {(savatSom.length>0||addSomRows.length>0) && (!isMobile ? (
@@ -1164,6 +1161,13 @@ export default function SotuvDetailPage() {
                 </div>
               </div>
             )))}
+            {!bulkMode && (
+              <div style={{padding:isMobile?"8px 14px 12px":"10px 20px 14px"}}>
+                <button onClick={()=>addSomBlank()} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,width:"100%",padding:"11px 14px",border:"1px solid var(--border)",borderRadius:10,fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",color:"var(--text-2)"}}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -1175,9 +1179,6 @@ export default function SotuvDetailPage() {
             <div style={{display:"flex",gap:8}}>
               <button onClick={()=>bulkMode?exitBulk():setBulkMode(true)} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:`1px solid ${bulkMode?"var(--primary)":"var(--border)"}`,borderRadius:"var(--radius)",background:bulkMode?"var(--primary-glow)":"var(--white)",cursor:"pointer",fontSize:13,fontWeight:600,color:bulkMode?"var(--primary)":"var(--text-2)"}}>
                 <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> {bulkMode?"Bekor":"Ommaviy"}
-              </button>
-              <button onClick={()=>addDollarBlank()} disabled={bulkMode} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",cursor:(bulkMode)?"default":"pointer",fontSize:13,fontWeight:600,color:"var(--text-2)",opacity:(bulkMode)?0.5:1}}>
-                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
               </button>
             </div>
           </div>
@@ -1363,6 +1364,13 @@ export default function SotuvDetailPage() {
               </div>
             </div>
           )))}
+          {!bulkMode && (
+            <div style={{padding:isMobile?"8px 14px 12px":"10px 20px 14px"}}>
+              <button onClick={()=>addDollarBlank()} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,width:"100%",padding:"11px 14px",border:"1px solid var(--border)",borderRadius:10,fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",color:"var(--text-2)"}}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Qo&apos;shish
+              </button>
+            </div>
+          )}
         </div>
         )}
 

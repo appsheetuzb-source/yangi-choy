@@ -957,7 +957,7 @@ export default function SotuvTolovPage() {
               {(() => {
                 const s = num(editSumma), d = num(editDollar), k = num(editKurs);
                 const res = editValyuta === "Som" ? s + d * k : d + (k > 0 ? s / k : 0);
-                return res > 0 ? (
+                return res !== 0 ? (
                   <div style={{ padding: "10px 14px", background: editValyuta === "Som" ? "#f0fdf4" : "#eff6ff", borderRadius: "var(--radius)", display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}>Jami {editValyuta === "Som" ? "so'm" : "dollar"}:</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: editValyuta === "Som" ? "#16a34a" : "#2563eb" }}>
@@ -1113,7 +1113,7 @@ export default function SotuvTolovPage() {
                 const s = num(addSumma), d = num(addDollar), k = num(addKurs);
                 const isSom = addValyuta === "Som";
                 const res = isSom ? s + d * k : d + (k > 0 ? s / k : 0);
-                if (res <= 0) return null;
+                if (res === 0) return null;   // manfiy (ayirish/tuzatish) to'lovda ham ko'rsatamiz
                 const paidSom = isSom ? s + d * k : 0;
                 const paidUsd = !isSom ? d + (k > 0 ? s / k : 0) : 0;
                 return (
