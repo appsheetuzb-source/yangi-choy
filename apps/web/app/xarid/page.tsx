@@ -607,23 +607,24 @@ export default function XaridPage() {
                 /* DESKTOP sticky wrapper */
                 <div style={{position:"sticky",top:156,zIndex:10,background:"var(--white)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0"}}>
                   <div style={{display:"flex",alignItems:"center",gap:10,padding:"14px 20px",borderBottom:"1px solid var(--border)",flexWrap:"wrap"}}>
-                    <span style={{fontSize:14,fontWeight:700,flex:1}}>Xaridlar: {filtered.length} ta</span>
+                    <div style={{display:"flex",alignItems:"center",padding:"0 14px",height:36,background:"var(--bg)",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,color:"var(--text)",whiteSpace:"nowrap"}}>Jami: {filtered.length} ta</div>
+                    <select value={filterYil} onChange={e=>setFilterYil(e.target.value)}
+                      style={{width:"auto",padding:"8px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",outline:"none"}}>
+                      <option value="">Barcha yillar</option>
+                      {years.map(y=><option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <select value={filterOy} onChange={e=>setFilterOy(e.target.value)}
+                      style={{width:"auto",padding:"8px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",outline:"none"}}>
+                      <option value="">Barcha oylar</option>
+                      {OY_NOMLARI.map((n,i)=><option key={i+1} value={String(i+1)}>{n}</option>)}
+                    </select>
                     <div className="search" style={{maxWidth:220}}>
                       <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
                       <input className="search__input" placeholder="Qidirish..." value={search} onChange={e=>setSearch(e.target.value)}/>
                       {search&&<button className="search__clear" onClick={()=>setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
                     <MultiSelect items={taminotchilar.map(t=>({id:t.Taminotchi_ID,label:t.Ism}))} value={filterT} onChange={setFilterT} placeholder="Ta'minotchi..."/>
-                    <select value={filterOy} onChange={e=>setFilterOy(e.target.value)}
-                      style={{padding:"8px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",outline:"none"}}>
-                      <option value="">Barcha oylar</option>
-                      {OY_NOMLARI.map((n,i)=><option key={i+1} value={String(i+1)}>{n}</option>)}
-                    </select>
-                    <select value={filterYil} onChange={e=>setFilterYil(e.target.value)}
-                      style={{padding:"8px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",outline:"none"}}>
-                      <option value="">Barcha yillar</option>
-                      {years.map(y=><option key={y} value={y}>{y}</option>)}
-                    </select>
+                    <span style={{flex:1}}/>
                     <button className="btn btn--primary" onClick={()=>{setTaminotchiId("");setIzoh("");setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}}>
                       <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                       Yangi xarid

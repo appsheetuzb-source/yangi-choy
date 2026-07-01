@@ -825,31 +825,31 @@ export default function SotuvTolovPage() {
                     <div style={{ display: "flex", alignItems: "center", padding: "0 14px", height: 36, background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, color: "var(--text)", whiteSpace: "nowrap" }}>
                       Jami to&apos;lovlar: {filtered.length} ta
                     </div>
-                    <span style={{ flex: 1 }}/>
+                    <select value={filterYil} onChange={e => setFilterYil(e.target.value)}
+                      style={{ width: "auto", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
+                      <option value="">Barcha yillar</option>
+                      {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                    <select value={filterOy} onChange={e => setFilterOy(e.target.value)}
+                      style={{ width: "auto", padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
+                      <option value="">Barcha oylar</option>
+                      {OY_NOMLARI.map((n, i) => <option key={i+1} value={String(i+1)}>{n}</option>)}
+                    </select>
                     <div className="search" style={{ maxWidth: 220 }}>
                       <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
                       <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}/>
                       {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
                     <MultiSelect items={mItems} value={filterM} onChange={setFilterM} placeholder="Mijoz..."/>
-                    <select value={filterOy} onChange={e => setFilterOy(e.target.value)}
-                      style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
-                      <option value="">Barcha oylar</option>
-                      {OY_NOMLARI.map((n, i) => <option key={i+1} value={String(i+1)}>{n}</option>)}
-                    </select>
-                    <select value={filterYil} onChange={e => setFilterYil(e.target.value)}
-                      style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
-                      <option value="">Barcha yillar</option>
-                      {years.map(y => <option key={y} value={y}>{y}</option>)}
-                    </select>
                     <select value={filterTuri} onChange={e => setFilterTuri(e.target.value)}
-                      style={{ padding: "8px 12px", border: `1px solid ${filterTuri?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
+                      style={{ width: "auto", padding: "8px 12px", border: `1px solid ${filterTuri?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
                       <option value="">Barcha turlar</option>
                       {turilar.map(tr => <option key={tr} value={tr}>{tr}</option>)}
                     </select>
                     <input type="date" value={filterSana ? filterSana.split(".").reverse().join("-") : ""} onChange={e => setFilterSana(e.target.value ? e.target.value.split("-").reverse().join(".") : "")}
                       style={{ padding: "7px 10px", border: `1px solid ${filterSana?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}/>
                     {filterSana && <button onClick={() => setFilterSana("")} style={{ padding: "7px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 12, color: "var(--text-3)" }}>Sana ✕</button>}
+                    <span style={{ flex: 1 }}/>
                     <button className="btn btn--primary" onClick={openAdd}>
                       <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                       Yangi to&apos;lov
