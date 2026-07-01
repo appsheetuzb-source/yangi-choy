@@ -860,6 +860,22 @@ export default function SotuvDetailPage() {
 
   const jamiSom    = useMemo(()=>savatSom.reduce((s,r)=>s+num(r.Summa_som),0),[savatSom]);
   const jamiDollar = useMemo(()=>savatDollar.reduce((s,r)=>s+num(r.Summa),0),[savatDollar]);
+  // Shu sotuvning foydasi: Summa − Tan×Soni (Tan_som bo'sh bo'lsa Tan_dollar×kurs, va aksincha)
+  const sotuvFoyda = useMemo(()=>{
+    const k0 = num(savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"0");
+    let som=0, usd=0;
+    savatSom.forEach(r=>{
+      const m=mMap[r.Mahsulot_ID]; const rk=num(r.Kurs)||k0;
+      const tanS=num(m?.Tan_som)>0?num(m?.Tan_som):num(m?.Tan_dollar)*rk;
+      som += num(r.Summa_som) - tanS*num(r.Soni);
+    });
+    savatDollar.forEach(r=>{
+      const m=mMap[r.Mahsulot_ID]; const rk=num(r.Kurs)||k0;
+      const tanD=num(m?.Tan_dollar)>0?num(m?.Tan_dollar):(rk>0?num(m?.Tan_som)/rk:0);
+      usd += num(r.Summa) - tanD*num(r.Soni);
+    });
+    return {som, usd};
+  },[savatSom,savatDollar,mMap,centralKurs]);
   const editJamiSom    = useMemo(()=>editItems.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0),[editItems]);
   const editJamiDollar = useMemo(()=>editItems.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0),[editItems]);
   const tolovJamiSom    = useMemo(()=>stolovlar.reduce((s,t)=>s+(t.Valyuta!=="Dollar"?num(t.Summa):0),0),[stolovlar]);
@@ -929,6 +945,26 @@ export default function SotuvDetailPage() {
                 ); })()}
               </div>
             </div>
+            {isAdmin && (savatSom.length>0||savatDollar.length>0) && (
+              <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)"}}>
+                <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:8}}>SHU SOTUVDAN FOYDA</p>
+                <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
+                  {sotuvFoyda.som!==0 && (
+                    <div>
+                      <p style={{fontSize:11,fontWeight:600,color:"var(--text-3)",marginBottom:2}}>So&apos;m</p>
+                      <p style={{fontSize:15,fontWeight:800,color:sotuvFoyda.som>=0?"#16a34a":"#ef4444"}}>{Math.round(sotuvFoyda.som).toLocaleString("ru-RU")} <span style={{fontSize:10,fontWeight:600}}>so&apos;m</span></p>
+                    </div>
+                  )}
+                  {sotuvFoyda.usd!==0 && (
+                    <div>
+                      <p style={{fontSize:11,fontWeight:600,color:"var(--text-3)",marginBottom:2}}>Dollar</p>
+                      <p style={{fontSize:15,fontWeight:800,color:sotuvFoyda.usd>=0?"#16a34a":"#ef4444"}}>${sotuvFoyda.usd.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
+                    </div>
+                  )}
+                  {sotuvFoyda.som===0 && sotuvFoyda.usd===0 && <p style={{fontSize:14,fontWeight:800,color:"var(--text-3)"}}>0</p>}
+                </div>
+              </div>
+            )}
           </div>
           {/* SO'M */}
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
