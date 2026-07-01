@@ -16,7 +16,7 @@ interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
 
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
 function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
-function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $"; }
+function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4})+" $"; }
 
 
 function ChekContent() {

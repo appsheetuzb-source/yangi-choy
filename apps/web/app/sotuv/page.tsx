@@ -46,7 +46,7 @@ function num(v: string|number|undefined) {
 }
 function fmtSom(v: number) { return v ? v.toLocaleString("ru-RU") + " so'm" : "—"; }
 function fmtUsd(v: number) {
-  return v ? "$" + v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}) : "—";
+  return v ? "$" + v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4}) : "—";
 }
 
 // ── Ovozli savat to'ldirish — o'zbekcha matnni qoidalar asosida tahlil (AI'siz) ──

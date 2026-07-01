@@ -269,7 +269,7 @@ export default function MijozDetailPage() {
     return lines.join("\n");
   }
   function shareTgText() {
-    window.open(`https://t.me/share/url?url=${encodeURIComponent("https://musaffotea.uz")}&text=${encodeURIComponent(tgMessage())}`, "_blank");
+    window.open(`https://t.me/share/url?url=&text=${encodeURIComponent(tgMessage())}`, "_blank");
     setTgOpen(false);
   }
   function buildDebtImage(): Promise<Blob | null> {

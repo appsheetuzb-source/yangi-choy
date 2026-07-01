@@ -47,7 +47,7 @@ function nowStr() {
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
 function fmt(v: string|number|undefined) { const n=num(v); return n?n.toLocaleString("ru-RU"):"0"; }
 function fmtSom(v: string|number|undefined) { const n=num(v); return n?n.toLocaleString("ru-RU")+" so'm":"—"; }
-function fmtUsd(v: string|number|undefined) { const n=num(v); return n?"$"+n.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}):"—"; }
+function fmtUsd(v: string|number|undefined) { const n=num(v); return n?"$"+n.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4}):"—"; }
 
 function SearchSelect({ items, value, onChange, placeholder, compact }: {
   items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; compact?:boolean;
