@@ -2,6 +2,7 @@
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { getCurrentKurs } from "@/lib/kurs";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
@@ -358,15 +359,15 @@ export default function SotuvTolovPage() {
   const [sotuvlar, setSotuvlar]       = useState<Sotuv[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string|null>(null);
-  const [search, setSearch]           = useState("");
+  const [search, setSearch]           = usePersistedState("flt:sotuv-tolov:search", "");
   const [isMobile, setIsMobile]       = useState(false);
 
   const now = new Date();
-  const [filterOy, setFilterOy]   = useState("");
-  const [filterYil, setFilterYil] = useState(String(now.getFullYear()));
-  const [filterM, setFilterM]     = useState<string[]>([]);
-  const [filterTuri, setFilterTuri] = useState("");
-  const [filterSana, setFilterSana] = useState(""); // DD.MM.YYYY
+  const [filterOy, setFilterOy]   = usePersistedState("flt:sotuv-tolov:filterOy", "");
+  const [filterYil, setFilterYil] = usePersistedState("flt:sotuv-tolov:filterYil", String(now.getFullYear()));
+  const [filterM, setFilterM]     = usePersistedState<string[]>("flt:sotuv-tolov:filterM", []);
+  const [filterTuri, setFilterTuri] = usePersistedState("flt:sotuv-tolov:filterTuri", "");
+  const [filterSana, setFilterSana] = usePersistedState("flt:sotuv-tolov:filterSana", ""); // DD.MM.YYYY
   const [page, setPage]           = useState(0);
 
   const [togglingId, setTogglingId]     = useState<string|null>(null);

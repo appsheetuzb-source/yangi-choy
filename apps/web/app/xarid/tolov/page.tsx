@@ -2,6 +2,7 @@
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { getCurrentKurs } from "@/lib/kurs";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
@@ -214,14 +215,14 @@ export default function XaridTolovPage() {
   const [savatMap, setSavatMap]           = useState<Record<string,XaridSavat[]>>({});
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string|null>(null);
-  const [search, setSearch]               = useState("");
+  const [search, setSearch]               = usePersistedState("flt:xarid-tolov:search", "");
   const [taminotchilar, setTaminotchilar] = useState<Taminotchi[]>([]);
   const [isMobile, setIsMobile]           = useState(false);
 
   const now = new Date();
-  const [filterOy, setFilterOy]   = useState("");
-  const [filterYil, setFilterYil] = useState(String(now.getFullYear()));
-  const [filterT, setFilterT]     = useState<string[]>([]);
+  const [filterOy, setFilterOy]   = usePersistedState("flt:xarid-tolov:filterOy", "");
+  const [filterYil, setFilterYil] = usePersistedState("flt:xarid-tolov:filterYil", String(now.getFullYear()));
+  const [filterT, setFilterT]     = usePersistedState<string[]>("flt:xarid-tolov:filterT", []);
 
   // Akt sverka
   const [togglingId, setTogglingId]     = useState<string|null>(null);
