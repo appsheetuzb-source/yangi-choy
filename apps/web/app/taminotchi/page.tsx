@@ -139,6 +139,16 @@ export default function TaminotchiPage() {
     String(t.Telefon || "").includes(search)
   );
 
+  // Jami joriy qarz (so'm va dollar alohida) — izlash natijasiga mos (filtered).
+  // Izlash bo'sh bo'lsa barcha ta'minotchilar; izlanganda faqat topilganlar yig'indisi.
+  const jamiQarz = filtered.reduce((acc, t) => {
+    const xarid = xaridSavatByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
+    const tolov = tolovByT[t.Taminotchi_ID]       || { som: 0, usd: 0 };
+    acc.som += num(t.Boshlangich_som) + xarid.som - tolov.som;
+    acc.usd += num(t.Boshlangich_Balans) + xarid.usd - tolov.usd;
+    return acc;
+  }, { som: 0, usd: 0 });
+
   function openAdd() { setEditTarget(null); setForm({ ...EMPTY, Taminotchi_ID: uid() }); setDrawerOpen(true); }
   function openEdit(t: Taminotchi, e: React.MouseEvent) {
     e.stopPropagation();
@@ -228,6 +238,17 @@ export default function TaminotchiPage() {
               </div>
             )}
 
+            {/* Jami joriy qarz — barcha ta'minotchilar bo'yicha (so'm va dollar alohida) */}
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+              <div style={{ flex: "1 1 220px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "14px 18px" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>JAMI JORIY QARZ · SO&apos;M</p>
+                <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: jamiQarz.som > 0 ? "#ef4444" : jamiQarz.som < 0 ? "#16a34a" : "var(--text)" }}>{jamiQarz.som !== 0 ? fmtSom(jamiQarz.som) : "0 so'm"}</p>
+              </div>
+              <div style={{ flex: "1 1 220px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "14px 18px" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>JAMI JORIY QARZ · DOLLAR</p>
+                <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: jamiQarz.usd > 0 ? "#ef4444" : jamiQarz.usd < 0 ? "#16a34a" : "#2563eb" }}>{jamiQarz.usd !== 0 ? fmtUsd(jamiQarz.usd) : "$0.00"}</p>
+              </div>
+            </div>
             <p className="count-label">{filtered.length} ta ta&apos;minotchi</p>
 
             {filtered.length === 0 ? (
