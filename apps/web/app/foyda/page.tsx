@@ -17,6 +17,12 @@ function fmtUsd(v: number) { return "$" + v.toLocaleString("ru-RU", { minimumFra
 
 const OYLAR = ["Yanvar", "Fevral", "Mart", "Aprel", "May", "Iyun", "Iyul", "Avgust", "Sentabr", "Oktabr", "Noyabr", "Dekabr"];
 
+// "DD.MM.YYYY" -> "YYYY-MM-DD" (leksik solishtirish uchun), format noto'g'ri bo'lsa ""
+function sanaISO(sana: string): string {
+  const m = String(sana || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
+}
+
 export default function FoydaPage() {
   const [sotuvlar, setSotuvlar]       = useState<Sotuv[]>([]);
   const [savatSom, setSavatSom]       = useState<SavatRow[]>([]);
@@ -28,9 +34,10 @@ export default function FoydaPage() {
   const [heavyReady, setHeavyReady]   = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
 
-  const now = new Date();
-  const [yil, setYil] = useState(String(now.getFullYear()));
-  const [oy, setOy]   = useState("0");   // "0" = butun yil
+  const [yil, setYil] = useState("");    // "" = placeholder "Yil", "all" = Barcha yillar
+  const [oy, setOy]   = useState("");    // "" = placeholder "Oy", "0" = Barcha oylar
+  const [dateFrom, setDateFrom] = useState(""); // YYYY-MM-DD; qo'yilsa Oy/Yil o'rniga sana oralig'i
+  const [dateTo, setDateTo]     = useState("");
   const [selMijoz, setSelMijoz]   = useState<string | null>(null);
   const [qMijoz, setQMijoz]       = useState("");
   const [qMahsulot, setQMahsulot] = useState("");
@@ -80,7 +87,19 @@ export default function FoydaPage() {
     const pp: Record<string, { som: number; usd: number }> = {};
     const cpp: Record<string, Record<string, { som: number; usd: number }>> = {};
     const jami = { som: 0, usd: 0 };
-    const inFilter = (s: Sotuv) => (!yil || s.Yil === yil) && (oy === "0" || String(parseInt(s.Oy || "0")) === oy);
+    const useRange = !!(dateFrom || dateTo);
+    const inFilter = (s: Sotuv) => {
+      if (useRange) {
+        const d = sanaISO(s.Sana);
+        if (!d) return false;
+        if (dateFrom && d < dateFrom) return false;
+        if (dateTo && d > dateTo) return false;
+        return true;
+      }
+      const yilOk = !yil || yil === "all" || s.Yil === yil;
+      const oyOk  = !oy  || oy  === "0"   || String(parseInt(s.Oy || "0")) === oy;
+      return yilOk && oyOk;
+    };
 
     savatSom.forEach(r => {
       const s = sotuvMap[String(r.Sotuv_ID || "").trim()];
@@ -111,7 +130,7 @@ export default function FoydaPage() {
       jami.usd += foyda;
     });
     return { clientProfit: cp, productAll: pp, clientProduct: cpp, jami };
-  }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, kurs]);
+  }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, dateFrom, dateTo, kurs]);
 
   const combined = (v: { som: number; usd: number }) => v.som + v.usd * kurs;
 
@@ -162,16 +181,30 @@ export default function FoydaPage() {
             <h1 className="header__title" style={{ paddingLeft: 4 }}>Foyda</h1>
             <p style={{ fontSize: 12.5, color: "var(--text-3)", paddingLeft: 4, marginTop: 2 }}>Klient va mahsulot bo&apos;yicha foyda</p>
           </div>
-          <div className="header__spacer"/>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select value={oy} onChange={e => setOy(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
-              <option value="0">Butun yil</option>
-              {OYLAR.map((o, i) => <option key={i} value={String(i + 1)}>{o}</option>)}
-            </select>
-            <select value={yil} onChange={e => setYil(e.target.value)} style={{ padding: "8px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
-              <option value="">Barcha yillar</option>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap", marginLeft: 16 }}>
+            {/* Yil — bo'sh bo'lsa kulrang "Yil" placeholder */}
+            <select value={yil} onChange={e => setYil(e.target.value)} disabled={!!(dateFrom || dateTo)}
+              style={{ width: "auto", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", outline: "none", color: yil ? "var(--text)" : "var(--text-3)", opacity: (dateFrom || dateTo) ? .5 : 1, cursor: (dateFrom || dateTo) ? "not-allowed" : "pointer" }}>
+              <option value="" disabled hidden>Yil</option>
+              <option value="all">Barcha yillar</option>
               {yillar.map(y => <option key={y} value={y}>{y}</option>)}
             </select>
+            {/* Oy — bo'sh bo'lsa kulrang "Oy" placeholder */}
+            <select value={oy} onChange={e => setOy(e.target.value)} disabled={!!(dateFrom || dateTo)}
+              style={{ width: "auto", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", outline: "none", color: oy ? "var(--text)" : "var(--text-3)", opacity: (dateFrom || dateTo) ? .5 : 1, cursor: (dateFrom || dateTo) ? "not-allowed" : "pointer" }}>
+              <option value="" disabled hidden>Oy</option>
+              <option value="0">Barcha oylar</option>
+              {OYLAR.map((o, i) => <option key={i} value={String(i + 1)}>{o}</option>)}
+            </select>
+            {/* Davr: sana oralig'i (Kassa/Gazna uslubi) */}
+            <span style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600, whiteSpace: "nowrap", marginLeft: 4 }}>Davr:</span>
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Boshlanish sana"
+              style={{ fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", color: "var(--text)", cursor: "pointer" }}/>
+            <span style={{ color: "var(--text-3)", fontSize: 14 }}>—</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} title="Tugash sana"
+              style={{ fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", color: "var(--text)", cursor: "pointer" }}/>
+            {(dateFrom || dateTo) && <button onClick={() => { setDateFrom(""); setDateTo(""); }} title="Sanani tozalash"
+              style={{ padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "var(--text-2)", lineHeight: 1 }}>×</button>}
           </div>
         </div>
       </header>
