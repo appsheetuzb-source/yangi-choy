@@ -1,6 +1,7 @@
 ﻿"use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback } from "react";
@@ -53,7 +54,7 @@ export default function FoydalanuvchiPage() {
   const [gaznalar, setGaznalar] = useState<Gazna[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error, setError]       = useState<string | null>(null);
-  const [search, setSearch]     = useState("");
+  const [search, setSearch]     = usePersistedState("flt:foydalanuvchi:search", "");
 
   const [drawerOpen, setDrawerOpen]     = useState(false);
   const [editTarget, setEditTarget]     = useState<Foydalanuvchi | null>(null);

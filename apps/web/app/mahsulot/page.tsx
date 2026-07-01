@@ -2,6 +2,7 @@
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
@@ -40,18 +41,18 @@ export default function MahsulotPage() {
   const [omborlar, setOmborlar]       = useState<Ombor[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
-  const [search, setSearch]           = useState("");
+  const [search, setSearch]           = usePersistedState("flt:mahsulot:search", "");
   const [jamiSotuvSom, setJamiSotuvSom]         = useState(0);
   const [jamiSotuvDollar, setJamiSotuvDollar]   = useState(0);
   const [balansMap, setBalansMap]               = useState<Record<string, number>>({});
   // Klient (manba) bo'yicha filtr: mijoz qaysi mahsulotlarni olgan
   const [mijMahMap, setMijMahMap]   = useState<Record<string, Set<string>>>({});
   const [mijItems, setMijItems]     = useState<{ id: string; label: string }[]>([]);
-  const [filterMijoz, setFilterMijoz] = useState("");
+  const [filterMijoz, setFilterMijoz] = usePersistedState("flt:mahsulot:filterMijoz", "");
   const [sortCol, setSortCol]   = useState<string | null>(null);
   const [sortDir, setSortDir]   = useState<"asc" | "desc">("asc");
 
-  const [currency, setCurrency]       = useState<"barchasi" | "som" | "dollar">("barchasi");
+  const [currency, setCurrency]       = usePersistedState<"barchasi" | "som" | "dollar">("flt:mahsulot:currency", "barchasi");
   const [view, setView]               = useState<"grid" | "list">("grid");
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [editTarget, setEditTarget]   = useState<Mahsulot | null>(null);

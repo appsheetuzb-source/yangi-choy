@@ -3,6 +3,7 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { usePersistedState } from "@/lib/usePersistedState";
 
 interface Ombor {
   Ombor_ID: string; Nomi: string; Masul: string; Status: string;
@@ -42,9 +43,9 @@ export default function OmborPage() {
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
-  const [search, setSearch]           = useState("");
-  const [currency, setCurrency]       = useState<CurrencyType>("som");
-  const [view, setView]               = useState<ViewMode>("grid");
+  const [search, setSearch]           = usePersistedState("flt:ombor:search", "");
+  const [currency, setCurrency]       = usePersistedState<CurrencyType>("flt:ombor:currency", "som");
+  const [view, setView]               = usePersistedState<ViewMode>("flt:ombor:view", "grid");
   const [isMobile, setIsMobile]       = useState(false);
 
   useEffect(() => {

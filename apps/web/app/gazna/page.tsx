@@ -4,6 +4,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback } from "react";
+import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
 
 interface Gazna {
@@ -107,8 +108,8 @@ export default function GaznaPage() {
   const [error, setError]       = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
 
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo]     = useState(todayISO());
+  const [dateFrom, setDateFrom] = usePersistedState("flt:gazna:dateFrom", "");
+  const [dateTo, setDateTo]     = usePersistedState("flt:gazna:dateTo", todayISO());
 
   const [showForm, setShowForm]   = useState(false);
   const [editItem, setEditItem]   = useState<Gazna | null>(null);

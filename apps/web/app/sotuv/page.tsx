@@ -4,6 +4,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
 
 interface Sotuv {
@@ -401,14 +402,14 @@ export default function SotuvPage() {
   const [balansReady, setBalansReady]       = useState(false);
   const [loading, setLoading]               = useState(true);
   const [error, setError]                   = useState<string|null>(null);
-  const [search, setSearch]                 = useState("");
+  const [search, setSearch]                 = usePersistedState("flt:sotuv:search", "");
   const [isMobile, setIsMobile]             = useState(false);
 
   const now = new Date();
-  const [filterOy, setFilterOy]   = useState(String(now.getMonth()+1));
-  const [filterYil, setFilterYil] = useState(String(now.getFullYear()));
-  const [filterAgent, setFilterAgent] = useState<string[]>([]);
-  const [viewTab, setViewTab] = useState<"all"|"som"|"dollar"|"bosh"|"bugungi"|"berilmagan">("all");
+  const [filterOy, setFilterOy]   = usePersistedState("flt:sotuv:filterOy", String(now.getMonth()+1));
+  const [filterYil, setFilterYil] = usePersistedState("flt:sotuv:filterYil", String(now.getFullYear()));
+  const [filterAgent, setFilterAgent] = usePersistedState<string[]>("flt:sotuv:filterAgent", []);
+  const [viewTab, setViewTab] = usePersistedState<"all"|"som"|"dollar"|"bosh"|"bugungi"|"berilmagan">("flt:sotuv:viewTab", "all");
   // Ro'yxatni bo'lib render qilish (skroll tezligi uchun) — boshda 60 ta, pastga yetganda +60
   const [shown, setShown] = useState(60);
   const moreRef = useRef<HTMLDivElement>(null);

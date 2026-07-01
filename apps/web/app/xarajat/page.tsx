@@ -5,6 +5,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
+import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useCallback } from "react";
 
 interface Xarajat {
@@ -52,9 +53,9 @@ export default function XarajatPage() {
   const [gaznalar, setGaznalar]     = useState<Gazna[]>([]);
   const [agentMap, setAgentMap]     = useState<Record<string, string>>({});
   const [loading, setLoading]       = useState(true);
-  const [filterOy, setFilterOy]     = useState(nowStr().oy);
-  const [filterYil, setFilterYil]   = useState("");
-  const [search, setSearch]         = useState("");
+  const [filterOy, setFilterOy]     = usePersistedState("flt:xarajat:filterOy", nowStr().oy);
+  const [filterYil, setFilterYil]   = usePersistedState("flt:xarajat:filterYil", "");
+  const [search, setSearch]         = usePersistedState("flt:xarajat:search", "");
 
   const [open, setOpen]       = useState(false);
   const [editItem, setEditItem] = useState<Xarajat | null>(null);

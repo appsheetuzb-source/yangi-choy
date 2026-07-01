@@ -3,6 +3,7 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
+import { usePersistedState } from "@/lib/usePersistedState";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -104,9 +105,9 @@ export default function MijozlarPage() {
   const [agentMap, setAgentMap]         = useState<Record<string, string>>({});
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
-  const [search, setSearch]             = useState("");
-  const [activeAgent, setActiveAgent]   = useState<string>("all");
-  const [curFilter, setCurFilter]       = useState<"all" | "som" | "dollar">("all");
+  const [search, setSearch]             = usePersistedState("flt:mijozlar:search", "");
+  const [activeAgent, setActiveAgent]   = usePersistedState<string>("flt:mijozlar:activeAgent", "all");
+  const [curFilter, setCurFilter]       = usePersistedState<"all" | "som" | "dollar">("flt:mijozlar:curFilter", "all");
   const [isMobile, setIsMobile]         = useState(false);
 
   const [drawerOpen, setDrawerOpen]     = useState(false);

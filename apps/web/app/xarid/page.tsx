@@ -5,6 +5,7 @@ import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { usePersistedState } from "@/lib/usePersistedState";
 
 interface Xarid {
   Xarid_ID: string; Sana: string; Sotuv_Raqami: string;
@@ -175,13 +176,13 @@ export default function XaridPage() {
   const [mMap, setMMap]                   = useState<Record<string,Mahsulot>>({});
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string|null>(null);
-  const [search, setSearch]               = useState("");
+  const [search, setSearch]               = usePersistedState("flt:xarid:search", "");
   const [isMobile, setIsMobile]           = useState(false);
 
   const now = new Date();
-  const [filterOy, setFilterOy]   = useState(String(now.getMonth()+1));
-  const [filterYil, setFilterYil] = useState(String(now.getFullYear()));
-  const [filterT, setFilterT]     = useState<string[]>([]);
+  const [filterOy, setFilterOy]   = usePersistedState("flt:xarid:filterOy", String(now.getMonth()+1));
+  const [filterYil, setFilterYil] = usePersistedState("flt:xarid:filterYil", String(now.getFullYear()));
+  const [filterT, setFilterT]     = usePersistedState<string[]>("flt:xarid:filterT", []);
 
   const [addOpen, setAddOpen]             = useState(false);
   const [saving, setSaving]               = useState(false);

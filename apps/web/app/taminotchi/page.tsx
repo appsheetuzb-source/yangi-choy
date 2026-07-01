@@ -5,6 +5,7 @@ import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { usePersistedState } from "@/lib/usePersistedState";
 
 interface Taminotchi {
   Taminotchi_ID: string; Ism: string; Telefon: string; Valyuta: string;
@@ -76,7 +77,7 @@ export default function TaminotchiPage() {
   const [tolovByT, setTolovByT]           = useState<Record<string, { som: number; usd: number }>>({});
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
-  const [search, setSearch]               = useState("");
+  const [search, setSearch]               = usePersistedState("flt:taminotchi:search", "");
   const [isMobile, setIsMobile]           = useState(false);
 
   const [drawerOpen, setDrawerOpen]       = useState(false);
