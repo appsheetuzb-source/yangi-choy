@@ -49,6 +49,7 @@ export default function XaridTolovDetailPage() {
   const [editing, setEditing]       = useState(false);
   const [editValyuta, setEditValyuta] = useState<"Som"|"Dollar">("Som");
   const [editSana, setEditSana]     = useState("");
+  const [editVaqt, setEditVaqt]     = useState("");
   const [editSom, setEditSom]       = useState("");
   const [editDollar, setEditDollar] = useState("");
   const [editKurs, setEditKurs]     = useState("");
@@ -63,8 +64,6 @@ export default function XaridTolovDetailPage() {
   const [deleting, setDeleting]     = useState(false);
   const [toggling, setToggling]     = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
-
-  const [liveTime,setLiveTime]=useState("");  useEffect(()=>{ const p=(n:number)=>String(n).padStart(2,"0"); const tick=()=>{const t=new Date(); setLiveTime(p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()));}; tick(); const iv=setInterval(tick,1000); return ()=>clearInterval(iv); },[]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -107,6 +106,7 @@ export default function XaridTolovDetailPage() {
     if (!tolov) return;
     setEditValyuta(tolov.Valyuta === "Dollar" ? "Dollar" : "Som");
     setEditSana(sanaToIso(tolov.Sana));
+    setEditVaqt(tolov.Vaqt || "");
     setEditSom(tolov.Som || "");
     setEditDollar(tolov.Dollar || "");
     setEditKurs(tolov.Dollar_Kursi || "");
@@ -142,6 +142,7 @@ export default function XaridTolovDetailPage() {
             Dollar_Kursi: editKurs, Izoh: editIzoh,
             Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
             Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy,
+            Vaqt: editVaqt || tolov.Vaqt,
           }
         })
       });
@@ -354,7 +355,8 @@ export default function XaridTolovDetailPage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
+                <input type="time" step="1" value={editVaqt} onChange={e => setEditVaqt(e.target.value)}
+                  style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center", color: "var(--text-3)" }} />
               </div>
               <button onClick={tryCloseEdit} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>

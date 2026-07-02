@@ -4,6 +4,7 @@ import { getCurrentKurs } from "@/lib/kurs";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
+import LiveClock from "@/components/LiveClock";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
@@ -382,6 +383,7 @@ export default function SotuvTolovPage() {
   const [editKurs, setEditKurs]         = useState("");
   const [editTuri, setEditTuri]         = useState("Naqd");
   const [editSana, setEditSana]         = useState("");
+  const [editVaqt, setEditVaqt]         = useState("");
   const [editValyuta, setEditValyuta]   = useState<"Som"|"Dollar">("Som");
   const [editIzohV, setEditIzohV]       = useState("");
 
@@ -404,8 +406,6 @@ export default function SotuvTolovPage() {
   const [editGazna, setEditGazna]           = useState("");
   const [editGaznaDollar, setEditGaznaDollar] = useState("");
   const [gaznalar, setGaznalar]       = useState<Gazna[]>([]);
-
-  const [liveTime,setLiveTime]=useState("");  useEffect(()=>{ const p=(n:number)=>String(n).padStart(2,"0"); const tick=()=>{const t=new Date(); setLiveTime(p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()));}; tick(); const iv=setInterval(tick,1000); return ()=>clearInterval(iv); },[]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -596,6 +596,7 @@ export default function SotuvTolovPage() {
   const openEdit = useCallback((t: STolov) => {
     setEditTarget(t);
     setEditSana(sanaToIso(t.Sana));
+    setEditVaqt(t.Vaqt || "");
     setEditSotuvId(t.Sotuv_ID || "");
     setEditValyuta(t.Valyuta === "Dollar" ? "Dollar" : "Som");
     setEditSumma(t.Som || "");
@@ -637,6 +638,7 @@ export default function SotuvTolovPage() {
             Summa: summa, Summa_dollar: summaDollar,
             Dollar_Kursi: editKurs, Izoh: editIzohV,
             Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
+            Vaqt: editVaqt || editTarget.Vaqt,
           } }) });
       localStorage.setItem("dollar_kurs", editKurs);
 
@@ -928,7 +930,7 @@ export default function SotuvTolovPage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
+                <input type="time" step="1" value={editVaqt} onChange={e => setEditVaqt(e.target.value)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center", color: "var(--text-3)" }} />
               </div>
               <button onClick={() => setEditTarget(null)} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1065,7 +1067,7 @@ export default function SotuvTolovPage() {
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
+                <LiveClock style={{ color: "var(--text-3)" }} />
               </div>
               <button onClick={() => setAddOpen(false)} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
