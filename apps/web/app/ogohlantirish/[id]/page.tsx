@@ -53,16 +53,16 @@ function buildOgohPDF(sana: string, vaqt: string, status: string, rows: PdfRow[]
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
-    head: [["№", "Mijoz", "Telefon", "Ostatka (so'm)", "Ostatka ($)"]],
-    body: rows.map((r, i) => [i + 1, r.mijoz.Ism, r.mijoz.Telefon || "", fmtSom(r.bal.som), fmtUsd(r.bal.usd)]),
-    foot: [["", "JAMI", "", fmtSom(totals.som), fmtUsd(totals.usd)]],
+    head: [["№", "Mijoz", "Telefon", "Ostatka (so'm)", "Ostatka ($)", ""]],
+    body: rows.map((r, i) => [i + 1, r.mijoz.Ism, r.mijoz.Telefon || "", fmtSom(r.bal.som), fmtUsd(r.bal.usd), ""]),
+    foot: [["", "JAMI", "", fmtSom(totals.som), fmtUsd(totals.usd), ""]],
     theme: "grid",
     styles: { fontStyle: "bold", lineColor: [150, 158, 185], lineWidth: 0.2, fontSize: 9.5, cellPadding: 2.2 },
     headStyles: { fillColor: [26, 39, 68], textColor: 255, fontStyle: "bold", fontSize: 9, lineColor: [26, 39, 68], lineWidth: 0.2, halign: "center" },
     bodyStyles: { fontSize: 9.5, textColor: [45, 51, 72] },
     footStyles: { fillColor: [238, 240, 248], textColor: [26, 39, 68], fontStyle: "bold", fontSize: 10 },
     alternateRowStyles: { fillColor: [247, 248, 252] },
-    columnStyles: { 0: { halign: "center", cellWidth: 12 }, 2: { cellWidth: 38 }, 3: { halign: "right", cellWidth: 44 }, 4: { halign: "right", cellWidth: 34 } },
+    columnStyles: { 0: { halign: "center", cellWidth: 12 }, 2: { cellWidth: 38 }, 3: { halign: "right", cellWidth: 44 }, 4: { halign: "right", cellWidth: 34 }, 5: { cellWidth: 12 } },
     didParseCell: (data) => {
       if (data.section === "body" && (data.column.index === 3 || data.column.index === 4)) {
         const r = rows[data.row.index];

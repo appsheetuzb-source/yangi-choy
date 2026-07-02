@@ -757,8 +757,8 @@ export default function SotuvPage() {
           const tanDollar=num(m?.Tan_dollar||"0");
           const foyda=parseFloat((num(r.Narx)-tanDollar).toFixed(2));
           const foydaSumma=parseFloat((foyda*num(r.Soni)).toFixed(2));
-          const narx=parseFloat(num(r.Narx).toFixed(2));
-          const summa=parseFloat((num(r.Soni)*narx).toFixed(2));
+          const narx=num(r.Narx);
+          const summa=parseFloat((num(r.Soni)*narx).toFixed(4));
           const tanNarx=parseFloat(tanDollar.toFixed(2));
           dollarSheetRows.push({
             Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
@@ -855,8 +855,8 @@ export default function SotuvPage() {
           const tanDollar=num(m?.Tan_dollar||"0");
           const foyda=parseFloat((num(r.Narx)-tanDollar).toFixed(2));
           const foydaSumma=parseFloat((foyda*num(r.Soni)).toFixed(2));
-          const narx=parseFloat(num(r.Narx).toFixed(2));
-          const summa=parseFloat((num(r.Soni)*narx).toFixed(2));
+          const narx=num(r.Narx);
+          const summa=parseFloat((num(r.Soni)*narx).toFixed(4));
           const tanNarx=parseFloat(tanDollar.toFixed(2));
           await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:{
@@ -1207,8 +1207,8 @@ export default function SotuvPage() {
                           </div>
                         </div>
                         <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                          {jS>0&&<span style={{fontSize:13,fontWeight:800,color:"#16a34a"}}>{jS.toLocaleString("ru-RU")} so&apos;m</span>}
-                          {jD>0&&<span style={{fontSize:13,fontWeight:800,color:"#2563eb"}}>{fmtUsd(jD)}</span>}
+                          {jS!==0&&<span style={{fontSize:13,fontWeight:800,color:jS<0?"#ec4899":"#16a34a"}}>{jS.toLocaleString("ru-RU")} so&apos;m</span>}
+                          {jD!==0&&<span style={{fontSize:13,fontWeight:800,color:jD<0?"#ec4899":"#2563eb"}}>{fmtUsd(jD)}</span>}
                           {!jS&&!jD&&<span style={{fontSize:12,color:"var(--text-3)"}}>{balansReady?"Savat bo’sh":"Yuklanmoqda…"}</span>}
                         </div>
                         {(paidSom>0||paidDollar>0)&&(
@@ -1344,8 +1344,8 @@ export default function SotuvPage() {
                             <p style={{fontSize:13,fontWeight:800,color:"var(--primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{mjNomi}</p>
                           </div>
                           <span style={{fontSize:12,fontWeight:600,color:"var(--text-2)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{agNomi}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:jS?"#16a34a":"var(--text-3)"}}>{jS?jS.toLocaleString("ru-RU")+" so'm":(balansReady?"—":"…")}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:jD?"#2563eb":"var(--text-3)"}}>{jD?fmtUsd(jD):(balansReady?"—":"…")}</span>
+                          <span style={{fontSize:13,fontWeight:700,color:jS?(jS<0?"#ec4899":"#16a34a"):"var(--text-3)"}}>{jS?jS.toLocaleString("ru-RU")+" so'm":(balansReady?"—":"…")}</span>
+                          <span style={{fontSize:13,fontWeight:700,color:jD?(jD<0?"#ec4899":"#2563eb"):"var(--text-3)"}}>{jD?fmtUsd(jD):(balansReady?"—":"…")}</span>
                           <div>
                             {paidSom>0&&<p style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{paidSom.toLocaleString("ru-RU")} so&apos;m</p>}
                             {paidDollar>0&&<p style={{fontSize:12,fontWeight:700,color:"#2563eb",marginTop:paidSom>0?2:0}}>{fmtUsd(paidDollar)}</p>}

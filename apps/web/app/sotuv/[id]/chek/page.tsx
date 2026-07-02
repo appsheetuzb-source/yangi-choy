@@ -17,6 +17,8 @@ interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
 function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
 function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4})+" $"; }
+// Balans xulosasi uchun — aniq 2 xona (jami summalar pul ko'rinishida)
+function fmtUsd2(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})+" $"; }
 
 
 function ChekContent() {
@@ -559,21 +561,21 @@ function ChekContent() {
           </div>
           <div className="chek-balance__row">
             {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(eskiQarzSom)}</span></div>}
-            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(eskiQarzDollar)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd2(eskiQarzDollar)}</span></div>}
           </div>
           <div className="chek-balance__row">
             {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(thisSom)}</span></div>}
-            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd(thisDollar)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd2(thisDollar)}</span></div>}
           </div>
           {(tolovSom>0||tolovDollar>0) && (
           <div className="chek-balance__row">
             {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtSom(tolovSom)}</span></div>}
-            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtUsd(tolovDollar)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>To&apos;lov</span><span className="chek-balance__cell-val" style={{fontWeight:800,color:"#16a34a"}}>− {fmtUsd2(tolovDollar)}</span></div>}
           </div>
           )}
           <div className="chek-balance__row chek-balance__row--total">
             {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(totalSom+thisSom-tolovSom)}</span></div>}
-            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd(totalDollar+thisDollar-tolovDollar)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd2(totalDollar+thisDollar-tolovDollar)}</span></div>}
           </div>
         </div>
 
