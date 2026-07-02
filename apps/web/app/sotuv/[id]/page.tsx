@@ -333,6 +333,7 @@ export default function SotuvDetailPage() {
   const [tasdiqSaving, setTasdiqSaving] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [centralKurs, setCentralKurs] = useState("");
+  const [liveTime,setLiveTime]=useState("");  useEffect(()=>{ const p=(n:number)=>String(n).padStart(2,"0"); const tick=()=>{const t=new Date(); setLiveTime(p(t.getHours())+":"+p(t.getMinutes())+":"+p(t.getSeconds()));}; tick(); const iv=setInterval(tick,1000); return ()=>clearInterval(iv); },[]);
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useEffect(() => { getCurrentKurs().then(setCentralKurs).catch(() => {}); }, []);
   const addSomRef = useRef<HTMLDivElement>(null);
@@ -1562,9 +1563,12 @@ export default function SotuvDetailPage() {
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
               {/* Sana */}
               <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5}}>Sana</label>
-                <input type="date" value={addTolovSana} onChange={e=>setAddTolovSana(e.target.value)}
-                  style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5,textAlign:"center"}}>Sana</label>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <input type="date" value={addTolovSana} onChange={e=>setAddTolovSana(e.target.value)}
+                    style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",textAlign:"center",flex:1}}/>
+                  <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{liveTime}</span>
+                </div>
               </div>
               {/* Valyuta */}
               <div>
@@ -1679,9 +1683,12 @@ export default function SotuvDetailPage() {
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
               <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5}}>Sana</label>
-                <input type="date" value={editTolovSana} onChange={e=>setEditTolovSana(e.target.value)}
-                  style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5,textAlign:"center"}}>Sana</label>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <input type="date" value={editTolovSana} onChange={e=>setEditTolovSana(e.target.value)}
+                    style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",textAlign:"center",flex:1}}/>
+                  <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{liveTime}</span>
+                </div>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:7}}>Valyuta</label>
