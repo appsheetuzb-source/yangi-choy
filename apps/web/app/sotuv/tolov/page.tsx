@@ -5,6 +5,8 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import LiveClock from "@/components/LiveClock";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
@@ -406,6 +408,7 @@ export default function SotuvTolovPage() {
   const [editGazna, setEditGazna]           = useState("");
   const [editGaznaDollar, setEditGaznaDollar] = useState("");
   const [gaznalar, setGaznalar]       = useState<Gazna[]>([]);
+  const izohOpts = useIzohOptions("S_tolov");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -1016,7 +1019,7 @@ export default function SotuvTolovPage() {
               )}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
-                <input value={editIzohV} onChange={e => setEditIzohV(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={editIzohV} onChange={v => setEditIzohV(v)} options={izohOpts} placeholder="Ixtiyoriy..."
                   style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
               </div>
             </div>
@@ -1211,7 +1214,7 @@ export default function SotuvTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
                 <div style={{ position: "relative" }}>
-                  <textarea value={addIzoh} onChange={e => setAddIzoh(e.target.value.slice(0, 255))} placeholder="Izoh yozing (ixtiyoriy)..." rows={2}
+                  <IzohSelect value={addIzoh} onChange={v => setAddIzoh(v)} options={izohOpts} placeholder="Izoh yozing (ixtiyoriy)..." textarea rows={2} maxLength={255}
                     style={{ width: "100%", padding: "10px 12px 22px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", minHeight: 64 }}/>
                   <span style={{ position: "absolute", right: 10, bottom: 7, fontSize: 10, color: "var(--text-3)", pointerEvents: "none" }}>{addIzoh.length} / 255</span>
                 </div>

@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Chek?: string; }
@@ -96,6 +98,7 @@ export default function OgohDetailPage() {
   const [search, setSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [printing, setPrinting] = useState(false);
+  const izohOpts = useIzohOptions("Ogohlantirish");
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
@@ -247,7 +250,7 @@ export default function OgohDetailPage() {
 
               <label style={{ display: "block" }}>
                 <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)" }}>Qo&apos;shimcha izoh</span>
-                <input value={entry.Izoh || ""} onChange={e => setEntry({ ...entry, Izoh: e.target.value })} onBlur={e => patch({ Izoh: e.target.value })}
+                <IzohSelect value={entry.Izoh || ""} onChange={v => setEntry({ ...entry, Izoh: v })} onBlur={() => patch({ Izoh: entry.Izoh })} options={izohOpts}
                   placeholder="Izoh..." style={{ width: "100%", marginTop: 5, padding: "9px 12px", border: "1px solid var(--border)", borderRadius: 10, fontSize: 14, background: "var(--bg)", outline: "none" }} />
               </label>
             </div>

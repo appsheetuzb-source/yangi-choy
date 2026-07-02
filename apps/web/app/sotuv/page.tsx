@@ -1,6 +1,8 @@
 ﻿"use client";
 import { fetchSheet, fetchSheets, afterWrite, appendSheetRows } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
@@ -443,6 +445,7 @@ export default function SotuvPage() {
   const [editKurs, setEditKurs]         = useState("");
   const [editSavat, setEditSavat]       = useState<SavatItem[]>([]);
   const [editSaving, setEditSaving]     = useState(false);
+  const izohOpts = useIzohOptions("Sotuv");
 
   const [deleteTarget, setDeleteTarget] = useState<Sotuv|null>(null);
   useScrollLock(addOpen || !!detailSotuv || !!deleteTarget);
@@ -1525,7 +1528,7 @@ export default function SotuvPage() {
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
-                <input value={addIzoh} onChange={e=>setAddIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={addIzoh} onChange={v=>setAddIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>
@@ -1575,7 +1578,7 @@ export default function SotuvPage() {
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
-                <input value={editIzoh} onChange={e=>setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={editIzoh} onChange={v=>setEditIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>

@@ -2,6 +2,9 @@
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
+import ProductDrawer from "@/components/ProductDrawer";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -51,6 +54,8 @@ function nowStr() {
   const hh=pad(t.getHours()),mi=pad(t.getMinutes()),ss=pad(t.getSeconds());
   return { sana:`${dd}.${mm}.${yy}`, vaqt:`${hh}:${mi}:${ss}` };
 }
+function sanaFromIso(iso:string){ const [y,m,d]=(iso||"").split("-"); return (d&&m&&y) ? (d+"."+m+"."+y) : ""; }
+function isoFromSana(sana:string){ const mm=(sana||"").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); return mm ? (mm[3]+"-"+mm[2].padStart(2,"0")+"-"+mm[1].padStart(2,"0")) : ""; }
 
 function MultiSelect({ items, value, onChange, placeholder, fullWidth }: {
   items:{id:string;label:string}[]; value:string[]; onChange:(ids:string[])=>void; placeholder?:string; fullWidth?:boolean;
@@ -107,8 +112,8 @@ function MultiSelect({ items, value, onChange, placeholder, fullWidth }: {
   );
 }
 
-function SearchSelect({ items, value, onChange, placeholder, clearable }: {
-  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; clearable?:boolean;
+function SearchSelect({ items, value, onChange, placeholder, clearable, onAddNew }: {
+  items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; clearable?:boolean; onAddNew?:(query:string)=>void;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
   const [pos,setPos]=useState<{top:number;left:number;width:number}|null>(null);
@@ -158,6 +163,12 @@ function SearchSelect({ items, value, onChange, placeholder, clearable }: {
                   {i.label}
                 </div>
               ))}
+            {onAddNew && q.trim() && !items.some(i=>(i.label||"").trim().toLowerCase()===q.trim().toLowerCase()) && (
+              <div onClick={()=>{ onAddNew(q.trim()); setOpen(false); setQ(""); }}
+                style={{padding:"10px 14px",fontSize:13,cursor:"pointer",fontWeight:700,color:"var(--primary)",borderTop:"1px solid var(--border)",background:"#f0f9ff"}}>
+                + &quot;{q.trim()}&quot; — yangi mahsulot qo&apos;shish
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -174,6 +185,7 @@ export default function XaridPage() {
   const [tMap, setTMap]                   = useState<Record<string,string>>({});
   const [mahsulotlar, setMahsulotlar]     = useState<Mahsulot[]>([]);
   const [mMap, setMMap]                   = useState<Record<string,Mahsulot>>({});
+  const [omborlar, setOmborlar]           = useState<{Ombor_ID:string;Nomi:string}[]>([]);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string|null>(null);
   const [search, setSearch]               = usePersistedState("flt:xarid:search", "");
@@ -188,6 +200,7 @@ export default function XaridPage() {
   const [saving, setSaving]               = useState(false);
   const [taminotchiId, setTaminotchiId]   = useState("");
   const [izoh, setIzoh]                   = useState("");
+  const [addSana, setAddSana]             = useState(() => isoFromSana(nowStr().sana));
   const [savat, setSavat]                 = useState<SavatItem[]>([]);
   const [detailXarid, setDetailXarid]     = useState<Xarid|null>(null);
   const [editTaminotchi, setEditTaminotchi] = useState("");
@@ -201,6 +214,7 @@ export default function XaridPage() {
   const [triedSave, setTriedSave]             = useState(false);
   const [editTriedSave, setEditTriedSave]     = useState(false);
   const [deleteTarget, setDeleteTarget]   = useState<Xarid|null>(null);
+  const [newProd, setNewProd]             = useState<{ onDone:(id:string)=>void; name:string; ombor:string } | null>(null);
 
   // Modal ochilganda orqa fon scroll'i qulflanadi (faqat forma ichi scroll bo'ladi)
   useScrollLock(addOpen || !!detailXarid || !!deleteTarget);
@@ -221,7 +235,8 @@ export default function XaridPage() {
         fetchSheet("Xarid"),
         fetchSheet("Taminotchi"),
         fetchSheet("Mahsulot"),
-      ]).then(([xR,tR,mR])=>{
+        fetchSheet("Ombor"),
+      ]).then(([xR,tR,mR,oR])=>{
         if(xR.error) throw new Error(xR.error);
         const pDate=(s:string)=>{const[d,mo,y]=(s||"").split(".").map(Number);return(y||0)*10000+(mo||0)*100+(d||0);};
         const pTime=(v:string)=>{const[h,m,s]=(v||"").split(":").map(Number);return(h||0)*3600+(m||0)*60+(s||0);};
@@ -238,6 +253,8 @@ export default function XaridPage() {
         const mm:Record<string,Mahsulot>={};
         mArr.forEach(m=>{mm[m.Mahsulot_ID]=m;});
         setMMap(mm);
+        const oArr=((oR.data as {Ombor_ID:string;Nomi:string}[])||[]).filter(o=>o.Ombor_ID);
+        setOmborlar(oArr);
       }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
         .finally(()=>{
           setLoading(false);
@@ -330,8 +347,7 @@ export default function XaridPage() {
   },[xaridlar]);
 
   function addItem(){
-    const first=mahsulotlar[0];
-    setSavat(p=>[...p,{id:uid(),Mahsulot_ID:first?.Mahsulot_ID||"",Soni:"",Narxi:first?.Tan_dollar||"",Narx_som:first?.Tan_som||"",Foiz:chegirmaHa?chegirmaFoiz:""}]);
+    setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Narxi:"",Narx_som:"",Foiz:chegirmaHa?chegirmaFoiz:""}]);
   }
   function updateItem(id:string,field:keyof SavatItem,val:string){
     setSavat(p=>p.map(s=>{
@@ -373,7 +389,7 @@ export default function XaridPage() {
     const narxInvalid=savat.filter(s=>s.Mahsulot_ID&&s.Soni).some(s=>{const a=!!num(s.Narxi),b=!!num(s.Narx_som);return (!a&&!b)||(a&&b);});
     if(narxInvalid){setTriedSave(true);return;}
     setSaving(true);
-    const {sana:s,vaqt:v}=nowStr();
+    const {vaqt:v}=nowStr(); const s = addSana ? sanaFromIso(addSana) : nowStr().sana;
     try{
       const xaridId=uid();
       const nextRaqam=String(Math.max(...xaridlar.map(x=>num(x.Sotuv_Raqami)),0)+1);
@@ -449,12 +465,14 @@ export default function XaridPage() {
     } finally{setDeleting(false);}
   }
 
+
   const jamiUsd=savat.reduce((s,r)=>s+num(r.Soni)*num(r.Narxi),0);
   const jamiSom=savat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx_som),0);
   const editJamiUsd=editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narxi),0);
   const editJamiSom=editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx_som),0);
   const tItems=useMemo(()=>taminotchilar.filter(t=>t.Taminotchi_ID&&(t.Ism||"").trim()).map(t=>({id:t.Taminotchi_ID,label:t.Ism})),[taminotchilar]);
   const mItems=useMemo(()=>mahsulotlar.map(m=>({id:m.Mahsulot_ID,label:m.Nomi})),[mahsulotlar]);
+  const izohOpts = useIzohOptions("Xarid");
 
   // Tanlangan ta'minotchining eski qoldig'i (boshlang'ich + jami xarid - jami to'lov)
   const tEski=useMemo(()=>{
@@ -467,7 +485,6 @@ export default function XaridPage() {
     const tUsd=xtolov.filter(p=>p.Taminotchi_ID===taminotchiId).reduce((s,p)=>s+(p.Valyuta==="Dollar"?num(p.Summa_dollar||p.Dollar):0),0);
     return { som: bSom+xSom-tSom, usd: bUsd+xUsd-tUsd };
   },[taminotchiId, taminotchilar, xaridlar, savatMap, xtolov]);
-  const {sana,vaqt}=nowStr();
 
   const modalOverlay: React.CSSProperties = {
     position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",
@@ -483,13 +500,14 @@ export default function XaridPage() {
   };
 
   // Mobile product row for add/edit
-  function MobileProductRow({ s, onUpdate, onRemove, mItems, chegirmaHa, narxError }: {
+  function MobileProductRow({ s, onUpdate, onRemove, mItems, chegirmaHa, narxError, onAddNew }: {
     s: SavatItem;
     onUpdate: (id:string, field:keyof SavatItem, val:string)=>void;
     onRemove: (id:string)=>void;
     mItems: {id:string;label:string}[];
     chegirmaHa: boolean;
     narxError?: boolean;
+    onAddNew?: (id:string, query:string)=>void;
   }) {
     const foiz = chegirmaHa ? num(s.Foiz) : 0;
     const jamiS = num(s.Soni)*num(s.Narx_som)*(1 - foiz/100);
@@ -502,7 +520,7 @@ export default function XaridPage() {
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot tanlang..."/>
+        <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot tanlang..." onAddNew={onAddNew?(name)=>onAddNew(s.id,name):undefined}/>
         <div style={{marginTop:8}}>
           <label style={{fontSize:10,fontWeight:600,color:"var(--text-3)",display:"block",marginBottom:4}}>MIQDOR</label>
           <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
@@ -551,7 +569,7 @@ export default function XaridPage() {
         </div>
       </header>
 
-      {isMobile && <FabAdd onClick={()=>{setTaminotchiId("");setIzoh("");setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}} />}
+      {isMobile && <FabAdd onClick={()=>{setTaminotchiId("");setIzoh("");setAddSana(isoFromSana(nowStr().sana));setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}} />}
 
       <div className="page-content">
         {loading&&<div className="spinner--page"/>}
@@ -625,7 +643,7 @@ export default function XaridPage() {
                     </div>
                     <MultiSelect items={taminotchilar.map(t=>({id:t.Taminotchi_ID,label:t.Ism}))} value={filterT} onChange={setFilterT} placeholder="Ta'minotchi..."/>
                     <span style={{flex:1}}/>
-                    <button className="btn btn--primary" onClick={()=>{setTaminotchiId("");setIzoh("");setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}}>
+                    <button className="btn btn--primary" onClick={()=>{setTaminotchiId("");setIzoh("");setAddSana(isoFromSana(nowStr().sana));setSavat([]);setChegirmaHa(false);setChegirmaFoiz("");setTriedSave(false);setAddOpen(true);}}>
                       <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                       Yangi xarid
                     </button>
@@ -790,7 +808,7 @@ export default function XaridPage() {
                 </div>
                 <div>
                   <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
-                  <input value={editIzoh} onChange={e=>setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                  <IzohSelect value={editIzoh} onChange={v=>setEditIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."
                     style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
                 </div>
               </div>
@@ -832,7 +850,7 @@ export default function XaridPage() {
               {isMobile ? (
                 editSavat.map(s=>{
                   const a=!!num(s.Narxi),b=!!num(s.Narx_som);const ne=editTriedSave&&!!s.Mahsulot_ID&&!!s.Soni&&((!a&&!b)||(a&&b));
-                  return <MobileProductRow key={s.id} s={s} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={editChegirmaHa} narxError={ne}/>;
+                  return <MobileProductRow key={s.id} s={s} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={editChegirmaHa} narxError={ne} onAddNew={(rowId,name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateEditItem(rowId,"Mahsulot_ID",id) })}/>;
                 })
               ) : (
                 editSavat.map(s=>{
@@ -843,7 +861,7 @@ export default function XaridPage() {
                   return (
                   <div key={s.id} style={{marginBottom:bothFilled?2:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateEditItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/></div>
+                    <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateEditItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={(name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateEditItem(s.id,"Mahsulot_ID",id) })}/></div>
                     <input type="number" value={s.Soni} onChange={e=>updateEditItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     <input value={s.Narxi} onChange={e=>updateEditItem(s.id,"Narxi",e.target.value)} placeholder="Narx ($)" style={{width:100,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#2563eb",textAlign:"center"}}/>
                     <input value={s.Narx_som} onChange={e=>updateEditItem(s.id,"Narx_som",e.target.value)} placeholder="Narx (so'm)" style={{width:120,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -912,7 +930,7 @@ export default function XaridPage() {
                 </div>
                 <div>
                   <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi xarid</h2>
-                  <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
+                  <input type="date" value={addSana} onChange={e=>setAddSana(e.target.value)} style={{fontSize:12,fontWeight:600,padding:"4px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",outline:"none",color:"var(--text-2)"}} />
                 </div>
               </div>
               <div style={{width:isMobile?"100%":260,flexShrink:1,minWidth:0}}>
@@ -980,7 +998,7 @@ export default function XaridPage() {
               {isMobile ? (
                 savat.map(s=>{
                   const a=!!num(s.Narxi),b=!!num(s.Narx_som);const ne=triedSave&&!!s.Mahsulot_ID&&!!s.Soni&&((!a&&!b)||(a&&b));
-                  return <MobileProductRow key={s.id} s={s} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={chegirmaHa} narxError={ne}/>;
+                  return <MobileProductRow key={s.id} s={s} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={chegirmaHa} narxError={ne} onAddNew={(rowId,name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateItem(rowId,"Mahsulot_ID",id) })}/>;
                 })
               ) : (
                 savat.map(s=>{
@@ -991,7 +1009,7 @@ export default function XaridPage() {
                   return (
                   <div key={s.id} style={{marginBottom:bothFilled?2:8}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/></div>
+                    <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={(name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateItem(s.id,"Mahsulot_ID",id) })}/></div>
                     <input type="number" value={s.Soni} onChange={e=>updateItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     <input value={s.Narxi} onChange={e=>updateItem(s.id,"Narxi",e.target.value)} placeholder="Narx ($)" style={{width:100,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#2563eb",textAlign:"center"}}/>
                     <input value={s.Narx_som} onChange={e=>updateItem(s.id,"Narx_som",e.target.value)} placeholder="Narx (so'm)" style={{width:120,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -1042,7 +1060,7 @@ export default function XaridPage() {
               })()}
               <div style={{marginTop:16}}>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
-                <input value={izoh} onChange={e=>setIzoh(e.target.value)} placeholder="Qo'shimcha izoh..."
+                <IzohSelect value={izoh} onChange={v=>setIzoh(v)} options={izohOpts} placeholder="Qo'shimcha izoh..."
                   style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>
@@ -1075,6 +1093,21 @@ export default function XaridPage() {
           </div>
         </div>
       )}
+
+      {/* ── Yangi mahsulot — to'liq forma (Mahsulot sahifasidagidek) ── */}
+      <ProductDrawer
+        open={!!newProd}
+        onClose={() => setNewProd(null)}
+        omborlar={omborlar}
+        editTarget={null}
+        initialNomi={newProd?.name || ""}
+        defaultOmborId={newProd?.ombor || ""}
+        onSaved={(saved) => {
+          setMahsulotlar(p => [...p, saved as Mahsulot]);
+          setMMap(p => ({ ...p, [saved.Mahsulot_ID]: saved as Mahsulot }));
+          newProd?.onDone(saved.Mahsulot_ID);
+        }}
+      />
     </>
   );
 }

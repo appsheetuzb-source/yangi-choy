@@ -5,6 +5,8 @@ import { gaznaForUser } from "@/lib/auth";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; }
 interface XTolov {
@@ -64,6 +66,7 @@ export default function XaridTolovDetailPage() {
   const [deleting, setDeleting]     = useState(false);
   const [toggling, setToggling]     = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
+  const izohOpts = useIzohOptions("X_Tolov");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -421,7 +424,7 @@ export default function XaridTolovDetailPage() {
               {/* Izoh */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
-                <input value={editIzoh} onChange={e => setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={editIzoh} onChange={v => setEditIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."
                   style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
               </div>
               {num(editSom) > 0 && (

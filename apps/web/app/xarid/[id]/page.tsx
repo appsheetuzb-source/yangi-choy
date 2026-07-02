@@ -3,6 +3,8 @@ import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 
 interface Xarid {
   Xarid_ID: string; Sana: string; Sotuv_Raqami: string;
@@ -94,6 +96,7 @@ export default function XaridDetailPage() {
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [mMap, setMMap]               = useState<Record<string, Mahsulot>>({});
   const [loading, setLoading]         = useState(true);
+  const izohOpts = useIzohOptions("Xarid");
 
   // Edit drawer
   const [editOpen, setEditOpen]             = useState(false);
@@ -603,7 +606,7 @@ export default function XaridDetailPage() {
               </div>
               <div className="drawer__section">
                 <p className="drawer__section-label">Izoh</p>
-                <div className="field"><input value={editIzoh} onChange={e => setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."/></div>
+                <div className="field"><IzohSelect value={editIzoh} onChange={v => setEditIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."/></div>
               </div>
               <div className="drawer__section">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>

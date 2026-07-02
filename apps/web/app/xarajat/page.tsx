@@ -6,6 +6,8 @@ import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { usePersistedState } from "@/lib/usePersistedState";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 import { useEffect, useState, useCallback } from "react";
 
 interface Xarajat {
@@ -64,6 +66,7 @@ export default function XarajatPage() {
   const [delTarget, setDelTarget] = useState<Xarajat | null>(null);
   const [deleting, setDeleting]   = useState(false);
   const [isMobile, setIsMobile]   = useState(false);
+  const izohOpts = useIzohOptions("Xarajat");
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useScrollLock(open || !!delTarget);
 
@@ -380,7 +383,7 @@ export default function XarajatPage() {
 
               <div className="field">
                 <label>Izoh</label>
-                <input value={form.Izoh} onChange={e => setForm(f => ({ ...f, Izoh: e.target.value }))} placeholder="Qo'shimcha izoh..." />
+                <IzohSelect value={form.Izoh} onChange={v => setForm(f => ({ ...f, Izoh: v }))} options={izohOpts} placeholder="Qo'shimcha izoh..." />
               </div>
             </div>
             <div className="modal__footer">

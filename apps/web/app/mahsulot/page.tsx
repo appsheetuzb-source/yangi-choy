@@ -4,6 +4,7 @@ import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
+import ProductDrawer from "@/components/ProductDrawer";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -27,15 +28,6 @@ interface Ombor {
   Nomi: string;
 }
 
-
-const EMPTY: Mahsulot = {
-  Mahsulot_ID: "", Ombor_ID: "", Nomi: "", Rasm: "",
-  Tan_som: "", Sotuv_som: "", Tan_dollar: "", Sotuv_dollar: "",
-  Qoshilgan_sana: "", Kg: "", Check: "TRUE",
-};
-
-function uid() { return Math.random().toString(36).slice(2, 10); }
-
 export default function MahsulotPage() {
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [omborlar, setOmborlar]       = useState<Ombor[]>([]);
@@ -56,18 +48,11 @@ export default function MahsulotPage() {
   const [view, setView]               = useState<"grid" | "list">("grid");
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [editTarget, setEditTarget]   = useState<Mahsulot | null>(null);
-  const [formData, setFormData]       = useState<Mahsulot>(EMPTY);
-  const [formSom, setFormSom]         = useState(true);
-  const [formDollar, setFormDollar]   = useState(false);
-  const [saving, setSaving]           = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
-  useScrollLock(drawerOpen || !!deleteTarget);
-  const [imgPreview, setImgPreview]   = useState<string | null>(null);
-  const [uploading, setUploading]     = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  useScrollLock(!!deleteTarget);
 
   const loadData = useCallback((delay = 0) => {
     setLoading(true);
@@ -189,65 +174,12 @@ export default function MahsulotPage() {
 
   function openAdd() {
     setEditTarget(null);
-    setFormData({ ...EMPTY, Mahsulot_ID: uid(), Ombor_ID: omborlar[0]?.Ombor_ID || "" });
-    setFormSom(true);
-    setFormDollar(false);
-    setImgPreview(null);
     setDrawerOpen(true);
   }
 
   function openEdit(m: Mahsulot) {
     setEditTarget(m);
-    setFormData({ ...m });
-    const hasSom    = m.Sotuv_som    && String(m.Sotuv_som).trim()    !== "" && String(m.Sotuv_som).trim()    !== "0";
-    const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
-    setFormSom(hasSom || (!hasSom && !hasDollar));
-    setFormDollar(!!hasDollar);
-    setImgPreview(null);
     setDrawerOpen(true);
-  }
-
-  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImgPreview(URL.createObjectURL(file));
-    setUploading(true);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("mahsulotId", formData.Mahsulot_ID || uid());
-      const res  = await fetch("/api/image", { method: "POST", body: fd });
-      const json = await res.json();
-      if (json.path) setFormData(p => ({ ...p, Rasm: json.path }));
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  }
-
-  function isValid() {
-    if (!formData.Nomi.trim()) return false;
-    if (!formData.Sotuv_som.trim() || !formData.Sotuv_dollar.trim()) return false;
-    if (!formSom && !formDollar) return false;
-    if (formSom && !formData.Tan_som.trim()) return false;
-    if (formDollar && !formData.Tan_dollar.trim()) return false;
-    return true;
-  }
-
-  async function handleSave() {
-    if (!isValid()) return;
-    setSaving(true);
-    try {
-      if (editTarget) {
-        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheet: "Mahsulot", idColumn: "Mahsulot_ID", idValue: editTarget.Mahsulot_ID, row: formData }) });
-      } else {
-        await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheet: "Mahsulot", row: formData }) });
-      }
-      setDrawerOpen(false);
-      afterWrite("Mahsulot"); loadData(800);
-    } finally { setSaving(false); }
   }
 
   async function handleDelete() {
@@ -262,7 +194,6 @@ export default function MahsulotPage() {
   }
 
   const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
-  const nameEntered = formData.Nomi.trim().length > 0;
 
   return (
     <>
@@ -504,166 +435,14 @@ export default function MahsulotPage() {
         )}
       </div>
 
-      {/* ── Drawer (right side panel) ── */}
-      {drawerOpen && (
-        <>
-          <div className="drawer-overlay" onClick={() => setDrawerOpen(false)} />
-          <div className="drawer">
-            {/* Head */}
-            <div className="drawer__head">
-              <button className="drawer__back" onClick={() => setDrawerOpen(false)}>
-                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-              <span className="drawer__title">
-                {editTarget ? "Mahsulotni tahrirlash" : "Yangi mahsulot"}
-              </span>
-            </div>
-
-            {/* Body */}
-            <div className="drawer__body">
-
-              {/* 1. Asosiy */}
-              <div className="drawer__section">
-                <p className="drawer__section-label">Asosiy ma&apos;lumot</p>
-
-                <div className="field">
-                  <label>Mahsulot nomi *</label>
-                  <input
-                    value={formData.Nomi}
-                    onChange={e => setFormData(p => ({ ...p, Nomi: e.target.value }))}
-                    placeholder="Masalan: Rizq 500gr"
-                    style={{ fontSize: 15, fontWeight: 600 }}
-                    autoFocus
-                  />
-                </div>
-
-                {/* Ombor tanlash */}
-                {omborlar.length > 0 && (
-                  <div className="field">
-                    <label>Ombor</label>
-                    <div className="pill-group">
-                      {omborlar.map(o => (
-                        <button key={o.Ombor_ID} type="button"
-                          className={`pill ${formData.Ombor_ID === o.Ombor_ID ? "pill--active" : ""}`}
-                          onClick={() => setFormData(p => ({ ...p, Ombor_ID: o.Ombor_ID }))}>
-                          {o.Nomi}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                <div className="field">
-                  <label>Og&apos;irligi (kg)</label>
-                  <input value={formData.Kg} onChange={e => setFormData(p => ({ ...p, Kg: e.target.value }))} placeholder="1" />
-                </div>
-
-              </div>
-
-              {/* 2. Narxlar — faqat nom kiritilganda */}
-              {nameEntered && (
-                <div className="drawer__section fade-in">
-                  <p className="drawer__section-label">Narxlar *</p>
-
-                  {/* Sotuv narxi — har doim ikkalasi, majburiy */}
-                  <div className="grid-2">
-                    <Field label="Sotuv narxi so'm *" value={formData.Sotuv_som} placeholder="0"
-                      onChange={v => setFormData(p => ({ ...p, Sotuv_som: v }))} />
-                    <Field label="Sotuv narxi $ *" value={formData.Sotuv_dollar} placeholder="0"
-                      onChange={v => setFormData(p => ({ ...p, Sotuv_dollar: v }))} />
-                  </div>
-
-                  {/* Tan narx valyuta toggle — majburiy */}
-                  <div className="field">
-                    <label>Tan narx valyutasi *</label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {([
-                        { key: "som",    label: "So'm", active: formSom,    toggle: () => setFormSom(p => !p) },
-                        { key: "dollar", label: "$",    active: formDollar, toggle: () => setFormDollar(p => !p) },
-                      ]).map(({ key, label, active, toggle }) => (
-                        <button key={key} type="button" onClick={toggle}
-                          style={{
-                            flex: 1, padding: "9px 0", borderRadius: 10, border: "1.5px solid",
-                            fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all .15s",
-                            background: active ? "var(--primary)" : "var(--bg)",
-                            color:      active ? "#fff"           : "var(--text-2)",
-                            borderColor: active ? "var(--primary)" : "var(--border)",
-                          }}>
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Tan narxi — tanlangan valyutaga ko'ra, majburiy */}
-                  {(formSom || formDollar) && (
-                    <div className={formSom && formDollar ? "grid-2 fade-in" : "fade-in"}>
-                      {formSom && (
-                        <Field label="Tan narxi so'm *" value={formData.Tan_som} placeholder="0"
-                          onChange={v => setFormData(p => ({ ...p, Tan_som: v }))} />
-                      )}
-                      {formDollar && (
-                        <Field label="Tan narxi $ *" value={formData.Tan_dollar} placeholder="0"
-                          onChange={v => setFormData(p => ({ ...p, Tan_dollar: v }))} />
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Rasm — eng pastda, to'liq kenglik, past bo'y */}
-              <div className="drawer__section">
-                <p className="drawer__section-label">Rasm</p>
-                <div className="img-upload"
-                  style={{ width: "100%", height: 110, aspectRatio: "unset" }}
-                  onClick={() => !uploading && fileRef.current?.click()}>
-                  {(imgPreview || formData.Rasm) ? (
-                    <>
-                      <img src={imgPreview || `/api/image?path=${encodeURIComponent(formData.Rasm)}`} alt="preview" />
-                      {uploading && (
-                        <div className="img-upload__overlay">
-                          <span className="spinner" style={{ borderTopColor: "var(--primary)", borderColor: "rgba(0,0,0,.1)", width: 22, height: 22 }} />
-                        </div>
-                      )}
-                      {!uploading && (
-                        <button className="img-upload__remove" type="button"
-                          onClick={e => { e.stopPropagation(); setImgPreview(null); setFormData(p => ({ ...p, Rasm: "" })); }}>
-                          <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/>
-                          </svg>
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <div className="img-upload__placeholder" style={{ flexDirection: "row", gap: 8 }}>
-                      <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                      </svg>
-                      <span>{uploading ? "Yuklanmoqda..." : "Rasm tanlash"}</span>
-                    </div>
-                  )}
-                </div>
-                <input ref={fileRef} type="file" accept="image/*" style={{ display: "none" }}
-                  onChange={handleImageSelect} />
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="drawer__footer">
-              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setDrawerOpen(false)}>
-                Bekor qilish
-              </button>
-              <button className="btn btn--primary" style={{ flex: 1 }} onClick={handleSave}
-                disabled={saving || !isValid()}>
-                {saving && <span className="spinner" />}
-                {editTarget ? "Saqlash" : "Qoʻshish"}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+      {/* ── Mahsulot forma (drawer) — Xarid formasi bilan bir xil komponent ── */}
+      <ProductDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        omborlar={omborlar}
+        editTarget={editTarget}
+        onSaved={() => loadData(800)}
+      />
 
       {/* Delete confirm */}
       {deleteTarget && (
@@ -767,18 +546,6 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
           </svg>
         </button>
       </div>
-    </div>
-  );
-}
-
-/* ── Field ─────────────────────────────────── */
-function Field({ label, value, onChange, placeholder }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder?: string;
-}) {
-  return (
-    <div className="field">
-      <label>{label}</label>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} />
     </div>
   );
 }

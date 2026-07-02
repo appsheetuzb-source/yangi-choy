@@ -2,6 +2,8 @@
 import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -67,6 +69,7 @@ export default function SotuvTolovDetailPage() {
   const [deleting, setDeleting]       = useState(false);
   const [toggling, setToggling]       = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
+  const izohOpts = useIzohOptions("S_tolov");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -423,7 +426,7 @@ export default function SotuvTolovDetailPage() {
               </div>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
-                <input value={editIzoh} onChange={e => setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={editIzoh} onChange={v => setEditIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."
                   style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
               </div>
               {num(editSom) > 0 && (

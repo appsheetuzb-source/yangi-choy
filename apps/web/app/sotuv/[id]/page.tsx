@@ -6,6 +6,8 @@ import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import LiveClock from "@/components/LiveClock";
+import IzohSelect from "@/components/IzohSelect";
+import { useIzohOptions } from "@/lib/useIzohOptions";
 
 interface Sotuv {
   Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Status: string;
@@ -335,6 +337,8 @@ export default function SotuvDetailPage() {
   const [tasdiqSaving, setTasdiqSaving] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [centralKurs, setCentralKurs] = useState("");
+  const izohOptsSotuv = useIzohOptions("Sotuv");
+  const izohOptsTolov = useIzohOptions("S_tolov");
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useEffect(() => { getCurrentKurs().then(setCentralKurs).catch(() => {}); }, []);
   const addSomRef = useRef<HTMLDivElement>(null);
@@ -1481,7 +1485,7 @@ export default function SotuvDetailPage() {
                   </div>
                   <div style={{gridColumn:"1/-1"}}>
                     <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
-                    <input value={editIzoh} onChange={e=>setEditIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                    <IzohSelect value={editIzoh} onChange={v=>setEditIzoh(v)} options={izohOptsSotuv} placeholder="Ixtiyoriy..."
                       style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
                   </div>
                 </div>
@@ -1632,7 +1636,7 @@ export default function SotuvDetailPage() {
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5}}>Izoh</label>
-                <input value={addTolovIzoh} onChange={e=>setAddTolovIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={addTolovIzoh} onChange={v=>setAddTolovIzoh(v)} options={izohOptsTolov} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
               {gaznaForUser(user, gaznalar).filter(g=>g.Turi!=="Dollar").length>0 && (
@@ -1746,7 +1750,7 @@ export default function SotuvDetailPage() {
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5}}>Izoh</label>
-                <input value={editTolovIzoh} onChange={e=>setEditTolovIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                <IzohSelect value={editTolovIzoh} onChange={v=>setEditTolovIzoh(v)} options={izohOptsTolov} placeholder="Ixtiyoriy..."
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
               {gaznaForUser(user, gaznalar).filter(g=>g.Turi!=="Dollar").length>0 && (
