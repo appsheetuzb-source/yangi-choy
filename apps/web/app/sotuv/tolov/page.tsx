@@ -919,23 +919,22 @@ export default function SotuvTolovPage() {
         <div style={modalOverlay} onClick={() => setEditTarget(null)}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             {isMobile && <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)", margin: "12px auto 0" }}/>}
-            <div style={{ display: "flex", alignItems: "center", padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ width: 32, flexShrink: 0 }}/>
-              <h2 style={{ fontSize: 16, fontWeight: 800, flex: 1, textAlign: "center" }}>To&apos;lovni tahrirlash</h2>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+              <h2 style={{ fontSize: 16, fontWeight: 800 }}>To&apos;lovni tahrirlash</h2>
+              <span style={{ flex: 1 }}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Sana</span>
+                <input type="date" value={editSana} onChange={e => setEditSana(e.target.value)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
+              </div>
               <button onClick={() => setEditTarget(null)} style={{ width: 32, height: 32, flexShrink: 0, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: isMobile ? undefined : 1, ...modalCenter }}>
-              {/* Sana */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6, textAlign: "center" }}>Sana</label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="date" value={editSana} onChange={e => setEditSana(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box", textAlign: "center", flex: 1 }}/>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{liveTime}</span>
-                </div>
-              </div>
               {/* Sotuv bog'lash */}
               {editSotuvItems.length > 0 && (
                 <div>
@@ -1055,9 +1054,18 @@ export default function SotuvTolovPage() {
               <div style={{ width: 40, height: 40, borderRadius: 12, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <svg width="18" height="18" fill="none" stroke="#16a34a" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2z"/></svg>
               </div>
-              <div style={{ flex: 1, textAlign: "center" }}>
+              <div>
                 <h2 style={{ fontSize: 16, fontWeight: 800 }}>Yangi to&apos;lov</h2>
                 <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 500, marginTop: 1 }}>To&apos;lov ma&apos;lumotlarini kiriting va saqlang</p>
+              </div>
+              <span style={{ flex: 1 }}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Sana</span>
+                <input type="date" value={addSana} onChange={e => setAddSana(e.target.value)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
               </div>
               <button onClick={() => setAddOpen(false)} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1086,15 +1094,6 @@ export default function SotuvTolovPage() {
                     <span style={{ width: 34, height: 34, borderRadius: 9, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", flexShrink: 0 }}>{KARTA_ICON}</span>
                   </div>
                 )}
-              </div>
-              {/* Sana */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6, textAlign: "center" }}>Sana</label>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <input type="date" value={addSana} onChange={e => setAddSana(e.target.value)}
-                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box", textAlign: "center", flex: 1 }}/>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{liveTime}</span>
-                </div>
               </div>
               {/* Valyuta */}
               <div>

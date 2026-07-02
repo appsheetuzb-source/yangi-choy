@@ -1556,20 +1556,19 @@ export default function SotuvDetailPage() {
                 <h2 style={{fontSize:15,fontWeight:800}}>Yangi to&apos;lov</h2>
                 <p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{mjNomi} — Sotuv #{sotuv.Sotuv_Raqami}</p>
               </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Sana</span>
+                <input type="date" value={addTolovSana} onChange={e => setAddTolovSana(e.target.value)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
+              </div>
               <button onClick={()=>setAddTolovOpen(false)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
-              {/* Sana */}
-              <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5,textAlign:"center"}}>Sana</label>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <input type="date" value={addTolovSana} onChange={e=>setAddTolovSana(e.target.value)}
-                    style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",textAlign:"center",flex:1}}/>
-                  <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{liveTime}</span>
-                </div>
-              </div>
               {/* Valyuta */}
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:7}}>Valyuta</label>
@@ -1675,21 +1674,22 @@ export default function SotuvDetailPage() {
       {editTolov&&(
         <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setEditTolov(null)}>
           <div style={{background:"var(--white)",borderRadius:16,width:"100%",maxWidth:480,maxHeight:"90vh",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"18px 20px",borderBottom:"1px solid var(--border)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,padding:"18px 20px",borderBottom:"1px solid var(--border)"}}>
               <h2 style={{fontSize:15,fontWeight:800}}>To&apos;lovni tahrirlash</h2>
+              <span style={{ flex: 1 }}/>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Sana</span>
+                <input type="date" value={editTolovSana} onChange={e => setEditTolovSana(e.target.value)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center" }} />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Vaqt</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-3)", fontVariantNumeric: "tabular-nums", textAlign: "center", whiteSpace: "nowrap" }}>{liveTime}</span>
+              </div>
               <button onClick={()=>setEditTolov(null)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
-              <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5,textAlign:"center"}}>Sana</label>
-                <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                  <input type="date" value={editTolovSana} onChange={e=>setEditTolovSana(e.target.value)}
-                    style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",textAlign:"center",flex:1}}/>
-                  <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",fontVariantNumeric:"tabular-nums",whiteSpace:"nowrap"}}>{liveTime}</span>
-                </div>
-              </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:7}}>Valyuta</label>
                 <div style={{display:"flex",borderRadius:"var(--radius)",overflow:"hidden",border:"1.5px solid var(--border)"}}>
