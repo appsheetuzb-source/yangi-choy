@@ -44,6 +44,8 @@ function nowStr() {
   const hh=pad(t.getHours()),mi=pad(t.getMinutes()),ss=pad(t.getSeconds());
   return {sana:`${dd}.${mm}.${yy}`,oy:String(t.getMonth()+1),yil:yy,vaqt:`${hh}:${mi}:${ss}`};
 }
+function isoToParts(iso:string){ const [y,m,d]=(iso||"").split("-"); return { sana: d+"."+m+"."+y, oy:String(parseInt(m||"1")), yil:y||"" }; }
+function sanaToIso(sana:string){ const mm=(sana||"").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); return mm ? (mm[3]+"-"+mm[2].padStart(2,"0")+"-"+mm[1].padStart(2,"0")) : ""; }
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
 function fmt(v: string|number|undefined) { const n=num(v); return n?n.toLocaleString("ru-RU"):"0"; }
 function fmtSom(v: string|number|undefined) { const n=num(v); return n?n.toLocaleString("ru-RU")+" so'm":"—"; }
@@ -273,6 +275,7 @@ export default function SotuvDetailPage() {
   const [addTolovSaving, setAddTolovSaving]   = useState(false);
   const [addTolovGazna, setAddTolovGazna]     = useState("");
   const [addTolovGaznaDollar, setAddTolovGaznaDollar] = useState("");
+  const [addTolovSana, setAddTolovSana]       = useState(()=>sanaToIso(nowStr().sana));
   const [editTolov, setEditTolov]             = useState<STolov|null>(null);
   const [editTolovValyuta, setEditTolovValyuta] = useState<"Som"|"Dollar">("Som");
   const [editTolovTuri, setEditTolovTuri]     = useState("Naqd");
@@ -282,6 +285,7 @@ export default function SotuvDetailPage() {
   const [editTolovIzoh, setEditTolovIzoh]     = useState("");
   const [editTolovGazna, setEditTolovGazna]   = useState("");
   const [editTolovGaznaDollar, setEditTolovGaznaDollar] = useState("");
+  const [editTolovSana, setEditTolovSana]     = useState("");
   const [editTolovSaving, setEditTolovSaving] = useState(false);
   const [gaznalar, setGaznalar]               = useState<Gazna[]>([]);
   const [deleteTolov, setDeleteTolov]         = useState<STolov|null>(null);
@@ -773,6 +777,7 @@ export default function SotuvDetailPage() {
     setAddTolovValyuta("Som"); setAddTolovTuri("Naqd");
     setAddTolovSom(""); setAddTolovDollar(""); setAddTolovKurs(""); setAddTolovIzoh("");
     setAddTolovGazna(""); setAddTolovGaznaDollar("");
+    setAddTolovSana(sanaToIso(nowStr().sana));
     setAddTolovOpen(true);
   }
 
@@ -782,7 +787,8 @@ export default function SotuvDetailPage() {
     if(somV===0&&usdV===0) return;
     if(num(addTolovKurs)<11000) return;
     setAddTolovSaving(true);
-    const {sana,oy,yil,vaqt}=nowStr();
+    const {vaqt}=nowStr();
+    const {sana,oy,yil}=addTolovSana?isoToParts(addTolovSana):nowStr();
     const kurs=num(addTolovKurs);
     const isSom=addTolovValyuta==="Som";
     const summa=isSom?String(somV+usdV*kurs):"";
@@ -810,6 +816,7 @@ export default function SotuvDetailPage() {
     setEditTolovIzoh(t.Izoh||"");
     setEditTolovGazna(t.Gazna_ID||"");
     setEditTolovGaznaDollar(t.Gazna_dollar_ID||"");
+    setEditTolovSana(sanaToIso(t.Sana));
   }
 
   async function handleEditTolovSave() {
@@ -820,12 +827,14 @@ export default function SotuvDetailPage() {
     const isSom=editTolovValyuta==="Som";
     const summa=isSom?String(somV+usdV*kurs):"";
     const summaDollar=!isSom?String(usdV+(kurs>0?somV/kurs:0)):"";
+    const _sp = editTolovSana ? isoToParts(editTolovSana) : { sana: editTolov.Sana, oy: editTolov.Oy, yil: editTolov.Yil };
     try {
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"S_tolov",idColumn:"Tolov_ID",idValue:editTolov.Tolov_ID,
           row:{...editTolov,Valyuta:isSom?"So'm":"Dollar",Turi:editTolovTuri,
             Som:String(somV),Dollar:String(usdV),Summa:summa,Summa_dollar:summaDollar,
             Dollar_Kursi:editTolovKurs,Izoh:editTolovIzoh,
+            Sana:_sp.sana,Yil:_sp.yil,Oy:_sp.oy,
             Gazna_ID:editTolovGazna,Gazna_dollar_ID:editTolovGaznaDollar}})});
       afterWrite("S_tolov");
       setEditTolov(null);
@@ -1551,6 +1560,12 @@ export default function SotuvDetailPage() {
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
+              {/* Sana */}
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5}}>Sana</label>
+                <input type="date" value={addTolovSana} onChange={e=>setAddTolovSana(e.target.value)}
+                  style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
               {/* Valyuta */}
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:7}}>Valyuta</label>
@@ -1663,6 +1678,11 @@ export default function SotuvDetailPage() {
               </button>
             </div>
             <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:13,overflowY:"auto"}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:5}}>Sana</label>
+                <input type="date" value={editTolovSana} onChange={e=>setEditTolovSana(e.target.value)}
+                  style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:7}}>Valyuta</label>
                 <div style={{display:"flex",borderRadius:"var(--radius)",overflow:"hidden",border:"1.5px solid var(--border)"}}>
