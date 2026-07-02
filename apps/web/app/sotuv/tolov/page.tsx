@@ -108,6 +108,8 @@ function nowStr() {
   const hh=pad(t.getHours()),mi=pad(t.getMinutes()),ss=pad(t.getSeconds());
   return { sana: `${dd}.${mm}.${yy}`, oy: String(t.getMonth()+1), yil: yy, vaqt: `${hh}:${mi}:${ss}` };
 }
+function isoToParts(iso:string){ const [y,m,d]=(iso||"").split("-"); return { sana: d+"."+m+"."+y, oy:String(parseInt(m||"1")), yil:y||"" }; }
+function sanaToIso(sana:string){ const mm=(sana||"").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); return mm ? (mm[3]+"-"+mm[2].padStart(2,"0")+"-"+mm[1].padStart(2,"0")) : ""; }
 
 function MultiSelect({ items, value, onChange, placeholder, fullWidth }: {
   items:{id:string;label:string}[]; value:string[]; onChange:(ids:string[])=>void; placeholder?:string; fullWidth?: boolean;
@@ -379,6 +381,7 @@ export default function SotuvTolovPage() {
   const [editDollar, setEditDollar]     = useState("");
   const [editKurs, setEditKurs]         = useState("");
   const [editTuri, setEditTuri]         = useState("Naqd");
+  const [editSana, setEditSana]         = useState("");
   const [editValyuta, setEditValyuta]   = useState<"Som"|"Dollar">("Som");
   const [editIzohV, setEditIzohV]       = useState("");
 
@@ -386,6 +389,7 @@ export default function SotuvTolovPage() {
   useScrollLock(addOpen || !!editTarget || !!deleteTarget);
   const [saving, setSaving]         = useState(false);
   const [addMijoz, setAddMijoz]     = useState("");
+  const [addSana, setAddSana]       = useState(()=>sanaToIso(nowStr().sana));  // default bugun YYYY-MM-DD
   const [addSotuvId, setAddSotuvId] = useState("");
   const [addValyuta, setAddValyuta] = useState<"Som"|"Dollar">("Som");
   const [addTuri, setAddTuri]       = useState("Naqd");
@@ -487,7 +491,7 @@ export default function SotuvTolovPage() {
   }
 
   async function openAdd() {
-    setAddMijoz(""); setAddSotuvId(""); setAddValyuta("Som"); setAddTuri("Naqd");
+    setAddMijoz(""); setAddSana(sanaToIso(nowStr().sana)); setAddSotuvId(""); setAddValyuta("Som"); setAddTuri("Naqd");
     setAddSumma(""); setAddDollar(""); setAddKurs(centralKurs || localStorage.getItem("dollar_kurs") || ""); setAddIzoh("");
     setAddGazna(""); setAddGaznaDollar("");
     setAddOpen(true);
@@ -509,7 +513,8 @@ export default function SotuvTolovPage() {
     if (!addTuri) return;                                  // To'lov turi majburiy
     if (addValyuta === "Som" ? !addGazna : !addGaznaDollar) return; // Hisob majburiy
     setSaving(true);
-    const { sana, oy, yil, vaqt } = nowStr();
+    const { vaqt } = nowStr();
+    const { sana, oy, yil } = addSana ? isoToParts(addSana) : nowStr();
     const kurs = num(addKurs);
     const isSom = addValyuta === "Som";
     const summa       = isSom ? String(somVal + usdVal * kurs) : "";
@@ -588,6 +593,7 @@ export default function SotuvTolovPage() {
 
   const openEdit = useCallback((t: STolov) => {
     setEditTarget(t);
+    setEditSana(sanaToIso(t.Sana));
     setEditSotuvId(t.Sotuv_ID || "");
     setEditValyuta(t.Valyuta === "Dollar" ? "Dollar" : "Som");
     setEditSumma(t.Som || "");
@@ -620,10 +626,11 @@ export default function SotuvTolovPage() {
     const isSom = editValyuta === "Som";
     const summa       = isSom ? String(somVal + usdVal * kurs) : "";
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
+    const _sp = editSana ? isoToParts(editSana) : { sana: editTarget.Sana, oy: editTarget.Oy, yil: editTarget.Yil };
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: editTarget.Tolov_ID,
-          row: { ...editTarget, Sotuv_ID: editSotuvId, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
+          row: { ...editTarget, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Sotuv_ID: editSotuvId, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
             Som: String(somVal), Dollar: String(usdVal),
             Summa: summa, Summa_dollar: summaDollar,
             Dollar_Kursi: editKurs, Izoh: editIzohV,
@@ -917,6 +924,12 @@ export default function SotuvTolovPage() {
               </button>
             </div>
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: isMobile ? undefined : 1, ...modalCenter }}>
+              {/* Sana */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Sana</label>
+                <input type="date" value={editSana} onChange={e => setEditSana(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
+              </div>
               {/* Sotuv bog'lash */}
               {editSotuvItems.length > 0 && (
                 <div>
@@ -1067,6 +1080,12 @@ export default function SotuvTolovPage() {
                     <span style={{ width: 34, height: 34, borderRadius: 9, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", flexShrink: 0 }}>{KARTA_ICON}</span>
                   </div>
                 )}
+              </div>
+              {/* Sana */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Sana</label>
+                <input type="date" value={addSana} onChange={e => setAddSana(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 600, outline: "none", boxSizing: "border-box" }}/>
               </div>
               {/* Valyuta */}
               <div>

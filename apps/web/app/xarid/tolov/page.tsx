@@ -105,6 +105,8 @@ function nowStr() {
   const hh=pad(t.getHours()),mi=pad(t.getMinutes()),ss=pad(t.getSeconds());
   return { sana: `${dd}.${mm}.${yy}`, oy: String(t.getMonth()+1), yil: yy, vaqt: `${hh}:${mi}:${ss}` };
 }
+function isoToParts(iso: string){ const [y,m,d]=(iso||"").split("-"); return { sana: d+"."+m+"."+y, oy:String(parseInt(m||"1")), yil:y||"" }; }
+function sanaToIso(sana: string){ const mm=(sana||"").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/); return mm ? (mm[3]+"-"+mm[2].padStart(2,"0")+"-"+mm[1].padStart(2,"0")) : ""; }
 
 function MultiSelect({ items, value, onChange, placeholder, fullWidth }: {
   items:{id:string;label:string}[]; value:string[]; onChange:(ids:string[])=>void; placeholder?:string; fullWidth?: boolean;
@@ -232,6 +234,7 @@ export default function XaridTolovPage() {
   const [deleting, setDeleting]         = useState(false);
   const [editTarget, setEditTarget]     = useState<XTolov | null>(null);
   const [editSaving, setEditSaving]     = useState(false);
+  const [editSana, setEditSana]         = useState("");
   const [editSumma, setEditSumma]       = useState("");
   const [editDollar, setEditDollar]     = useState("");
   const [editKurs, setEditKurs]         = useState("");
@@ -246,6 +249,7 @@ export default function XaridTolovPage() {
   const [addT, setAddT]             = useState("");
   const [addValyuta, setAddValyuta] = useState<"Som"|"Dollar">("Som");
   const [addTuri, setAddTuri]       = useState("Naqd");
+  const [addSana, setAddSana]       = useState(() => sanaToIso(nowStr().sana));  // default bugun YYYY-MM-DD
   const [addSumma, setAddSumma]     = useState("");
   const [addDollar, setAddDollar]   = useState("");
   const [addKurs, setAddKurs]       = useState("");
@@ -350,6 +354,7 @@ export default function XaridTolovPage() {
 
   async function openAdd() {
     setAddT(""); setAddValyuta("Som"); setAddTuri("Naqd");
+    setAddSana(sanaToIso(nowStr().sana));
     setAddSumma(""); setAddDollar(""); setAddKurs(centralKurs || localStorage.getItem("dollar_kurs") || ""); setAddIzoh("");
     setAddGazna(""); setAddGaznaDollar("");
     setAddOpen(true);
@@ -370,7 +375,8 @@ export default function XaridTolovPage() {
     if (somVal === 0 && usdVal === 0) return;
     if (num(addKurs) < 11000) return;
     setSaving(true);
-    const { sana, oy, yil, vaqt } = nowStr();
+    const { vaqt } = nowStr();
+    const { sana, oy, yil } = addSana ? isoToParts(addSana) : nowStr();
     const kurs = num(addKurs);
     const isSom = addValyuta === "Som";
     // So'm: Summa = Som + Dollar * Kurs
@@ -448,6 +454,7 @@ export default function XaridTolovPage() {
 
   function openEdit(t: XTolov) {
     setEditTarget(t);
+    setEditSana(sanaToIso(t.Sana));
     setEditValyuta(t.Valyuta === "Dollar" ? "Dollar" : "Som");
     setEditSumma(t.Som || "");
     setEditDollar(t.Dollar || "");
@@ -476,10 +483,11 @@ export default function XaridTolovPage() {
     const summa       = isSom ? String(somVal + usdVal * kurs) : "";
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
     const valyuta     = isSom ? "So'm" : "Dollar";
+    const _sp = editSana ? isoToParts(editSana) : { sana: editTarget.Sana, oy: editTarget.Oy, yil: editTarget.Yil };
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "X_Tolov", idColumn: "X_Tolov_ID", idValue: editTarget.X_Tolov_ID,
-          row: { ...editTarget, Valyuta: valyuta, Turi: editTuri,
+          row: { ...editTarget, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Valyuta: valyuta, Turi: editTuri,
             Som: String(somVal), Dollar: String(usdVal),
             Summa: summa, Summa_dollar: summaDollar,
             Dollar_Kursi: editKurs, Izoh: editIzohV,
@@ -907,6 +915,12 @@ export default function XaridTolovPage() {
               </button>
             </div>
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: isMobile ? undefined : 1, ...modalCenter }}>
+              {/* Sana */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Sana</label>
+                <input type="date" value={editSana} onChange={e => setEditSana(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+              </div>
               {/* Valyuta */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Valyuta</label>
@@ -1056,6 +1070,13 @@ export default function XaridTolovPage() {
                     <span style={{ width: 34, height: 34, borderRadius: 9, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", flexShrink: 0 }}>{KARTA_ICON}</span>
                   </div>
                 )}
+              </div>
+
+              {/* Sana */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Sana</label>
+                <input type="date" value={addSana} onChange={e => setAddSana(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
               </div>
 
               {/* Valyuta */}
