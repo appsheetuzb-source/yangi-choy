@@ -25,6 +25,14 @@ function num(v: string|number|undefined) {
 function fmtUsd(v: number) {
   return "$" + v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function isoToParts(iso: string) {
+  const [y, m, d] = (iso || "").split("-");
+  return { sana: d + "." + m + "." + y, oy: String(parseInt(m || "1")), yil: y || "" };
+}
+function sanaToIso(sana: string) {
+  const mm = (sana || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return mm ? (mm[3] + "-" + mm[2].padStart(2, "0") + "-" + mm[1].padStart(2, "0")) : "";
+}
 
 export default function XaridTolovDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +48,7 @@ export default function XaridTolovDetailPage() {
   const [gaznalar, setGaznalar]     = useState<Gazna[]>([]);
   const [editing, setEditing]       = useState(false);
   const [editValyuta, setEditValyuta] = useState<"Som"|"Dollar">("Som");
+  const [editSana, setEditSana]     = useState("");
   const [editSom, setEditSom]       = useState("");
   const [editDollar, setEditDollar] = useState("");
   const [editKurs, setEditKurs]     = useState("");
@@ -95,6 +104,7 @@ export default function XaridTolovDetailPage() {
   function openEdit() {
     if (!tolov) return;
     setEditValyuta(tolov.Valyuta === "Dollar" ? "Dollar" : "Som");
+    setEditSana(sanaToIso(tolov.Sana));
     setEditSom(tolov.Som || "");
     setEditDollar(tolov.Dollar || "");
     setEditKurs(tolov.Dollar_Kursi || "");
@@ -120,6 +130,7 @@ export default function XaridTolovDetailPage() {
     const isSom = editValyuta === "Som";
     const summa       = isSom ? String(somVal + usdVal * kurs) : "";
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
+    const _sp = editSana ? isoToParts(editSana) : { sana: tolov.Sana, oy: tolov.Oy, yil: tolov.Yil };
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "X_Tolov", idColumn: "X_Tolov_ID", idValue: tolov.X_Tolov_ID,
@@ -128,6 +139,7 @@ export default function XaridTolovDetailPage() {
             Summa: summa, Summa_dollar: summaDollar,
             Dollar_Kursi: editKurs, Izoh: editIzoh,
             Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
+            Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy,
           }
         })
       });
@@ -337,6 +349,12 @@ export default function XaridTolovDetailPage() {
               </button>
             </div>
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+              {/* Sana */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Sana</label>
+                <input type="date" value={editSana} onChange={e => setEditSana(e.target.value)}
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+              </div>
               {/* Valyuta */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Valyuta</label>
