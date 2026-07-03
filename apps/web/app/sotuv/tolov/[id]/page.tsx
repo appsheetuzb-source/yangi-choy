@@ -165,6 +165,55 @@ export default function SotuvTolovDetailPage() {
           }
         })
       });
+
+      // Telegram xabari — Sotuvga to'lov tahrirlandi (real Ostatka + Qoldiq, xom ma'lumotdan:
+      // boshlang'ich balans + jami sotuv − shu to'lovdan boshqa barcha to'lovlar)
+      try {
+        const [sR2, ssR2, sdR2, tR2] = await Promise.all([
+          fetchSheetWhere("Sotuv", "Mijoz_ID", tolov.Mijoz_ID),
+          fetchSheet("Sotuv_Savat"),
+          fetchSheet("Sotuv_Savat_Dollar"),
+          fetchSheetWhere("S_tolov", "Mijoz_ID", tolov.Mijoz_ID),
+        ]);
+        const mRec = (mijozlar.find(m => m.Mijoz_ID === tolov.Mijoz_ID) || {}) as Record<string, string>;
+        const bSom = num(mRec.Boshlangich_Balans_som);
+        const bUsd = num(mRec.Boshlangich_Balans_dollar);
+        const ssm: Record<string, number> = {};
+        ((ssR2.data || []) as Record<string, string>[]).forEach(r => { const k = String(r.Sotuv_ID || "").trim(); if (k) ssm[k] = (ssm[k] || 0) + num(r.Summa_som); });
+        const sdm: Record<string, number> = {};
+        ((sdR2.data || []) as Record<string, string>[]).forEach(r => { const k = String(r.Sotuv_ID || "").trim(); if (k) sdm[k] = (sdm[k] || 0) + num(r.Summa); });
+        let xSom = 0, xUsd = 0;
+        ((sR2.data || []) as Record<string, string>[]).filter(s => String(s.Chek || "").trim() !== "").forEach(s => {
+          const k = String(s.Sotuv_ID || "").trim();
+          xSom += ssm[k] || 0;
+          xUsd += sdm[k] || 0;
+        });
+        const others = ((tR2.data || []) as STolov[]).filter(t => t.Tolov_ID !== tolov.Tolov_ID);
+        const tSom = others.reduce((a, t) => a + (t.Valyuta !== "Dollar" ? num(t.Summa || t.Som) : 0), 0);
+        const tUsd = others.reduce((a, t) => a + (t.Valyuta === "Dollar" ? num(t.Summa_dollar || t.Dollar) : 0), 0);
+        const ostatkaSom    = bSom + xSom - tSom;
+        const ostatkaDollar = bUsd + xUsd - tUsd;
+        const yangiQoldiSom = ostatkaSom - somVal;
+        const yangiQoldiUsd = ostatkaDollar - usdVal;
+        const nS = (v: number) => String(Math.round(v));
+        const nU = (v: number) => String(Math.round(v * 100) / 100);
+        const mName = (mijozlar.find(m => m.Mijoz_ID === tolov.Mijoz_ID)?.Ism) || "—";
+        const msg =
+          `✏️ Sotuvga to'lov tahrirlandi\n\n` +
+          `📅 Sana: ${_sp.sana}\n` +
+          `👤 Mijoz: ${mName}\n` +
+          `📅 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
+          `📅 Ostatka(Dollar): ${nU(ostatkaDollar)}\n` +
+          `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
+          `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
+          `💵 Jami so'm: ${nS(num(summa))}\n` +
+          `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
+          `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n` +
+          `💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` +
+          `📌 Izoh: ${editIzoh && editIzoh.trim() ? editIzoh : "null"}`;
+        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+      } catch {}
+
       afterWrite("S_tolov");
       setEditing(false);
       setTimeout(() => loadData(), 600);

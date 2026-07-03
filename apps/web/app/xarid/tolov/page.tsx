@@ -507,17 +507,34 @@ export default function XaridTolovPage() {
       {
         const nS = (v: number) => String(Math.round(v));
         const nU = (v: number) => String(Math.round(v * 100) / 100);
-        const yangiQoldiSom = taminotchiE ? num(taminotchiE.Qoldi_som) + num(editTarget.Som) - somVal : 0;
-        const yangiQoldiUsd = taminotchiE ? num(taminotchiE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal : 0;
+        // Ostatka = tahrirlashdan oldingi REAL qarz (xom ma'lumotdan: boshlang'ich + jami xarid
+        // − shu to'lovdan boshqa barcha to'lovlar) — Qo'shish xabaridagi tQoldiq bilan bir xil
+        const eBSom = num(taminotchiE?.Boshlangich_som);
+        const eBUsd = num(taminotchiE?.Boshlangich_Balans);
+        const eXSom = xaridlar.filter(x => x.Taminotchi_ID === editTarget.Taminotchi_ID)
+          .reduce((s, x) => s + (savatMap[x.Xarid_ID] || []).reduce((ss, r) => ss + num(r.Summa_Som), 0), 0);
+        const eXUsd = xaridlar.filter(x => x.Taminotchi_ID === editTarget.Taminotchi_ID)
+          .reduce((s, x) => s + (savatMap[x.Xarid_ID] || []).reduce((ss, r) => ss + num(r.Jami_Summa), 0), 0);
+        const eTSom = tolovlar.filter(t => t.Taminotchi_ID === editTarget.Taminotchi_ID && t.X_Tolov_ID !== editTarget.X_Tolov_ID)
+          .reduce((s, t) => s + (t.Valyuta !== "Dollar" ? num(t.Summa || t.Som) : 0), 0);
+        const eTUsd = tolovlar.filter(t => t.Taminotchi_ID === editTarget.Taminotchi_ID && t.X_Tolov_ID !== editTarget.X_Tolov_ID)
+          .reduce((s, t) => s + (t.Valyuta === "Dollar" ? num(t.Summa_dollar || t.Dollar) : 0), 0);
+        const ostatkaSom    = eBSom + eXSom - eTSom;
+        const ostatkaDollar = eBUsd + eXUsd - eTUsd;
+        const yangiQoldiSom = ostatkaSom - somVal;
+        const yangiQoldiUsd = ostatkaDollar - usdVal;
         const tgMsg =
           `✏️ Firmaga to'lov tahrirlandi\n\n` +
           `📅 Sana: ${editTarget.Sana || ""}\n` +
           `👤 Taminotchi: ${taminotchiE?.Ism || "—"}${taminotchiE?.Telefon ? " | " + taminotchiE.Telefon : ""}\n` +
+          `💰 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
+          `💰 Ostatka($): ${nU(ostatkaDollar)}\n` +
           `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
           `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
           `💵 Jami so'm: ${nS(num(summa))}\n` +
           `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
-          (taminotchiE ? `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` : "") +
+          `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n` +
+          `💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` +
           `📝 Izoh: ${editIzohV && editIzohV.trim() ? editIzohV : "null"}`;
         fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
       }
