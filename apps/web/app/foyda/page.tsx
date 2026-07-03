@@ -175,13 +175,13 @@ export default function FoydaPage() {
 
   return (
     <>
-      <header className="header">
-        <div className="header__inner">
-          <div>
+      <header className="header" style={{ height: isMobile ? "auto" : undefined }}>
+        <div className="header__inner" style={{ flexWrap: isMobile ? "wrap" : "nowrap", height: isMobile ? "auto" : undefined, padding: isMobile ? "9px 14px 9px 52px" : undefined, rowGap: isMobile ? 8 : undefined, alignItems: isMobile ? "flex-start" : undefined }}>
+          <div style={{ minWidth: isMobile ? "100%" : undefined }}>
             <h1 className="header__title" style={{ paddingLeft: 4 }}>Foyda</h1>
             <p style={{ fontSize: 12.5, color: "var(--text-3)", paddingLeft: 4, marginTop: 2 }}>Klient va mahsulot bo&apos;yicha foyda</p>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "nowrap", marginLeft: 16 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", rowGap: 8, marginLeft: isMobile ? 0 : 16, width: isMobile ? "100%" : undefined }}>
             {/* Yil — bo'sh bo'lsa kulrang "Yil" placeholder */}
             <select value={yil} onChange={e => setYil(e.target.value)} disabled={!!(dateFrom || dateTo)}
               style={{ width: "auto", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", outline: "none", color: yil ? "var(--text)" : "var(--text-3)", opacity: (dateFrom || dateTo) ? .5 : 1, cursor: (dateFrom || dateTo) ? "not-allowed" : "pointer" }}>

@@ -649,18 +649,34 @@ export default function SotuvTolovPage() {
       {
         const nS = (v: number) => String(Math.round(v));
         const nU = (v: number) => String(Math.round(v * 100) / 100);
-        const qE = balansMap[editTarget.Mijoz_ID];
-        const yangiQoldiSom = qE ? num(qE.Qoldi_som) + num(editTarget.Som) - somVal : 0;
-        const yangiQoldiUsd = qE ? num(qE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal : 0;
+        // Ostatka = tahrirlashdan oldingi REAL qarz (xom ma'lumotdan: boshlang'ich + jami sotuv
+        // − shu to'lovdan boshqa barcha to'lovlar) — Qo'shish xabaridagi mijozQoldi bilan bir xil
+        const em = mijozlar.find(m => m.Mijoz_ID === editTarget.Mijoz_ID);
+        const eBSom = num(em?.Boshlangich_Balans_som);
+        const eBUsd = num(em?.Boshlangich_Balans_dollar);
+        let eXSom = 0, eXUsd = 0;
+        sotuvlar.filter(s => s.Mijoz_ID === editTarget.Mijoz_ID && String(s.Chek || "").trim() !== "").forEach(s => {
+          eXSom += savatSomTot[s.Sotuv_ID] || 0;
+          eXUsd += savatDolTot[s.Sotuv_ID] || 0;
+        });
+        const eTSom = tolovlar.filter(t => t.Mijoz_ID === editTarget.Mijoz_ID && t.Tolov_ID !== editTarget.Tolov_ID).reduce((a, t) => a + (t.Valyuta !== "Dollar" ? num(t.Summa || t.Som) : 0), 0);
+        const eTUsd = tolovlar.filter(t => t.Mijoz_ID === editTarget.Mijoz_ID && t.Tolov_ID !== editTarget.Tolov_ID).reduce((a, t) => a + (t.Valyuta === "Dollar" ? num(t.Summa_dollar || t.Dollar) : 0), 0);
+        const ostatkaSom    = eBSom + eXSom - eTSom;
+        const ostatkaDollar = eBUsd + eXUsd - eTUsd;
+        const yangiQoldiSom = ostatkaSom - somVal;
+        const yangiQoldiUsd = ostatkaDollar - usdVal;
         const msg =
           `✏️ Sotuvga to'lov tahrirlandi\n\n` +
           `📅 Sana: ${editTarget.Sana || ""}\n` +
           `👤 Mijoz: ${mijozNameMap[editTarget.Mijoz_ID] || "—"}\n` +
+          `📅 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
+          `📅 Ostatka(Dollar): ${nU(ostatkaDollar)}\n` +
           `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
           `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
           `💵 Jami so'm: ${nS(num(summa))}\n` +
           `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
-          (qE ? `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` : "") +
+          `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n` +
+          `💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` +
           `📌 Izoh: ${editIzohV && editIzohV.trim() ? editIzohV : "null"}`;
         fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
       }

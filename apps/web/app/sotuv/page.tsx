@@ -52,84 +52,6 @@ function fmtUsd(v: number) {
   return v ? "$" + v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4}) : "—";
 }
 
-// ── Ovozli savat to'ldirish — o'zbekcha matnni qoidalar asosida tahlil (AI'siz) ──
-const UZ_ONES: Record<string, number> = { nol:0, bir:1, ikki:2, uch:3, tort:4, besh:5, olti:6, yetti:7, sakkiz:8, toqqiz:9 };
-const UZ_TENS: Record<string, number> = { on:10, yigirma:20, ottiz:30, qirq:40, ellik:50, oltmish:60, yetmish:70, sakson:80, toqson:90 };
-function voicePrepare(text: string): string {
-  const s = String(text||"").toLowerCase()
-    .replace(/['’ʻ`´]/g, "")
-    .replace(/[.,!?;:()/\\-]/g, " ")
-    .replace(/\bkilogramm\b|\bkilogram\b|\bkilolik\b|\bkilo\b|\bkg\b/g, "kg")
-    .replace(/\bgrammlik\b|\bgramm\b|\bgram\b|\bgr\b/g, "gr")
-    .replace(/\s+/g, " ").trim();
-  const toks = s.split(" ");
-  const out: string[] = [];
-  for (let i = 0; i < toks.length; i++) {
-    const t = toks[i];
-    if (t in UZ_TENS) {
-      let v = UZ_TENS[t];
-      if (i + 1 < toks.length && toks[i+1] in UZ_ONES && UZ_ONES[toks[i+1]] > 0) { v += UZ_ONES[toks[i+1]]; i++; }
-      out.push(String(v));
-    } else if (t in UZ_ONES) {
-      out.push(String(UZ_ONES[t]));
-    } else out.push(t);
-  }
-  return out.join(" ").replace(/(\d)\s+(kg|gr)\b/g, "$1$2");
-}
-function voiceLev(a: string, b: string): number {
-  const m = a.length, n = b.length;
-  if (Math.abs(m - n) > 2) return 99;
-  const d: number[][] = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0) as number[]]);
-  for (let j = 0; j <= n; j++) d[0][j] = j;
-  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
-    const c = a[i - 1] === b[j - 1] ? 0 : 1;
-    d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
-  }
-  return d[m][n];
-}
-function voiceFuzzy(qt: string, mt: string): boolean {
-  if (qt === mt) return true;
-  if (qt.length >= 3 && (qt.includes(mt) || mt.includes(qt))) return true;
-  const lim = mt.length >= 4 ? 2 : 1;
-  return mt.length >= 3 && voiceLev(qt, mt) <= lim;
-}
-function voiceMatchProduct(prepared: string, products: Mahsulot[]): Mahsulot | null {
-  const qTokens = prepared.split(" ").filter(Boolean);
-  const qSet = new Set(qTokens);
-  let best: Mahsulot | null = null, bestScore = -Infinity;
-  for (const m of products) {
-    if (!m.Nomi) continue;
-    const mTokens = voicePrepare(m.Nomi).split(" ").filter(Boolean);
-    if (!mTokens.length) continue;
-    let matched = 0, brandTotal = 0, brandHit = false;
-    for (const mt of mTokens) {
-      const isNum = /\d/.test(mt);
-      if (isNum) {
-        if (qSet.has(mt)) matched += 2;                                   // raqam (gram/kod) — faqat ANIQ moslik
-      } else {
-        brandTotal++;
-        if (qSet.has(mt)) { matched += 1; brandHit = true; }              // aniq so'z mosligi — to'liq ball
-        else if (qTokens.some(qt => !/\d/.test(qt) && voiceFuzzy(qt, mt))) { matched += 0.5; brandHit = true; } // taxminiy — yarim ball
-      }
-    }
-    if (brandTotal > 0 && !brandHit) continue;        // brand (nomi) so'zi mos kelishi shart
-    // Eng ko'p mos kelgan mahsulot tanlanadi (gram noto'g'ri eshitilsa ham brand bo'yicha to'g'ri topadi)
-    if (matched > bestScore) { bestScore = matched; best = m; }
-  }
-  return bestScore >= 1 ? best : null;
-}
-function voiceQty(prepared: string): number {
-  // Soni FAQAT aniq birlik so'zi bilan ("5 dona", "3 ta"...) — gram noto'g'ri eshitilsa son sifatida olinmaydi
-  const m = prepared.match(/(\d+(?:[.,]\d+)?)\s*(dona|ta|tup|blok|quti|qop|halta|pachka|paket|soni)/);
-  return m ? (parseFloat(m[1].replace(",", ".")) || 1) : 1;
-}
-function voiceParse(text: string, products: Mahsulot[]): { product: Mahsulot; qty: number } | null {
-  const prepared = voicePrepare(text);
-  if (!prepared) return null;
-  const product = voiceMatchProduct(prepared, products);
-  if (!product) return null;
-  return { product, qty: voiceQty(prepared) };
-}
 function nowStr() {
   const d=new Date();
   const t=new Date(d.toLocaleString("en-US",{timeZone:"Asia/Tashkent"}));
@@ -427,14 +349,6 @@ export default function SotuvPage() {
   const [addIzoh, setAddIzoh]     = useState("");
   const [addKurs, setAddKurs]     = useState("");
   const [savat, setSavat]         = useState<SavatItem[]>([]);
-  // Ovozli savat to'ldirish (Whisper + Claude)
-  const [voiceOn, setVoiceOn]     = useState(false);   // ovoz yozilmoqda
-  const [voiceBusy, setVoiceBusy] = useState(false);   // server tahlil qilmoqda
-  const [voiceMsg, setVoiceMsg]   = useState("");
-  const [voiceText, setVoiceText] = useState("");
-  const [voiceCur, setVoiceCur]   = useState<"som" | "dollar">("som"); // qaysi savatga
-  const mediaRecRef = useRef<MediaRecorder | null>(null);
-  const voiceChunksRef = useRef<Blob[]>([]);
   const sana = nowStr().sana;
 
   // Edit modal
@@ -546,111 +460,6 @@ export default function SotuvPage() {
 
   useEffect(()=>{loadData();},[loadData]);
 
-  // ── Ovozli savat ──
-  function addVoiceItem(product: Mahsulot, qty: number, currency: "som" | "dollar") {
-    const isSom = currency === "som";
-    const item: SavatItem = {
-      id: uid(), Mahsulot_ID: product.Mahsulot_ID, Soni: String(qty),
-      Som_Narx: isSom ? (product.Sotuv_som || "") : "",
-      Narx: isSom ? "" : (product.Sotuv_dollar || ""),
-      valyuta: isSom ? "som" : "dollar", Check: "TRUE",
-    };
-    setSavat(prev => {
-      const idx = prev.findIndex(r => r.valyuta === item.valyuta && !r.Mahsulot_ID && !r.Soni);
-      if (idx >= 0) { const cp = [...prev]; cp[idx] = item; return cp; }
-      return [...prev, item];
-    });
-  }
-  function handleVoiceText(txt: string) {
-    const res = voiceParse(txt, mahsulotlar);
-    if (!res) { setVoiceMsg(`🔎 "${txt}" — mahsulot topilmadi, qayta urinib ko'ring`); return; }
-    addVoiceItem(res.product, res.qty, "som");
-    setVoiceMsg(`✅ ${res.product.Nomi} × ${res.qty}  ("${txt}")`);
-  }
-  // Yozilgan audioni serverga (Whisper + GPT) yuborib, mahsulot(lar)ni topadi
-  async function sendVoiceBlob(blob: Blob, currency: "som" | "dollar") {
-    setVoiceBusy(true);
-    setVoiceMsg("⏳ Tahlil qilinyapti...");
-    try {
-      const fd = new FormData();
-      fd.append("audio", blob, "audio.webm");
-      fd.append("products", JSON.stringify(mahsulotlar.map(m => ({ id: m.Mahsulot_ID, n: m.Nomi }))));
-      const r = await fetch("/api/voice", { method: "POST", body: fd });
-      const j = await r.json().catch(() => ({} as Record<string, unknown>));
-      const trans = String(j.transcription || "");
-      const said = trans ? `  ("${trans}")` : "";
-      const items = Array.isArray(j.items) ? (j.items as Array<{ Mahsulot_ID?: string; soni?: number | string; ishonch?: string }>) : [];
-      // Topilgan barcha mahsulotni savatga qo'shish
-      const added: string[] = [];
-      for (const it of items) {
-        const id = String(it?.Mahsulot_ID || "");
-        const product = id ? mMap[id] : null;
-        if (!product) continue;
-        const qty = num(it?.soni) || 1;
-        addVoiceItem(product, qty, currency);
-        added.push(`${product.Nomi} ×${qty}${it?.ishonch === "past" ? "⚠️" : ""}`);
-      }
-      if (added.length > 0) {
-        const notFound = items.length - added.length;
-        setVoiceMsg(`✅ ${added.length} ta qo'shildi (${currency === "dollar" ? "dollar" : "so'm"}): ${added.join(", ")}${notFound > 0 ? ` · ${notFound} ta topilmadi` : ""}${said}`);
-        return;
-      }
-      // Hech narsa topilmadi — transkripsiya bo'lsa lokal (bitta) moslashga urinish
-      if (trans) {
-        const local = voiceParse(trans, mahsulotlar);
-        if (local) {
-          addVoiceItem(local.product, local.qty, currency);
-          setVoiceMsg(`✅ ${local.product.Nomi} × ${local.qty}${said}`);
-          return;
-        }
-      }
-      setVoiceMsg(j.error ? `⚠️ ${j.error}${said}` : `🔎 Mahsulot topilmadi${said} — qayta urinib ko'ring`);
-    } catch {
-      setVoiceMsg("⚠️ Server bilan bog'lanib bo'lmadi — pastga yozib qo'shing");
-    } finally {
-      setVoiceBusy(false);
-    }
-  }
-
-  async function startVoice(currency: "som" | "dollar") {
-    if (voiceBusy) return;
-    // Yozish ketyapti — to'xtatib, serverga yuborish (onstop ichida)
-    if (voiceOn) { try { mediaRecRef.current?.stop(); } catch {} return; }
-    setVoiceCur(currency);
-    // Mikrofon faqat xavfsiz kontekstda (HTTPS yoki localhost) ishlaydi — LAN IP (http) da emas
-    if (typeof window !== "undefined" && !window.isSecureContext) {
-      setVoiceMsg("🎤 Mikrofon faqat HTTPS yoki localhost'da ishlaydi. musaffotea.uz da sinang — yoki pastga yozib qo'shing.");
-      return;
-    }
-    let stream: MediaStream;
-    try {
-      // Tozaroq ovoz → STT aniqroq: shovqin bostirish, exo bekor, avto-balans
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      });
-    }
-    catch { setVoiceMsg("Mikrofonga ruxsat berilmadi — brauzer manzili yonidagi 🔒 dan mikrofonni yoqing"); return; }
-    const canRec = typeof MediaRecorder !== "undefined";
-    const mime = canRec && MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm"
-      : canRec && MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
-    let rec: MediaRecorder;
-    try { rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
-    catch { setVoiceMsg("Bu brauzer ovoz yozishni qo'llab-quvvatlamaydi — pastga yozib qo'shing"); stream.getTracks().forEach(t => t.stop()); return; }
-    voiceChunksRef.current = [];
-    rec.ondataavailable = (e) => { if (e.data && e.data.size) voiceChunksRef.current.push(e.data); };
-    rec.onstop = async () => {
-      stream.getTracks().forEach(t => t.stop());
-      setVoiceOn(false);
-      const blob = new Blob(voiceChunksRef.current, { type: mime || "audio/webm" });
-      if (blob.size < 1200) { setVoiceMsg("Ovoz juda qisqa — tugmani bosib mahsulotni ayting, so'ng yana bosing"); return; }
-      await sendVoiceBlob(blob, currency);
-    };
-    mediaRecRef.current = rec;
-    setVoiceMsg("🎙 Yozyapman... mahsulot(lar)ni, gram va sonini ayting — bir nechta bo'lsa ketma-ket (masalan: Rizq 71 400 gramm 10 dona, Mumtoz 72 400 gramm 10 dona) — so'ng tugmani yana bosing");
-    setVoiceOn(true);
-    try { rec.start(); } catch { setVoiceMsg("Ovoz yozib bo'lmadi"); setVoiceOn(false); stream.getTracks().forEach(t => t.stop()); }
-  }
-
   function addSomItem() {
     setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
   }
@@ -697,7 +506,6 @@ export default function SotuvPage() {
     setAddMijoz(""); setAddAgent(user?.id || agentlar[0]?.Foydalanuvchi_ID || "");
     setAddIzoh(""); setAddKurs(defaultKurs);
     setSavat([{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
-    setVoiceMsg(""); setVoiceText(""); setVoiceOn(false);
     setAddOpen(true);
   }
 
@@ -1500,30 +1308,6 @@ export default function SotuvPage() {
               )}
 
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                {/* Ovozli savat to'ldirish */}
-                <div style={{marginBottom:14,padding:"12px 14px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:"var(--radius-xl)"}}>
-                  <div style={{display:"flex",gap:8,marginBottom:8}}>
-                    <button type="button" onClick={()=>startVoice("som")} disabled={voiceBusy||(voiceOn&&voiceCur!=="som")}
-                      style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"10px 10px",borderRadius:"var(--radius)",border:"none",background:(voiceOn||voiceBusy)&&voiceCur==="som"?(voiceBusy?"#94a3b8":"#ef4444"):"#16a34a",color:"#fff",cursor:voiceBusy?"default":"pointer",fontSize:13,fontWeight:700,opacity:voiceOn&&voiceCur!=="som"?0.5:1}}>
-                      <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
-                      {(voiceOn||voiceBusy)&&voiceCur==="som"?(voiceBusy?"⏳ Tahlil...":"⏹ To'xtatish"):"So'm ovoz"}
-                    </button>
-                    <button type="button" onClick={()=>startVoice("dollar")} disabled={voiceBusy||(voiceOn&&voiceCur!=="dollar")}
-                      style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6,padding:"10px 10px",borderRadius:"var(--radius)",border:"none",background:(voiceOn||voiceBusy)&&voiceCur==="dollar"?(voiceBusy?"#94a3b8":"#ef4444"):"#2563eb",color:"#fff",cursor:voiceBusy?"default":"pointer",fontSize:13,fontWeight:700,opacity:voiceOn&&voiceCur!=="dollar"?0.5:1}}>
-                      <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-14 0m7 7v4m-4 0h8M12 1a3 3 0 00-3 3v7a3 3 0 006 0V4a3 3 0 00-3-3z"/></svg>
-                      {(voiceOn||voiceBusy)&&voiceCur==="dollar"?(voiceBusy?"⏳ Tahlil...":"⏹ To'xtatish"):"Dollar ovoz"}
-                    </button>
-                  </div>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <input value={voiceText} onChange={e=>setVoiceText(e.target.value)}
-                      onKeyDown={e=>{if(e.key==="Enter"&&voiceText.trim()){handleVoiceText(voiceText.trim());setVoiceText("");}}}
-                      placeholder="yoki yozing: Rizq 71 1kg 5 dona"
-                      style={{flex:1,minWidth:140,padding:"9px 12px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,outline:"none",background:"#fff"}}/>
-                    <button type="button" onClick={()=>{if(voiceText.trim()){handleVoiceText(voiceText.trim());setVoiceText("");}}}
-                      style={{padding:"9px 14px",borderRadius:"var(--radius)",border:"1px solid #16a34a",background:"#fff",color:"#16a34a",cursor:"pointer",fontSize:13,fontWeight:700,flexShrink:0}}>Qo&apos;shish</button>
-                  </div>
-                  {voiceMsg && <p style={{margin:"8px 2px 0",fontSize:12,fontWeight:600,color:"var(--text-2)"}}>{voiceMsg}</p>}
-                </div>
                 <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
               </div>
               <div>
