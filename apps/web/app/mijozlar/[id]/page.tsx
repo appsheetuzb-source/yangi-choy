@@ -546,8 +546,9 @@ export default function MijozDetailPage() {
     </div>
   );
 
-  const COLS_S  = "40px 100px 80px 1fr 1fr 120px";
-  const COLS_T  = "26px 70px 48px 1fr 1fr 1fr 1fr 88px 96px";
+  // № sana ustiga stack qilingan (1-ustun), qolganlar orasi columnGap bilan ochiq
+  const COLS_S  = "96px 84px 1fr 1fr 72px";
+  const COLS_T  = "84px 58px 1fr 1fr 1fr 1fr 92px 64px";
 
   const statPad: React.CSSProperties = isMobile ? { padding: "14px 16px" } : { padding: "20px 24px" };
   const statCard: React.CSSProperties = { background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", ...statPad };
@@ -761,9 +762,9 @@ export default function MijozDetailPage() {
               })}
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 540 }}>
-              <div style={{ display: "grid", gridTemplateColumns: COLS_S, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#", "SANA", "RAQAM", "SUMMA (SO'M)", "SUMMA ($)", "AKT"].map(h => (
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 520 }}>
+              <div style={{ display: "grid", gridTemplateColumns: COLS_S, columnGap: 14, padding: "10px 16px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+                {["SANA", "RAQAM", "SUMMA (SO'M)", "SUMMA ($)", "AKT"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
@@ -776,11 +777,13 @@ export default function MijozDetailPage() {
                 const tc = isTasdiqlandi ? "#14532d" : "#713f12";
                 return (
                   <div key={s.Sotuv_ID} onClick={() => router.push(`/sotuv/${s.Sotuv_ID}`)}
-                    style={{ display: "grid", gridTemplateColumns: COLS_S, padding: "12px 20px", alignItems: "center", borderBottom: i < fSotuv.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isTasdiqlandi ? "#86efac" : "#fde047" }}
+                    style={{ display: "grid", gridTemplateColumns: COLS_S, columnGap: 14, padding: "14px 16px", alignItems: "center", borderBottom: i < fSotuv.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isTasdiqlandi ? "#86efac" : "#fde047" }}
                     onMouseEnter={e => (e.currentTarget.style.background = isTasdiqlandi ? "#4ade80" : "#facc15")}
                     onMouseLeave={e => (e.currentTarget.style.background = isTasdiqlandi ? "#86efac" : "#fde047")}>
-                    <span style={{ fontSize: 11, color: tc, fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: tc }}>{s.Sana || "—"}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ fontSize: 10, color: tc, fontWeight: 700, opacity: .65 }}>№{i + 1}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: tc }}>{s.Sana || "—"}</span>
+                    </div>
                     <span style={{ fontSize: 12, fontWeight: 800, color: tc, background: "rgba(255,255,255,.55)", padding: "2px 8px", borderRadius: 6, display: "inline-block" }}>
                       {s.Sotuv_Raqami ? `#${s.Sotuv_Raqami}` : "—"}
                     </span>
@@ -861,9 +864,9 @@ export default function MijozDetailPage() {
               })}
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 600 }}>
-              <div style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#", "SANA", "TURI", "SO'M", "DOLLAR", "JAMI (SO'M)", "JAMI ($)", "AKT", "IZOH"].map(h => (
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 680 }}>
+              <div style={{ display: "grid", gridTemplateColumns: COLS_T, columnGap: 12, padding: "10px 16px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+                {["SANA", "TURI", "SO'M", "DOLLAR", "JAMI (SO'M)", "JAMI ($)", "AKT", "IZOH"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
@@ -876,11 +879,13 @@ export default function MijozDetailPage() {
                 const tc = isHa ? "#14532d" : "#7f1d1d";
                 return (
                   <div key={t.Tolov_ID || i} onClick={() => router.push(`/sotuv/tolov/${t.Tolov_ID}`)}
-                    style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "12px 20px", alignItems: "center", borderBottom: i < fTolov.length - 1 ? "1px solid var(--border)" : "none", background: isHa ? "#86efac" : "#fca5a5", cursor: "pointer" }}
+                    style={{ display: "grid", gridTemplateColumns: COLS_T, columnGap: 12, padding: "14px 16px", alignItems: "center", borderBottom: i < fTolov.length - 1 ? "1px solid var(--border)" : "none", background: isHa ? "#86efac" : "#fca5a5", cursor: "pointer" }}
                     onMouseEnter={e => (e.currentTarget.style.background = isHa ? "#4ade80" : "#f87171")}
                     onMouseLeave={e => (e.currentTarget.style.background = isHa ? "#86efac" : "#fca5a5")}>
-                    <span style={{ fontSize: 11, color: tc, fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: tc }}>{t.Sana || "—"}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                      <span style={{ fontSize: 10, color: tc, fontWeight: 700, opacity: .65 }}>№{i + 1}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: tc }}>{t.Sana || "—"}</span>
+                    </div>
                     <span style={{ fontSize: 11, background: t.Turi ? "rgba(255,255,255,.55)" : "transparent", padding: t.Turi ? "2px 6px" : 0, borderRadius: 10, fontWeight: 700, color: tc, display: "inline-block" }}>
                       {t.Turi || "—"}
                     </span>
