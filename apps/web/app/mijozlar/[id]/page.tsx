@@ -546,9 +546,10 @@ export default function MijozDetailPage() {
     </div>
   );
 
-  // № sana ustiga stack qilingan (1-ustun), qolganlar orasi columnGap bilan ochiq
-  const COLS_S  = "96px 84px 1fr 1fr 72px";
-  const COLS_T  = "84px 58px 1fr 1fr 1fr 1fr 92px 64px";
+  // № sana ustiga stack qilingan (1-ustun), qolganlar orasi columnGap bilan ochiq.
+  // Jadvallar to'liq enda — IZOH keng ulush oladi va to'liq ko'rinadi.
+  const COLS_S  = "110px 110px 1fr 1fr 90px";
+  const COLS_T  = "90px 70px 1fr 1fr 1fr 1fr 104px 1.6fr";
 
   const statPad: React.CSSProperties = isMobile ? { padding: "14px 16px" } : { padding: "20px 24px" };
   const statCard: React.CSSProperties = { background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", ...statPad };
@@ -718,8 +719,8 @@ export default function MijozDetailPage() {
           {qActive && <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", marginLeft: "auto" }}>{fSotuv.length} sotuv · {fTolov.length} to&apos;lov</span>}
         </div>
 
-        {/* Sotuvlar va To'lovlar — yonma-yon */}
-        <div style={{ display: isMobile ? "block" : "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
+        {/* Sotuvlar va To'lovlar — to'liq enda, ustma-ust (jadvallar zichlashmasin, IZOH to'liq ko'rinsin) */}
+        <div style={{ display: isMobile ? "block" : "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 18, alignItems: "start" }}>
 
         {/* ── Sotuvlar ── */}
         <div ref={sotuvRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "sotuv" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", marginBottom: isMobile ? 16 : 0, transition: "box-shadow .25s", scrollMarginTop: 80 }}>
@@ -907,7 +908,7 @@ export default function MijozDetailPage() {
                         );
                       })}
                     </div>
-                    <span title={t.Izoh || ""} style={{ fontSize: 12, color: tc, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.Izoh || "—"}</span>
+                    <span title={t.Izoh || ""} style={{ fontSize: 12, color: tc, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.3 }}>{t.Izoh || "—"}</span>
                   </div>
                 );
               })}
