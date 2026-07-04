@@ -547,9 +547,9 @@ export default function MijozDetailPage() {
   );
 
   // № sana ustiga stack qilingan (1-ustun), qolganlar orasi columnGap bilan ochiq.
-  // Jadvallar to'liq enda — IZOH keng ulush oladi va to'liq ko'rinadi.
-  const COLS_S  = "110px 110px 1fr 1fr 90px";
-  const COLS_T  = "90px 70px 1fr 1fr 1fr 1fr 104px 1.6fr";
+  // IZOH kengroq va o'ralib to'liq ko'rinadi (kesilmaydi).
+  const COLS_S  = "96px 84px 1fr 1fr 72px";
+  const COLS_T  = "82px 54px 1fr 1fr 1fr 1fr 88px 1.3fr";
 
   const statPad: React.CSSProperties = isMobile ? { padding: "14px 16px" } : { padding: "20px 24px" };
   const statCard: React.CSSProperties = { background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", ...statPad };
@@ -719,8 +719,8 @@ export default function MijozDetailPage() {
           {qActive && <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-3)", marginLeft: "auto" }}>{fSotuv.length} sotuv · {fTolov.length} to&apos;lov</span>}
         </div>
 
-        {/* Sotuvlar va To'lovlar — to'liq enda, ustma-ust (jadvallar zichlashmasin, IZOH to'liq ko'rinsin) */}
-        <div style={{ display: isMobile ? "block" : "grid", gridTemplateColumns: "minmax(0,1fr)", gap: 18, alignItems: "start" }}>
+        {/* Sotuvlar va To'lovlar — yonma-yon */}
+        <div style={{ display: isMobile ? "block" : "grid", gridTemplateColumns: "1fr 1fr", gap: 18, alignItems: "start" }}>
 
         {/* ── Sotuvlar ── */}
         <div ref={sotuvRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "sotuv" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", marginBottom: isMobile ? 16 : 0, transition: "box-shadow .25s", scrollMarginTop: 80 }}>
