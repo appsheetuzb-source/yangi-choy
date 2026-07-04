@@ -61,8 +61,9 @@ function nowStr() {
   return { sana:`${dd}.${mm}.${yy}`, oy:String(t.getMonth()+1), yil:yy, vaqt:`${hh}:${mi}:${ss}` };
 }
 
-function SearchSelect({ items, value, onChange, placeholder, borderColor, compact }: {
+function SearchSelect({ items, value, onChange, placeholder, borderColor, compact, onAddNew, addLabel }: {
   items:{id:string;label:string}[]; value:string; onChange:(id:string)=>void; placeholder?:string; borderColor?:string; compact?:boolean;
+  onAddNew?:(query:string)=>void; addLabel?:string;
 }) {
   const [q,setQ]=useState(""); const [open,setOpen]=useState(false); const ref=useRef<HTMLDivElement>(null);
   const [pos,setPos]=useState<{left:number;width:number;top?:number;bottom?:number;listMaxH:number}|null>(null);
@@ -116,6 +117,15 @@ function SearchSelect({ items, value, onChange, placeholder, borderColor, compac
                 </div>
               ))}
           </div>
+          {onAddNew&&(
+            <div onClick={()=>{ const query=q.trim(); onAddNew(query); setOpen(false); setQ(""); }}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"11px 14px",fontSize:13,fontWeight:700,color:"var(--primary)",cursor:"pointer",borderTop:"1px solid var(--border)",background:"var(--bg)"}}
+              onMouseEnter={e=>(e.currentTarget.style.background="#e6f4ea")}
+              onMouseLeave={e=>(e.currentTarget.style.background="var(--bg)")}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              {q.trim()?`"${q.trim()}" — ${addLabel||"Yangi qo'shish"}`:(addLabel||"Yangi qo'shish")}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -351,6 +361,13 @@ export default function SotuvPage() {
   const [savat, setSavat]         = useState<SavatItem[]>([]);
   const sana = nowStr().sana;
 
+  // Sotuv formasidan to'g'ridan-to'g'ri yangi mijoz qo'shish (mijoz dropdown ichidan)
+  const [newMijozOpen, setNewMijozOpen]     = useState(false);
+  const [newMijozIsm, setNewMijozIsm]       = useState("");
+  const [newMijozTel, setNewMijozTel]       = useState("");
+  const [newMijozValyuta, setNewMijozValyuta] = useState("So'm");
+  const [newMijozSaving, setNewMijozSaving] = useState(false);
+
   // Edit modal
   const [detailSotuv, setDetailSotuv]   = useState<Sotuv|null>(null);
   const [editMijoz, setEditMijoz]       = useState("");
@@ -362,7 +379,7 @@ export default function SotuvPage() {
   const izohOpts = useIzohOptions("Sotuv");
 
   const [deleteTarget, setDeleteTarget] = useState<Sotuv|null>(null);
-  useScrollLock(addOpen || !!detailSotuv || !!deleteTarget);
+  useScrollLock(addOpen || !!detailSotuv || !!deleteTarget || newMijozOpen);
   const [deleting, setDeleting]         = useState(false);
   const [checkSaving, setCheckSaving]   = useState("");
   const [tasdiqSaving, setTasdiqSaving] = useState("");
@@ -602,6 +619,38 @@ export default function SotuvPage() {
     } catch(e) {
       alert("Saqlashda xatolik: "+(e instanceof Error?e.message:"noma'lum")+". Internet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setSaving(false); }
+  }
+
+  // Mijoz dropdownidan "Yangi mijoz" bosilganda — kichik oyna ochiladi, qidiruv matni ism sifatida oldindan to'ldiriladi
+  function openNewMijoz(query:string) {
+    setNewMijozIsm(query||"");
+    setNewMijozTel("");
+    setNewMijozValyuta("So'm");
+    setNewMijozOpen(true);
+  }
+
+  async function handleAddNewMijoz() {
+    const ism=newMijozIsm.trim();
+    if(!ism||newMijozSaving) return;
+    // Yangi mijoz shu sotuvdagi agentga biriktiriladi (aks holda filtrlangan ro'yxatda ko'rinmaydi)
+    const agent = addAgent || user?.id || "";
+    setNewMijozSaving(true);
+    const id=uid();
+    try {
+      const res=await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({sheet:"Mijozlar",row:{
+          Mijoz_ID:id, Ism:ism, Telefon:newMijozTel.trim(), Valyuta:newMijozValyuta, Agent:agent,
+          Boshlangich_Balans_som:"", Boshlangich_Balans_dollar:"",
+        }})});
+      if(!res.ok) throw new Error("Mijoz saqlanmadi");
+      // Lokal ro'yxatga darhol qo'shiladi va tanlanadi (reload kutmasdan)
+      setMijozlar(prev=>[...prev,{Mijoz_ID:id,Ism:ism,Telefon:newMijozTel.trim(),Agent:agent,Boshlangich_Balans_som:"",Boshlangich_Balans_dollar:""}]);
+      afterWrite("Mijozlar");
+      setAddMijoz(id);
+      setNewMijozOpen(false);
+    } catch(e) {
+      alert("Mijoz qo'shishda xatolik: "+(e instanceof Error?e.message:"noma'lum")+". Qayta urinib ko'ring.");
+    } finally { setNewMijozSaving(false); }
   }
 
   function openEdit(s:Sotuv) {
@@ -1245,7 +1294,7 @@ export default function SotuvPage() {
               )}
               {!isMobile && (
                 <div style={{width:240,flexShrink:1,minWidth:0}}>
-                  <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz" borderColor={!addMijoz?"#ef4444":undefined}/>
+                  <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz" borderColor={!addMijoz?"#ef4444":undefined} onAddNew={openNewMijoz} addLabel="Yangi mijoz qo'shish"/>
                   {addMijoz && addMijozEski && (
                     <div style={{display:"flex",gap:8,alignItems:"center",marginTop:4,flexWrap:"wrap"}}>
                       <span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em"}}>QOLDIQ:</span>
@@ -1291,7 +1340,7 @@ export default function SotuvPage() {
                       </span>
                     )}
                   </div>
-                  <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz tanlang..." borderColor={!addMijoz?"#ef4444":undefined}/>
+                  <SearchSelect items={mJItems} value={addMijoz} onChange={setAddMijoz} placeholder="Mijoz tanlang..." borderColor={!addMijoz?"#ef4444":undefined} onAddNew={openNewMijoz} addLabel="Yangi mijoz qo'shish"/>
                 </div>
               </div>
               )}
@@ -1321,6 +1370,53 @@ export default function SotuvPage() {
               <button className="btn btn--primary" style={{flex:2}} onClick={handleSave}
                 disabled={saving||!addMijoz||!addAgent||savat.some(s=>isBelowCost(s,addKurs,mMap))||(!!addMijoz&&!balansReady)}>
                 {saving&&<span className="spinner"/>} {addMijoz&&!balansReady?"Balans yuklanmoqda…":"Saqlash"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Yangi mijoz (Sotuv formasidan to'g'ridan-to'g'ri) ── */}
+      {newMijozOpen&&(
+        <div style={{position:"fixed",inset:0,zIndex:1100,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20}}
+          onClick={()=>{ if(!newMijozSaving) setNewMijozOpen(false); }}>
+          <div onClick={e=>e.stopPropagation()}
+            style={{background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":420,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"90dvh":"85vh"}}>
+            {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
+              <h2 style={{fontSize:16,fontWeight:800}}>Yangi mijoz</h2>
+              <button onClick={()=>setNewMijozOpen(false)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:14,overflowY:"auto"}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Ism *</label>
+                <input value={newMijozIsm} onChange={e=>setNewMijozIsm(e.target.value)} placeholder="Mijoz nomi" autoFocus
+                  onKeyDown={e=>{ if(e.key==="Enter") handleAddNewMijoz(); }}
+                  style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Telefon</label>
+                <input value={newMijozTel} onChange={e=>setNewMijozTel(e.target.value)} placeholder="+998 __ ___ __ __" inputMode="tel"
+                  style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:8}}>Valyuta</label>
+                <div style={{display:"flex",gap:8}}>
+                  {["So'm","Dollar","Dollar , So'm"].map(v=>(
+                    <button key={v} onClick={()=>setNewMijozValyuta(v)}
+                      style={{flex:1,padding:"9px 4px",borderRadius:"var(--radius)",border:`1.5px solid ${newMijozValyuta===v?"var(--primary)":"var(--border)"}`,background:newMijozValyuta===v?"#f0fdf4":"var(--white)",fontSize:11,fontWeight:700,cursor:"pointer",color:newMijozValyuta===v?"var(--primary)":"var(--text-2)"}}>
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
+              <button className="btn btn--outline" style={{flex:1}} onClick={()=>setNewMijozOpen(false)}>Bekor</button>
+              <button className="btn btn--primary" style={{flex:2}} onClick={handleAddNewMijoz} disabled={newMijozSaving||!newMijozIsm.trim()}>
+                {newMijozSaving&&<span className="spinner"/>} Qo&apos;shish
               </button>
             </div>
           </div>

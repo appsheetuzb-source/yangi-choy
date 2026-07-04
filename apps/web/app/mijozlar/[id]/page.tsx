@@ -357,7 +357,7 @@ export default function MijozDetailPage() {
   );
 
   const COLS_S  = "40px 100px 80px 1fr 1fr 120px";
-  const COLS_T  = "26px 70px 48px 1fr 1fr 1fr 88px 96px";
+  const COLS_T  = "26px 70px 48px 1fr 1fr 1fr 1fr 88px 96px";
 
   const statPad: React.CSSProperties = isMobile ? { padding: "14px 16px" } : { padding: "20px 24px" };
   const statCard: React.CSSProperties = { background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", ...statPad };
@@ -621,6 +621,7 @@ export default function MijozDetailPage() {
                 const somVal  = num(t.Som);
                 const usdVal  = num(t.Dollar);
                 const jamiSom = num(t.Summa);
+                const jamiDollar = num(t.Summa_dollar);
                 const isHa    = t.Check === "True" || t.Check === "true";
                 // Find matching sotuv raqam
                 const matchSotuv = t.Sotuv_ID ? sotuvlar.find(s => s.Sotuv_ID === t.Sotuv_ID) : null;
@@ -657,6 +658,7 @@ export default function MijozDetailPage() {
                       <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? fmtSom(somVal) : "0 so'm"}</span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
                       {jamiSom !== 0 && <span style={{ fontSize: 12, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{fmtSom(jamiSom)}</span>}
+                      {jamiDollar !== 0 && <span style={{ fontSize: 12, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{fmtUsd(jamiDollar)}</span>}
                     </div>
                     {t.Izoh && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{t.Izoh}</p>}
                   </div>
@@ -664,9 +666,9 @@ export default function MijozDetailPage() {
               })}
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 520 }}>
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 600 }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#", "SANA", "TURI", "SO'M", "DOLLAR", "JAMI (SO'M)", "AKT", "IZOH"].map(h => (
+                {["#", "SANA", "TURI", "SO'M", "DOLLAR", "JAMI (SO'M)", "JAMI ($)", "AKT", "IZOH"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
@@ -674,6 +676,7 @@ export default function MijozDetailPage() {
                 const somVal  = num(t.Som);
                 const usdVal  = num(t.Dollar);
                 const jamiSom = num(t.Summa);
+                const jamiDollar = num(t.Summa_dollar);
                 const isHa    = t.Check === "True" || t.Check === "true";
                 const tc = isHa ? "#14532d" : "#7f1d1d";
                 return (
@@ -689,6 +692,7 @@ export default function MijozDetailPage() {
                     <span style={{ fontSize: 12, fontWeight: 700, color: tc }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tc }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tc }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tc }}>{jamiDollar !== 0 ? fmtUsd(jamiDollar) : "$0,00"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                       {(["True", "False"] as const).map(val => {
                         const isActive = val === "True" ? isHa : !isHa;
