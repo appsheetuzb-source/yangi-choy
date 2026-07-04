@@ -362,10 +362,14 @@ export default function SotuvPage() {
   const sana = nowStr().sana;
 
   // Sotuv formasidan to'g'ridan-to'g'ri yangi mijoz qo'shish (mijoz dropdown ichidan)
+  // Maydonlar Klientlar sahifasidagi to'liq forma bilan bir xil
   const [newMijozOpen, setNewMijozOpen]     = useState(false);
   const [newMijozIsm, setNewMijozIsm]       = useState("");
   const [newMijozTel, setNewMijozTel]       = useState("");
   const [newMijozValyuta, setNewMijozValyuta] = useState("So'm");
+  const [newMijozAgent, setNewMijozAgent]   = useState("");
+  const [newMijozBoshSom, setNewMijozBoshSom]       = useState("");
+  const [newMijozBoshDollar, setNewMijozBoshDollar] = useState("");
   const [newMijozSaving, setNewMijozSaving] = useState(false);
 
   // Edit modal
@@ -621,31 +625,38 @@ export default function SotuvPage() {
     } finally { setSaving(false); }
   }
 
-  // Mijoz dropdownidan "Yangi mijoz" bosilganda — kichik oyna ochiladi, qidiruv matni ism sifatida oldindan to'ldiriladi
+  // Mijoz dropdownidan "Yangi mijoz" bosilganda — oyna ochiladi, qidiruv matni ism sifatida oldindan to'ldiriladi
   function openNewMijoz(query:string) {
     setNewMijozIsm(query||"");
     setNewMijozTel("");
     setNewMijozValyuta("So'm");
+    // Agent — sotuvdagi tanlangan agent (yo'q bo'lsa joriy foydalanuvchi) oldindan tanlanadi
+    setNewMijozAgent(addAgent || user?.id || "");
+    setNewMijozBoshSom("");
+    setNewMijozBoshDollar("");
     setNewMijozOpen(true);
   }
 
   async function handleAddNewMijoz() {
     const ism=newMijozIsm.trim();
     if(!ism||newMijozSaving) return;
-    // Yangi mijoz shu sotuvdagi agentga biriktiriladi (aks holda filtrlangan ro'yxatda ko'rinmaydi)
-    const agent = addAgent || user?.id || "";
+    const agent = newMijozAgent || addAgent || user?.id || "";
+    const boshSom = newMijozBoshSom.trim();
+    const boshDollar = newMijozBoshDollar.trim();
     setNewMijozSaving(true);
     const id=uid();
     try {
       const res=await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Mijozlar",row:{
           Mijoz_ID:id, Ism:ism, Telefon:newMijozTel.trim(), Valyuta:newMijozValyuta, Agent:agent,
-          Boshlangich_Balans_som:"", Boshlangich_Balans_dollar:"",
+          Boshlangich_Balans_som:boshSom, Boshlangich_Balans_dollar:boshDollar,
         }})});
       if(!res.ok) throw new Error("Mijoz saqlanmadi");
-      // Lokal ro'yxatga darhol qo'shiladi va tanlanadi (reload kutmasdan)
-      setMijozlar(prev=>[...prev,{Mijoz_ID:id,Ism:ism,Telefon:newMijozTel.trim(),Agent:agent,Boshlangich_Balans_som:"",Boshlangich_Balans_dollar:""}]);
+      // Lokal ro'yxatga darhol qo'shiladi (reload kutmasdan)
+      setMijozlar(prev=>[...prev,{Mijoz_ID:id,Ism:ism,Telefon:newMijozTel.trim(),Agent:agent,Boshlangich_Balans_som:boshSom,Boshlangich_Balans_dollar:boshDollar}]);
       afterWrite("Mijozlar");
+      // Boshqa agent tanlangan bo'lsa — sotuv agentini ham moslab, mijoz dropdownda ko'rinishini ta'minlaymiz
+      if(agent && agent!==addAgent) setAddAgent(agent);
       setAddMijoz(id);
       setNewMijozOpen(false);
     } catch(e) {
@@ -1381,28 +1392,33 @@ export default function SotuvPage() {
         <div style={{position:"fixed",inset:0,zIndex:1100,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20}}
           onClick={()=>{ if(!newMijozSaving) setNewMijozOpen(false); }}>
           <div onClick={e=>e.stopPropagation()}
-            style={{background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":420,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"90dvh":"85vh"}}>
+            style={{background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":440,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"88vh"}}>
             {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
-              <h2 style={{fontSize:16,fontWeight:800}}>Yangi mijoz</h2>
-              <button onClick={()=>setNewMijozOpen(false)} style={{width:32,height:32,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+            <div style={{display:"flex",alignItems:"center",gap:12,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
+              <button onClick={()=>setNewMijozOpen(false)} style={{width:36,height:36,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,color:"var(--text-2)"}}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
+              <h2 style={{fontSize:16,fontWeight:800}}>Yangi mijoz</h2>
             </div>
-            <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:14,overflowY:"auto"}}>
-              <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Ism *</label>
-                <input value={newMijozIsm} onChange={e=>setNewMijozIsm(e.target.value)} placeholder="Mijoz nomi" autoFocus
-                  onKeyDown={e=>{ if(e.key==="Enter") handleAddNewMijoz(); }}
-                  style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
+            <div style={{padding:"18px 20px",display:"flex",flexDirection:"column",gap:18,overflowY:"auto"}}>
+              {/* Asosiy ma'lumot */}
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <p style={{fontSize:11,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em",margin:0}}>ASOSIY MA&apos;LUMOT</p>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Ism *</label>
+                  <input value={newMijozIsm} onChange={e=>setNewMijozIsm(e.target.value)} placeholder="Mijoz nomi" autoFocus
+                    onKeyDown={e=>{ if(e.key==="Enter") handleAddNewMijoz(); }}
+                    style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",background:"var(--bg)"}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Telefon</label>
+                  <input value={newMijozTel} onChange={e=>setNewMijozTel(e.target.value)} placeholder="+998 __ ___ __ __" inputMode="tel"
+                    style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",background:"var(--bg)"}}/>
+                </div>
               </div>
-              <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Telefon</label>
-                <input value={newMijozTel} onChange={e=>setNewMijozTel(e.target.value)} placeholder="+998 __ ___ __ __" inputMode="tel"
-                  style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
-              </div>
-              <div>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:8}}>Valyuta</label>
+              {/* Valyuta */}
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <p style={{fontSize:11,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em",margin:0}}>VALYUTA</p>
                 <div style={{display:"flex",gap:8}}>
                   {["So'm","Dollar","Dollar , So'm"].map(v=>(
                     <button key={v} onClick={()=>setNewMijozValyuta(v)}
@@ -1412,9 +1428,32 @@ export default function SotuvPage() {
                   ))}
                 </div>
               </div>
+              {/* Agent */}
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                <p style={{fontSize:11,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em",margin:0}}>AGENT</p>
+                <select value={newMijozAgent} onChange={e=>setNewMijozAgent(e.target.value)}
+                  style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",background:"var(--bg)",boxSizing:"border-box"}}>
+                  <option value="">— Agent tanlanmagan —</option>
+                  {agentlar.map(a=><option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
+                </select>
+              </div>
+              {/* Boshlang'ich qoldiq */}
+              <div style={{display:"flex",flexDirection:"column",gap:12}}>
+                <p style={{fontSize:11,fontWeight:700,color:"var(--text-3)",letterSpacing:".05em",margin:0}}>BOSHLANG&apos;ICH QOLDIQ</p>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>So&apos;m</label>
+                  <input value={newMijozBoshSom} onChange={e=>setNewMijozBoshSom(e.target.value)} placeholder="0" inputMode="decimal"
+                    style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",background:"var(--bg)"}}/>
+                </div>
+                <div>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Dollar ($)</label>
+                  <input value={newMijozBoshDollar} onChange={e=>setNewMijozBoshDollar(e.target.value)} placeholder="0" inputMode="decimal"
+                    style={{width:"100%",padding:"10px 14px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box",background:"var(--bg)"}}/>
+                </div>
+              </div>
             </div>
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
-              <button className="btn btn--outline" style={{flex:1}} onClick={()=>setNewMijozOpen(false)}>Bekor</button>
+              <button className="btn btn--outline" style={{flex:1}} onClick={()=>setNewMijozOpen(false)}>Bekor qilish</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleAddNewMijoz} disabled={newMijozSaving||!newMijozIsm.trim()}>
                 {newMijozSaving&&<span className="spinner"/>} Qo&apos;shish
               </button>
