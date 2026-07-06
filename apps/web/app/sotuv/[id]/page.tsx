@@ -800,7 +800,7 @@ export default function SotuvDetailPage() {
     const summa=isSom?String(somV+usdV*kurs):"";
     const summaDollar=!isSom?String(usdV+(kurs>0?somV/kurs:0)):"";
     try {
-      await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
+      const saveRes=await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"S_tolov",row:{
           Tolov_ID:uid(),Sotuv_ID:sotuv.Sotuv_ID,Mijoz_ID:sotuv.Mijoz_ID,Agent:sotuv.Agent,
           Yil:yil,Oy:oy,Sana:sana,Valyuta:isSom?"So'm":"Dollar",Turi:addTolovTuri,
@@ -808,9 +808,13 @@ export default function SotuvDetailPage() {
           Dollar_Kursi:addTolovKurs,Izoh:addTolovIzoh,Vaqt:vaqt,Check:"False",
           Gazna_ID:addTolovGazna,Gazna_dollar_ID:addTolovGaznaDollar,
         }})});
+      // MUHIM: saqlanganini tasdiqlaymiz — xato bo'lsa to'lov jimgina yo'qolmasin
+      if(!saveRes.ok){ const je=await saveRes.json().catch(()=>({})); throw new Error(je.error||"Server bilan bog'lanishda xatolik"); }
       afterWrite("S_tolov");
       setAddTolovOpen(false);
       setTimeout(()=>loadData(),600);
+    } catch(e) {
+      alert("To'lov saqlanmadi: "+(e instanceof Error?e.message:"noma'lum")+".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setAddTolovSaving(false); }
   }
 

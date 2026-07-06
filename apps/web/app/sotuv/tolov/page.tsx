@@ -530,7 +530,7 @@ export default function SotuvTolovPage() {
     const ostatkaSom = mijozQoldi ? mijozQoldi.som : 0;
     const ostatkaDollar = mijozQoldi ? mijozQoldi.usd : 0;
     try {
-      await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
+      const saveRes = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", row: {
           Tolov_ID: uid(), Sotuv_ID: addSotuvId, Mijoz_ID: addMijoz, Agent: user?.id || "",
           Yil: yil, Oy: oy, Sana: sana, Valyuta: valyuta, Turi: addTuri,
@@ -540,6 +540,8 @@ export default function SotuvTolovPage() {
           Dollar_Kursi: addKurs, Izoh: addIzoh, Vaqt: vaqt, Check: "False",
           Gazna_ID: addGazna, Gazna_dollar_ID: addGaznaDollar,
         } }) });
+      // MUHIM: saqlanganini tasdiqlaymiz — aks holda xato bo'lsa to'lov jimgina yo'qoladi
+      if (!saveRes.ok) { const je = await saveRes.json().catch(() => ({})); throw new Error(je.error || "Server bilan bog'lanishda xatolik"); }
       localStorage.setItem("dollar_kurs", addKurs);
 
       // Telegram bot xabari — sotuvga to'lov qilindi (ma'lumotlar S_tolov qatoridan)
@@ -572,6 +574,8 @@ export default function SotuvTolovPage() {
       afterWrite("MijozBalans");
       setAddOpen(false);
       setTimeout(() => loadData(), 800);
+    } catch (e) {
+      alert("To'lov saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setSaving(false); }
   }
 
