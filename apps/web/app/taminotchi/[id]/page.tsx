@@ -1,6 +1,9 @@
 "use client";
-import { fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts, type ExportSection } from "@/lib/export";
+import { useAuth } from "@/lib/AuthContext";
+import { gaznaForUser } from "@/lib/auth";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -9,7 +12,9 @@ interface Taminotchi {
   Taminotchi_ID: string; Ism: string; Telefon: string; Valyuta: string;
   Boshlangich_Balans: string; Boshlangich_som: string;
   Qoshilgan_Vaqt: string; Qoshdi: string;
+  Qoldi_som?: string; Qoldi_dollar?: string;
 }
+interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Shakli?: string; }
 interface Xarid {
   Xarid_ID: string; Taminotchi_ID: string; Sana: string;
   Sotuv_Raqami: string; Izoh: string; Akt_sverka: string;
@@ -36,6 +41,15 @@ function sanaKey(sana: string) {
   const [d, m, y] = (sana || "").split(".");
   return `${y || "0000"}${(m || "00").padStart(2, "0")}${(d || "00").padStart(2, "0")}`;
 }
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function nowStr() {
+  const d = new Date();
+  const t = new Date(d.toLocaleString("en-US", { timeZone: "Asia/Tashkent" }));
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return { sana: `${pad(t.getDate())}.${pad(t.getMonth() + 1)}.${t.getFullYear()}`, oy: String(t.getMonth() + 1), yil: String(t.getFullYear()), vaqt: `${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}` };
+}
+function isoToParts(iso: string) { const [y, m, d] = (iso || "").split("-"); return { sana: d + "." + m + "." + y, oy: String(parseInt(m || "1")), yil: y || "" }; }
+const TURI_LIST = ["Naqd", "Bank", "Karta"];
 
 export default function TaminotchiDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -59,6 +73,22 @@ export default function TaminotchiDetailPage() {
   const [form, setForm]           = useState<Partial<Taminotchi>>({});
   const [saving, setSaving]       = useState(false);
   const [toggling, setToggling]   = useState<Record<string, boolean>>({});
+
+  const { user } = useAuth();
+  // Firmadan pul ayirish (to'lov) formasi
+  const [tOpen, setTOpen]             = useState(false);
+  const [tSaving, setTSaving]         = useState(false);
+  const [tValyuta, setTValyuta]       = useState<"Som" | "Dollar">("Som");
+  const [tSom, setTSom]               = useState("");
+  const [tDollar, setTDollar]         = useState("");
+  const [tKurs, setTKurs]             = useState("");
+  const [tTuri, setTTuri]             = useState("Naqd");
+  const [tGazna, setTGazna]           = useState("");
+  const [tGaznaDollar, setTGaznaDollar] = useState("");
+  const [tIzoh, setTIzoh]             = useState("");
+  const [tSana, setTSana]             = useState("");
+  const [gaznalar, setGaznalar]       = useState<Gazna[]>([]);
+  useScrollLock(tOpen);
 
   const xaridRef = useRef<HTMLDivElement>(null);
   const tolovRef = useRef<HTMLDivElement>(null);
@@ -238,6 +268,81 @@ export default function TaminotchiDetailPage() {
       setEditOpen(false);
       setTimeout(() => setTick(t => t + 1), 800);
     } finally { setSaving(false); }
+  }
+
+  function openAddT() {
+    const tv = String(taminotchi?.Valyuta || "").toLowerCase();
+    setTValyuta(tv.includes("dollar") && !/so.?m/.test(tv) ? "Dollar" : "Som");
+    setTSom(""); setTDollar("");
+    setTKurs(typeof localStorage !== "undefined" ? (localStorage.getItem("dollar_kurs") || "") : "");
+    setTTuri("Naqd"); setTGazna(""); setTGaznaDollar(""); setTIzoh(""); setTSana("");
+    fetchSheet("Gazna").then(r => {
+      const gz = ((r.data || []) as Gazna[]).filter(g => g.Gazna_ID);
+      setGaznalar(gz);
+      const vis = gaznaForUser(user, gz);
+      const som = vis.filter(g => g.Turi !== "Dollar"); const dol = vis.filter(g => g.Turi === "Dollar");
+      if (som.length === 1) setTGazna(som[0].Gazna_ID);
+      if (dol.length === 1) setTGaznaDollar(dol[0].Gazna_ID);
+    }).catch(() => {});
+    setTOpen(true);
+  }
+
+  async function handleAddTolov() {
+    if (!taminotchi) return;
+    const somVal = num(tSom), usdVal = num(tDollar);
+    if (somVal === 0 && usdVal === 0) return;
+    if (usdVal > 0 && num(tKurs) < 11000) { alert("Dollar uchun kurs kamida 11 000 bo'lishi kerak"); return; }
+    if (!tTuri) return;
+    setTSaving(true);
+    const { vaqt } = nowStr();
+    const { sana, oy, yil } = tSana ? isoToParts(tSana) : nowStr();
+    const kurs = num(tKurs);
+    const isSom = tValyuta === "Som";
+    const summa       = isSom ? String(somVal + usdVal * kurs) : "";
+    const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
+    const valyuta     = isSom ? "So'm" : "Dollar";
+    const ostatkaSom = qarzSom, ostatkaDollar = qarzUsd;
+    try {
+      const res = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet: "X_Tolov", row: {
+          X_Tolov_ID: uid(), Taminotchi_ID: id, Xarid_ID: "",
+          Yil: yil, Oy: oy, Sana: sana, Valyuta: valyuta, Turi: tTuri,
+          Som: String(somVal), Dollar: String(usdVal), Summa: summa, Summa_dollar: summaDollar,
+          Dollar_Kursi: tKurs, Izoh: tIzoh, Vaqt: vaqt, Qoshdi: "", Check: "False",
+          Gazna_ID: tGazna, Gazna_dollar_ID: tGaznaDollar,
+        } }) });
+      // MUHIM: saqlanganini tasdiqlaymiz — xato bo'lsa to'lov jimgina yo'qolmasin (Telegram ham yuborilmaydi)
+      if (!res.ok) { const je = await res.json().catch(() => ({})); throw new Error(je.error || "Server bilan bog'lanishda xatolik"); }
+      if (typeof localStorage !== "undefined") localStorage.setItem("dollar_kurs", tKurs);
+      // Taminotchi qoldig'ini yangilaymiz (mavjud bo'lsa)
+      try {
+        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: id,
+            row: { Qoldi_som: String(num(taminotchi.Qoldi_som) - somVal), Qoldi_dollar: String(num(taminotchi.Qoldi_dollar) - usdVal) } }) });
+      } catch {}
+      // Telegram xabari — firmaga to'lov qilindi
+      const nS = (v: number) => String(Math.round(v));
+      const nU = (v: number) => String(Math.round(v * 100) / 100);
+      const tgMsg =
+        `✅ FIRMAGA TO'LOV QILINDI\n\n` +
+        `📅 Sana: ${sana}\n` +
+        `👤 Taminotchi: ${taminotchi.Ism || "—"}${taminotchi.Telefon ? " | " + taminotchi.Telefon : ""}\n` +
+        `💰 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
+        `💰 Ostatka($): ${nU(ostatkaDollar)}\n` +
+        `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
+        `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
+        `💵 Jami so'm: ${nS(num(summa))}\n` +
+        `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
+        `💵 Qoldiq (so'm): ${nS(ostatkaSom - num(summa))}\n` +
+        `💵 Qoldiq ($): ${nU(ostatkaDollar - num(summaDollar))}\n` +
+        `📝 Izoh: ${tIzoh && tIzoh.trim() ? tIzoh : "null"}`;
+      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
+      afterWrite("X_Tolov"); afterWrite("Taminotchi");
+      setTOpen(false);
+      setTimeout(() => setTick(t => t + 1), 800);
+    } catch (e) {
+      alert("To'lov saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
+    } finally { setTSaving(false); }
   }
 
   if (loading) return (
@@ -469,8 +574,13 @@ export default function TaminotchiDetailPage() {
 
         {/* To'lovlar tarixi */}
         <div ref={tolovRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "tolov" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", transition: "box-shadow .25s", scrollMarginTop: 80 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>To&apos;lovlar tarixi</span>
+            <button onClick={openAddT}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: "var(--radius)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              To&apos;lov
+            </button>
           </div>
 
           {fTolov.length === 0 ? (
@@ -608,6 +718,103 @@ export default function TaminotchiDetailPage() {
             <button onClick={handleSave} disabled={saving}
               style={{ marginTop: 8, padding: "11px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.7 : 1 }}>
               {saving ? "Saqlanmoqda..." : "Saqlash"}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* Firmadan pul ayirish (to'lov) */}
+      {tOpen && (
+        <>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", zIndex: 999 }} onClick={() => { if (!tSaving) setTOpen(false); }} />
+          <div style={{ position: "fixed", ...(isMobile
+            ? { bottom: 0, left: 0, right: 0, borderRadius: "20px 20px 0 0", maxHeight: "90vh", overflowY: "auto" }
+            : { top: 0, right: 0, width: 400, height: "100%", overflowY: "auto" }),
+            background: "var(--white)", zIndex: 1000, padding: "24px 20px",
+            display: "flex", flexDirection: "column", gap: 14,
+            boxShadow: "-16px 0 48px rgba(30,64,124,.18)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 16, fontWeight: 800 }}>Firmadan pul ayirish</span>
+              <button onClick={() => setTOpen(false)} style={{ border: "none", background: "none", cursor: "pointer", padding: 4, fontSize: 18, color: "var(--text-3)" }}>✕</button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "10px 12px" }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}>Joriy qarzdorlik:</span>
+              <span style={{ display: "flex", gap: 10 }}>
+                {qarzSom !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: qarzSom > 0 ? "#ef4444" : "#16a34a" }}>{qarzSom.toLocaleString("ru-RU")} so&apos;m</span>}
+                {qarzUsd !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: qarzUsd > 0 ? "#ef4444" : "#16a34a" }}>{fmtUsd(qarzUsd)}</span>}
+                {qarzSom === 0 && qarzUsd === 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>0</span>}
+              </span>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Valyuta</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {(["Som", "Dollar"] as const).map(v => (
+                  <button key={v} onClick={() => setTValyuta(v)}
+                    style={{ flex: 1, padding: "9px 4px", borderRadius: "var(--radius)", border: `1.5px solid ${tValyuta === v ? (v === "Som" ? "var(--primary)" : "#2563eb") : "var(--border)"}`,
+                      background: tValyuta === v ? (v === "Som" ? "var(--primary)" : "#2563eb") : "var(--white)", color: tValyuta === v ? "#fff" : "var(--text-2)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+                    {v === "Som" ? "So'm" : "Dollar"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>So&apos;m</label>
+                <input value={tSom} onChange={e => setTSom(e.target.value)} placeholder="0" inputMode="decimal"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar ($)</label>
+                <input value={tDollar} onChange={e => setTDollar(e.target.value)} placeholder="0" inputMode="decimal"
+                  style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: num(tKurs) > 0 && num(tKurs) < 11000 ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Dollar kursi</label>
+              <input value={tKurs} onChange={e => setTKurs(e.target.value.replace(/\D/g, ""))} placeholder="Masalan: 12800" inputMode="numeric"
+                style={{ width: "100%", padding: "10px 12px", border: `1px solid ${num(tKurs) > 0 && num(tKurs) < 11000 ? "#ef4444" : "var(--border)"}`, borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>To&apos;lov turi</label>
+              <div style={{ display: "flex", gap: 8 }}>
+                {TURI_LIST.map(t => (
+                  <button key={t} onClick={() => setTTuri(t)}
+                    style={{ flex: 1, padding: "9px 4px", borderRadius: "var(--radius)", border: `1.5px solid ${tTuri === t ? "var(--primary)" : "var(--border)"}`, background: tTuri === t ? "#f0fdf4" : "var(--white)", color: tTuri === t ? "var(--primary)" : "var(--text-2)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Hisob ({tValyuta === "Som" ? "so'm" : "dollar"})</label>
+              <select value={tValyuta === "Som" ? tGazna : tGaznaDollar} onChange={e => tValyuta === "Som" ? setTGazna(e.target.value) : setTGaznaDollar(e.target.value)}
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, background: "var(--white)", boxSizing: "border-box" }}>
+                <option value="">— Hisob tanlang —</option>
+                {gaznaForUser(user, gaznalar).filter(g => tValyuta === "Som" ? g.Turi !== "Dollar" : g.Turi === "Dollar").map(g => <option key={g.Gazna_ID} value={g.Gazna_ID}>{g.Nomi}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Sana</label>
+              <input type="date" value={tSana} onChange={e => setTSana(e.target.value)}
+                style={{ width: "100%", padding: "9px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, background: "var(--white)", boxSizing: "border-box" }} />
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
+              <input value={tIzoh} onChange={e => setTIzoh(e.target.value)} placeholder="Ixtiyoriy..."
+                style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+            </div>
+
+            <button onClick={handleAddTolov} disabled={tSaving || (!num(tSom) && !num(tDollar))}
+              style={{ marginTop: 8, padding: "12px", background: "var(--primary)", color: "#fff", border: "none", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, cursor: (tSaving || (!num(tSom) && !num(tDollar))) ? "not-allowed" : "pointer", opacity: (tSaving || (!num(tSom) && !num(tDollar))) ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              {tSaving && <span className="spinner" />} To&apos;lovni saqlash
             </button>
           </div>
         </>

@@ -177,7 +177,7 @@ export default function Sidebar() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
               </svg>
             </div>
-            <span className="sidebar__title">Yangi Choy</span>
+            <span className="sidebar__title">Musaffo Tea</span>
             <button
               onClick={() => setMobileOpen(false)}
               style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-3)" }}>
@@ -221,7 +221,7 @@ export default function Sidebar() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
           </svg>
         </div>
-        {!collapsed && <span className="sidebar__title">Yangi Choy</span>}
+        {!collapsed && <span className="sidebar__title">Musaffo Tea</span>}
         {!collapsed && (
           <button className="sidebar__toggle" onClick={() => setCollapsed(true)}>
             <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

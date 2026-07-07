@@ -86,7 +86,7 @@ function ChekContent() {
     const el = chekRef.current;
     const prevMinH = el.style.minHeight;
     try {
-      // Dastur oynasidagi (HTML) chekni AYNAN rasmga olamiz — ulashilgan PDF ko'rinish/pechat bilan bir xil bo'ladi
+      // Dastur oynasidagi (HTML) chekni AYNAN rasmga olamiz
       el.style.minHeight = "auto";   // 100vh bo'sh joyni olib tashlaymiz
       const html2canvas = (await import("html2canvas")).default;
       const canvas = await html2canvas(el, {
@@ -95,35 +95,45 @@ function ChekContent() {
         useCORS: true,
         ignoreElements: (e) => (e as HTMLElement).classList?.contains("no-print"),
       });
+      el.style.minHeight = prevMinH;   // ko'rinishni darhol tiklaymiz
+
+      // Chek rasmi (PNG) — clipboard va telefon ulashishi uchun
+      const pngBlob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
+      const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+
+      // 1) Telefon: qurilma ulashish oynasi (rasm bilan — Telegramga to'g'ridan-to'g'ri)
+      if (pngBlob && isMobileDevice && nav.canShare) {
+        const file = new File([pngBlob], `chek-${id}.png`, { type: "image/png" });
+        if (nav.canShare({ files: [file] })) {
+          try { await navigator.share({ files: [file], title: `Chek #${id} — Musaffo Tea` }); return; }
+          catch (e) { if (e instanceof Error && e.name === "AbortError") return; }
+        }
+      }
+
+      // 2) Kompyuter: chek rasmini buferga nusxalash (Telegramga Ctrl+V)
+      if (pngBlob) {
+        try {
+          if (typeof ClipboardItem !== "undefined" && navigator.clipboard && navigator.clipboard.write) {
+            await navigator.clipboard.write([new ClipboardItem({ "image/png": pngBlob })]);
+            alert("Chek rasmi nusxalandi ✓ — Telegramga Ctrl+V bilan qo'ying.");
+            return;
+          }
+        } catch { /* clipboard bo'lmasa — pastdagi PDF zaxiraga o'tamiz */ }
+      }
+
+      // 3) Zaxira: PDF'ni yangi oynada ochish / yuklab olish
       const imgData = canvas.toDataURL("image/jpeg", 0.95);
       const imgW = 210;                                   // A4 eni (mm)
       const imgH = (canvas.height * imgW) / canvas.width;
       const doc = new jsPDF({ unit: "mm", format: [imgW, imgH] });
       doc.addImage(imgData, "JPEG", 0, 0, imgW, imgH);
       const pdfBlob = doc.output("blob");
-      const fileName = `chek-${id}.pdf`;
-      el.style.minHeight = prevMinH;   // ko'rinishni darhol tiklaymiz
-
-      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
-
-      // 1) Web Share (fayl bilan) — qo'llab-quvvatlasa
-      if (typeof navigator !== "undefined" && navigator.canShare && navigator.canShare({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: `Chek #${id} — Musaffo Tea` });
-          return;
-        } catch (e) {
-          // foydalanuvchi bekor qilgan bo'lsa — jimgina chiqamiz
-          if (e instanceof Error && (e.name === "AbortError" || (e.name === "NotAllowedError" && /cancel/i.test(e.message)))) return;
-          // aks holda pastdagi zaxiraga o'tamiz
-        }
-      }
-
-      // 2) Zaxira: PDF'ni yangi oynada ochish (mobilda ishonchli — ko'rib/saqlab/ulashish mumkin)
       const url = URL.createObjectURL(pdfBlob);
       const win = window.open(url, "_blank");
       if (!win) {
         const a = document.createElement("a");
-        a.href = url; a.download = fileName;
+        a.href = url; a.download = `chek-${id}.pdf`;
         document.body.appendChild(a); a.click(); a.remove();
       }
       setTimeout(() => URL.revokeObjectURL(url), 60_000);

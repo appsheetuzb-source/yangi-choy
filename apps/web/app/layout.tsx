@@ -10,8 +10,8 @@ import CacheWarmer from "@/components/CacheWarmer";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Yangi Choy",
-  description: "Yangi Choy boshqaruv paneli",
+  title: "Musaffo Tea",
+  description: "Musaffo Tea boshqaruv paneli",
 };
 
 export const viewport: Viewport = {

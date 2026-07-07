@@ -405,16 +405,26 @@ export default function MijozDetailPage() {
     const blob = await buildDebtImage();
     if (!blob) return;
     const file = new File([blob], `qarzdorlik-${(mijoz?.Ism || "klient").replace(/\s+/g,"_")}.png`, { type: "image/png" });
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+    const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    // 1) Telefon: qurilma ulashish oynasi (Telegramga to'g'ridan-to'g'ri)
+    if (isMobileDevice && nav.canShare && nav.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: tgMessage() }); setTgOpen(false); return; }
+      catch (e) { if (e instanceof Error && e.name === "AbortError") { setTgOpen(false); return; } }
+    }
+    // 2) Kompyuter: rasmni buferga nusxalash (Telegram oynasiga Ctrl+V)
     try {
-      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
-      if (nav.canShare && nav.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], text: tgMessage() });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a"); a.href = url; a.download = file.name; a.click();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        alert("Rasm nusxalandi ✓ — Telegram oynasiga Ctrl+V bilan qo'ying.");
+        setTgOpen(false);
+        return;
       }
-    } catch { /* foydalanuvchi bekor qildi */ }
+    } catch { /* clipboard bo'lmasa — pastdagi yuklab olishga o'tamiz */ }
+    // 3) Zaxira: yuklab olish
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = file.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
     setTgOpen(false);
   }
 
