@@ -538,6 +538,8 @@ export default function SotuvDetailPage() {
 
   async function handleUpdate() {
     if(!sotuv||!editMijoz||!editAgent) return;
+    // Tan narxidan past narx bo'lsa saqlashga ruxsat berilmaydi
+    if(editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))){ alert("Ba'zi mahsulot tan narxidan past narxda — saqlab bo'lmaydi. Narxni to'g'rilang."); return; }
     setEditSaving(true);
     const valid=editItems.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx)));
     const kurs=editKurs||"0";
@@ -674,6 +676,20 @@ export default function SotuvDetailPage() {
     } finally { setEditDollarSaving(false); }
   }
 
+  // Tan narxidan past narx (narx kiritilgan va tan narxdan kam) — sotuvga ruxsat berilmaydi
+  function priceBelowCost(mahsulotId:string, narxStr:string, valyuta:"som"|"dollar"):boolean {
+    const m=mMap[mahsulotId]; if(!m) return false;
+    const narx=num(narxStr); if(narx<=0) return false;
+    if(valyuta==="som"){
+      const tanSom=num(m.Tan_som||"0"), tanDollar=num(m.Tan_dollar||"0");
+      const kurs=num(savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"0");
+      const minNarx=tanSom!==0?tanSom:tanDollar*kurs;
+      return minNarx>0 && narx<minNarx;
+    }
+    const tanDollar=num(m.Tan_dollar||"0");
+    return tanDollar>0 && narx<tanDollar;
+  }
+
   // ── Ommaviy (bulk) tahrirlash ───────────────────────────
   function exitBulk(){ setBulkMode(false); setBulkSel(new Set()); setBulkEdits({}); }
   function toggleBulkRow(savatId:string, soni:string, narx:string){
@@ -694,6 +710,9 @@ export default function SotuvDetailPage() {
   }
   async function handleBulkSave(){
     if(!sotuv||bulkSel.size===0) return;
+    // Tan narxidan past narx bo'lsa saqlashni bloklaymiz
+    for(const r of savatSom){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; if(e&&priceBelowCost(e.Mahsulot||r.Mahsulot_ID,e.Narx,"som")){ alert("Ba'zi mahsulot tan narxidan past narxda — saqlab bo'lmaydi. Narxni to'g'rilang."); return; } } }
+    for(const r of savatDollar){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; if(e&&priceBelowCost(e.Mahsulot||r.Mahsulot_ID,e.Narx,"dollar")){ alert("Ba'zi mahsulot tan narxidan past narxda — saqlab bo'lmaydi. Narxni to'g'rilang."); return; } } }
     setBulkSaving(true);
     try {
       for(const r of savatSom){
@@ -719,6 +738,8 @@ export default function SotuvDetailPage() {
   async function saveAddRow(row:AddRow, valyuta:"som"|"dollar") {
     if(!sotuv) return;
     if(savingRowIds.current.has(row.id)) return;
+    // Tan narxidan past narxga sotishga ruxsat berilmaydi
+    if(priceBelowCost(row.Mahsulot_ID,row.Narx,valyuta)){ showToast("Narx tan narxidan past — saqlanmadi", false); return; }
     savingRowIds.current.add(row.id);
     setSavingIds(s=>new Set(s).add(row.id));
     const m=mMap[row.Mahsulot_ID];
@@ -1211,7 +1232,7 @@ export default function SotuvDetailPage() {
                   style={{padding:"6px 8px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:12,outline:"none",minWidth:0}}/>
                 <div/>
                 <div style={{display:"flex",gap:4}}>
-                  <button onClick={()=>saveAddRow(row,"som")} disabled={!row.Mahsulot_ID||!row.Soni||savingIds.has(row.id)}
+                  <button onClick={()=>saveAddRow(row,"som")} disabled={!row.Mahsulot_ID||!row.Soni||savingIds.has(row.id)||priceBelowCost(row.Mahsulot_ID,row.Narx,"som")}
                     style={{width:30,height:30,borderRadius:8,border:"none",background:"#dcfce7",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#16a34a"}}>
                     {savingIds.has(row.id)?<span className="spinner" style={{width:13,height:13}}/>:<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>}
                   </button>
@@ -1408,13 +1429,13 @@ export default function SotuvDetailPage() {
               <input type="number" value={row.Soni} onChange={e=>updDollarRow(row.id,"Soni",e.target.value)} placeholder="Soni"
                 style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
               <input value={row.Narx} onChange={e=>updDollarRow(row.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
-              <span style={{fontSize:14,fontWeight:800,color:"#2563eb"}}>{fmtUsd(num(row.Soni)*num(row.Narx))}</span>
+                style={{padding:"6px 10px",border:`1.5px solid ${priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}}/>
+              <span style={{fontSize:14,fontWeight:800,color:priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}}>{priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"Tan narxidan past!":fmtUsd(num(row.Soni)*num(row.Narx))}</span>
               <input value={row.Izoh} onChange={e=>updDollarRow(row.id,"Izoh",e.target.value)} placeholder="Izoh"
                 style={{padding:"6px 8px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:12,outline:"none",minWidth:0}}/>
               <div/>
               <div style={{display:"flex",gap:4}}>
-                <button onClick={()=>saveAddRow(row,"dollar")} disabled={!row.Mahsulot_ID||!row.Soni||savingIds.has(row.id)}
+                <button onClick={()=>saveAddRow(row,"dollar")} disabled={!row.Mahsulot_ID||!row.Soni||savingIds.has(row.id)||priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")}
                   style={{width:30,height:30,borderRadius:8,border:"none",background:"#dcfce7",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#16a34a"}}>
                   {savingIds.has(row.id)?<span className="spinner" style={{width:13,height:13}}/>:<svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7"/></svg>}
                 </button>
@@ -1505,7 +1526,7 @@ export default function SotuvDetailPage() {
             <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"16px 24px",borderTop:"1px solid var(--border)"}}>
               <button className="btn btn--outline" onClick={()=>setEditOpen(false)}>Bekor</button>
               <button className="btn btn--primary" onClick={handleUpdate}
-                disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0}>
+                disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0||editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))}>
                 {editSaving&&<span className="spinner"/>} Saqlash
               </button>
             </div>

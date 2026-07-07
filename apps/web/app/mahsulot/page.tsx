@@ -509,7 +509,7 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
       {currency !== "som" && (
         <div className="list-card__col">
           <p className="list-card__col-val" style={{ color: hasDollar ? "#2563eb" : undefined }}>
-            {hasDollar ? `${Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+            {hasDollar ? `${Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}` : "—"}
           </p>
         </div>
       )}
@@ -525,7 +525,7 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
         <div className="list-card__col">
           <p className="list-card__col-val--gray" style={{ color: m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0" ? "#2563eb" : undefined }}>
             {m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0"
-              ? Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}
+              ? Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 4 }) : "—"}
           </p>
         </div>
       )}
@@ -608,9 +608,9 @@ function GridCard({ mahsulot: m, currency, omborNomi, balans, onEdit, onDelete }
             )}
           </>)}
           {showDollar && hasDollar && (<>
-            <PriceLine label="Sotuv ($)" value={Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} blue />
+            <PriceLine label="Sotuv ($)" value={Number(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} blue />
             {m.Tan_dollar && String(m.Tan_dollar).trim() !== "" && String(m.Tan_dollar).trim() !== "0" && (
-              <PriceLine label="Tan ($)" value={Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} dim />
+              <PriceLine label="Tan ($)" value={Number(m.Tan_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} dim />
             )}
           </>)}
           {!hasSom && !hasDollar && (
