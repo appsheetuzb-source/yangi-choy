@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
 import { canAccess } from "@/lib/auth";
 import Sidebar from "./Sidebar";
+import SaveToast from "./SaveToast";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -38,6 +39,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     <>
       <Sidebar />
       <div className="page-wrap">{children}</div>
+      <SaveToast />
     </>
   );
 }
