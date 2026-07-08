@@ -154,9 +154,9 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
-                  style={{padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
-                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
                   <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
                   <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
@@ -210,9 +210,9 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
                 <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
-                  style={{padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                  style={{padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
+                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
                   <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
                   <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
@@ -1497,7 +1497,7 @@ export default function SotuvDetailPage() {
       {editOpen&&(
         <div style={{position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:"center",justifyContent:"center",padding:isMobile?0:20}} onClick={()=>setEditOpen(false)}>
           <div style={{background:"var(--white)",borderRadius:isMobile?0:16,width:isMobile?"100%":"97vw",maxWidth:isMobile?"100%":1500,height:isMobile?"100dvh":"97vh",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
-            <div style={{display:"flex",alignItems:"center",gap:16,padding:"20px 24px",borderBottom:"1px solid var(--border)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:16,padding:isMobile?"16px":"20px 24px",borderBottom:"1px solid var(--border)"}}>
               <div style={{flex:1}}>
                 <h2 style={{fontSize:17,fontWeight:800,marginBottom:2}}>{isAddMode?"Mahsulot qo'shish":"Tahrirlash"}</h2>
                 <p style={{fontSize:12,color:"var(--text-3)"}}>Sotuv #{sotuv.Sotuv_Raqami} — {mjNomi}</p>
@@ -1506,7 +1506,7 @@ export default function SotuvDetailPage() {
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
               </button>
             </div>
-            <div style={{flex:1,overflowY:"auto",padding:"20px 24px"}}>
+            <div style={{flex:1,overflowY:"auto",padding:isMobile?"16px":"20px 24px"}}>
               {!isAddMode&&(
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
                   <div>
@@ -1532,7 +1532,7 @@ export default function SotuvDetailPage() {
               </div>
               <SavatEditor items={editItems} onUpdate={updateItem} onRemove={removeItem} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} isMobile={isMobile} somItems={mhItems} dollarItems={mhItems} mMap={mMap} simple={isAddMode}/>
             </div>
-            <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:"16px 24px",borderTop:"1px solid var(--border)"}}>
+            <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:isMobile?"14px 16px":"16px 24px",borderTop:"1px solid var(--border)"}}>
               <button className="btn btn--outline" onClick={()=>setEditOpen(false)}>Bekor</button>
               <button className="btn btn--primary" onClick={handleUpdate}
                 disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0||editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))}>
