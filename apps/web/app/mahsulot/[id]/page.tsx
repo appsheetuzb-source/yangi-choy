@@ -315,8 +315,13 @@ export default function MahsulotDetailPage() {
     if (activeTur === "Kirim"  && t.kirim  === 0) return false;
     if (activeTur === "Chiqim" && t.chiqim === 0) return false;
     if (qLower) {
-      const hay = `${t.manba} ${t.izoh} ${t.sana} ${t.narxSom} ${t.narxDollar} ${t.summaSom} ${t.summaDollar}`.toLowerCase();
-      if (!hay.includes(qLower)) return false;
+      // Matn (mijoz nomi, izoh, sana) yoki raqam (summa, narx — bo'shliqlarsiz) bo'yicha
+      const textHay = `${t.manba} ${t.izoh} ${t.sana}`.toLowerCase();
+      const qDigits = qLower.replace(/\D/g, "");
+      const nums = [t.summaSom, t.summaDollar, t.narxSom, t.narxDollar, t.kirim, t.chiqim].map(n => String(Math.round(n)));
+      const textOk = textHay.includes(qLower);
+      const numOk = qDigits.length > 0 && nums.some(n => n.includes(qDigits));
+      if (!textOk && !numOk) return false;
     }
     return true;
   });
@@ -484,7 +489,7 @@ export default function MahsulotDetailPage() {
                 </div>
                 {isMobile ? (
                   <div>
-                    {withBalance.map((tx, i) => {
+                    {filteredWithBalance.map((tx, i) => {
                       const isDollar = tx.narxDollar > 0 && tx.narxSom === 0;
                       const narx = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
                       return (
@@ -509,13 +514,13 @@ export default function MahsulotDetailPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse" }}>
                     <thead>
                       <tr style={{ background: "var(--bg)" }}>
-                        {["SANA","MANBA","TURI","MIQDOR","NARXI","HOZIRDA BOR"].map(h => (
+                        {["SANA","MIJOZ","TURI","MIQDOR","NARXI","HOZIRDA BOR"].map(h => (
                           <th key={h} style={{ padding: "9px 14px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", textAlign: "left", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
-                      {withBalance.map((tx, i) => {
+                      {filteredWithBalance.map((tx, i) => {
                         const isDollar  = tx.narxDollar > 0 && tx.narxSom === 0;
                         const narx      = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
                         const narxColor = isDollar ? "#2563eb" : "var(--text)";
@@ -587,7 +592,7 @@ export default function MahsulotDetailPage() {
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
                 <thead>
                   <tr style={{ background: "var(--bg)" }}>
-                    {["SANA", "MANBA", "IZOH"].map(h => (
+                    {["SANA", "MIJOZ", "IZOH"].map(h => (
                       <th key={h} style={{
                         padding: "10px 16px", fontSize: 10, fontWeight: 700,
                         color: "var(--text-3)", letterSpacing: ".06em", textAlign: "left",
