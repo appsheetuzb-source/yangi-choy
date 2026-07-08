@@ -361,7 +361,7 @@ export default function TaminotchiDetailPage() {
   );
 
   const COLS_X = "40px 100px 80px 1fr 1fr 112px";
-  const COLS_T = "26px 70px 48px 1fr 1fr 1fr 88px 96px";
+  const COLS_T = "26px 70px 48px 1fr 1fr 1fr 1fr 88px 96px";
 
   return (
     <>
@@ -591,6 +591,7 @@ export default function TaminotchiDetailPage() {
                 const somVal = num(t.Som);
                 const usdVal = num(t.Dollar);
                 const jamiSom = num(t.Summa);
+                const jamiDollar = num(t.Summa_dollar);
                 const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
                   <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
@@ -622,6 +623,7 @@ export default function TaminotchiDetailPage() {
                       <span style={{ fontSize: 13, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"} <span style={{ fontSize: 10 }}>so&apos;m</span></span>
                       <span style={{ fontSize: 13, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
                       {jamiSom !== 0 && <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiSom.toLocaleString("ru-RU")}</span>}
+                      {jamiDollar !== 0 && <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{fmtUsd(jamiDollar)}</span>}
                     </div>
                     {t.Izoh && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>{t.Izoh}</p>}
                   </div>
@@ -629,9 +631,9 @@ export default function TaminotchiDetailPage() {
               })}
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 520 }}>
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 600 }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#","SANA","TURI","SO'M","DOLLAR","JAMI (SO'M)","AKT","IZOH"].map(h => (
+                {["#","SANA","TURI","SO'M","DOLLAR","JAMI (SO'M)","JAMI ($)","AKT","IZOH"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
@@ -639,6 +641,7 @@ export default function TaminotchiDetailPage() {
                 const somVal = num(t.Som);
                 const usdVal = num(t.Dollar);
                 const jamiSom = num(t.Summa);
+                const jamiDollar = num(t.Summa_dollar);
                 const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
                   <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
@@ -653,6 +656,7 @@ export default function TaminotchiDetailPage() {
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiDollar !== 0 ? fmtUsd(jamiDollar) : "$0,00"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                       {["True","False"].map(val => {
                         const tHa = String(t.Check||"").toUpperCase()==="TRUE"; const isActive = val === "True" ? tHa : !tHa;
