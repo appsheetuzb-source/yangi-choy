@@ -77,6 +77,15 @@ function inRange(sana: string, from: string, to: string) {
 function uniq(values: Array<string | undefined>) {
   return Array.from(new Set(values.map(v => String(v || "").trim()).filter(Boolean)));
 }
+// ID lar bo'yicha fetch — ko'p ID bo'lsa URL juda uzun bo'lib xato bermasligi uchun
+// parallel bo'laklarga bo'lib yuboramiz (tez qoladi, ishonchli bo'ladi).
+async function fetchWhereChunked(range: string, column: string, ids: string[], chunk = 150): Promise<{ data: unknown[] }> {
+  if (!ids.length) return { data: [] };
+  const parts: string[][] = [];
+  for (let i = 0; i < ids.length; i += chunk) parts.push(ids.slice(i, i + chunk));
+  const results = await Promise.all(parts.map(p => fetchSheetWhere(range, column, p)));
+  return { data: results.flatMap(r => (r.data || []) as unknown[]) };
+}
 
 export default function MahsulotDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -96,6 +105,7 @@ export default function MahsulotDetailPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState(todayISO());
   const [activeTur, setActiveTur] = useState("Barchasi");
+  const [q, setQ] = useState("");
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
@@ -106,7 +116,7 @@ export default function MahsulotDetailPage() {
       fetchSheetWhere("Mahsulot", "Mahsulot_ID", id),
       fetchSheetWhere("Xarid_Savat", "Mahsulot_ID", id),
       fetchSheetWhere("Sotuv_Savat", "Mahsulot_ID", id),
-      fetchSheetWhere("Sotuv_Savat_Dollar", "Mahsulot_ID", id),
+      fetchSheetWhere("Sotuv_savat_dollar", "Mahsulot_ID", id),
     ]).then(async ([mRes, xsRes, ssRes, ssdRes]) => {
       const m = (mRes.data as Mahsulot[])[0] || null;
       setMahsulot(m);
@@ -121,8 +131,8 @@ export default function MahsulotDetailPage() {
         ...(ssdRes.data as SotuvSavatDollarRow[]).map(r => r.Sotuv_ID),
       ]);
       const [xRes, sotRes] = await Promise.all([
-        xaridIds.length ? fetchSheetWhere("Xarid", "Xarid_ID", xaridIds) : { data: [] },
-        sotuvIds.length ? fetchSheetWhere("Sotuv", "Sotuv_ID", sotuvIds) : { data: [] },
+        fetchWhereChunked("Xarid", "Xarid_ID", xaridIds),
+        fetchWhereChunked("Sotuv", "Sotuv_ID", sotuvIds),
       ]);
       const taminotchiIds = uniq((xRes.data as Xarid[]).map(x => x.Taminotchi_ID));
       const mijozIds = uniq((sotRes.data as Sotuv[]).flatMap(s => {
@@ -130,8 +140,8 @@ export default function MahsulotDetailPage() {
         return raw.includes(".") ? [raw, raw.split(".")[1]] : [raw];
       }));
       const [tRes, mijRes] = await Promise.all([
-        taminotchiIds.length ? fetchSheetWhere("Taminotchi", "Taminotchi_ID", taminotchiIds) : { data: [] },
-        mijozIds.length ? fetchSheetWhere("Mijozlar", "Mijoz_ID", mijozIds) : { data: [] },
+        fetchWhereChunked("Taminotchi", "Taminotchi_ID", taminotchiIds),
+        fetchWhereChunked("Mijozlar", "Mijoz_ID", mijozIds),
       ]);
 
       const xaridMap: Record<string, Xarid> = {};
@@ -241,6 +251,9 @@ export default function MahsulotDetailPage() {
       setAvgSotuvSom(totalSomKg > 0 ? totalSomSum / totalSomKg : 0);
       setAvgSotuvUsd(totalUsdKg > 0 ? totalUsdSum / totalUsdKg : 0);
       setLoading(false);
+    }).catch(() => {
+      // Xato bo'lsa ham sahifa abadiy "loading"da qolmasin (kirib bo'lmay qolmasin)
+      setLoading(false);
     });
   }, [id]);
 
@@ -296,10 +309,15 @@ export default function MahsulotDetailPage() {
     })
     .reverse();
 
+  const qLower = q.trim().toLowerCase();
   const filteredWithBalance = withBalance.filter(t => {
     if (!inRange(t.sana, dateFrom, dateTo)) return false;
     if (activeTur === "Kirim"  && t.kirim  === 0) return false;
     if (activeTur === "Chiqim" && t.chiqim === 0) return false;
+    if (qLower) {
+      const hay = `${t.manba} ${t.izoh} ${t.sana} ${t.narxSom} ${t.narxDollar} ${t.summaSom} ${t.summaDollar}`.toLowerCase();
+      if (!hay.includes(qLower)) return false;
+    }
     return true;
   });
 
@@ -341,6 +359,17 @@ export default function MahsulotDetailPage() {
           </div>
 
           <div style={{ flex: 1 }}/>
+
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="Qidirish (mijoz, izoh, narx)..."
+              style={{ fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "6px 26px 6px 28px", background: "var(--white)", color: "var(--text)", width: 200, maxWidth: "42vw", outline: "none" }}/>
+            <svg width="13" height="13" fill="none" stroke="var(--text-3)" viewBox="0 0 24 24" style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)" }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+            </svg>
+            {q && <button onClick={() => setQ("")} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", cursor: "pointer", color: "var(--text-3)", display: "flex", padding: 0 }}>
+              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>}
+          </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}

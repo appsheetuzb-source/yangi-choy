@@ -180,6 +180,7 @@ export default function MijozDetailPage() {
   const [qFrom, setQFrom]           = useState("");
   const [qTo, setQTo]               = useState("");
   const [qSum, setQSum]             = useState("");
+  const [qText, setQText]           = useState("");
   function goSection(target: "sotuv" | "tolov") {
     const ref = target === "sotuv" ? sotuvRef : tolovRef;
     ref.current?.scrollIntoView({ behavior: "smooth", block: isMobile ? "start" : "center" });
@@ -282,7 +283,8 @@ export default function MijozDetailPage() {
   const fromKey = qFrom ? qFrom.replace(/-/g, "") : "";
   const toKey   = qTo ? qTo.replace(/-/g, "") : "";
   const sumQ    = qSum.replace(/\D/g, "");
-  const qActive = !!(fromKey || toKey || sumQ);
+  const textQ   = qText.trim().toLowerCase();
+  const qActive = !!(fromKey || toKey || sumQ || textQ);
   const fSotuv = useMemo(() => {
     if (!qActive) return sotuvlar;
     return sotuvlar.filter(s => {
@@ -292,9 +294,10 @@ export default function MijozDetailPage() {
         const usd = (savatDolMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa), 0);
         if (!`${Math.round(som)} ${Math.round(usd)}`.includes(sumQ)) return false;
       }
+      if (textQ && !`${s.Sotuv_Raqami} ${s.Izoh || ""} ${s.Sana}`.toLowerCase().includes(textQ)) return false;
       return true;
     });
-  }, [sotuvlar, savatMap, savatDolMap, fromKey, toKey, sumQ, qActive]);
+  }, [sotuvlar, savatMap, savatDolMap, fromKey, toKey, sumQ, textQ, qActive]);
   const fTolov = useMemo(() => {
     if (!qActive) return tolovlar;
     return tolovlar.filter(t => {
@@ -302,9 +305,10 @@ export default function MijozDetailPage() {
       if (sumQ) {
         if (!`${Math.round(num(t.Som))} ${Math.round(num(t.Dollar))} ${Math.round(num(t.Summa))}`.includes(sumQ)) return false;
       }
+      if (textQ && !`${t.Turi || ""} ${t.Izoh || ""} ${t.Sana}`.toLowerCase().includes(textQ)) return false;
       return true;
     });
-  }, [tolovlar, fromKey, toKey, sumQ, qActive]);
+  }, [tolovlar, fromKey, toKey, sumQ, textQ, qActive]);
 
   const boshlangichSom    = num(mijoz?.Boshlangich_Balans_som);
   const boshlangichDollar = num(mijoz?.Boshlangich_Balans_dollar);
@@ -725,8 +729,11 @@ export default function MijozDetailPage() {
           <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-2)", marginLeft: 6 }}>Summa:</span>
           <input type="text" inputMode="numeric" value={qSum} onChange={e => setQSum(e.target.value)} placeholder="masalan 1986000"
             style={{ padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg)", color: "var(--text)", width: 150 }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-2)", marginLeft: 6 }}>Qidiruv:</span>
+          <input type="text" value={qText} onChange={e => setQText(e.target.value)} placeholder="Raqam, izoh..."
+            style={{ padding: "6px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, background: "var(--bg)", color: "var(--text)", width: 150 }} />
           {qActive && (
-            <button onClick={() => { setQFrom(""); setQTo(""); setQSum(""); }} style={{ padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "flex", alignItems: "center", gap: 4 }}>
+            <button onClick={() => { setQFrom(""); setQTo(""); setQSum(""); setQText(""); }} style={{ padding: "6px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", background: "var(--white)", cursor: "pointer", fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "flex", alignItems: "center", gap: 4 }}>
               <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg> Tozalash
             </button>
           )}
