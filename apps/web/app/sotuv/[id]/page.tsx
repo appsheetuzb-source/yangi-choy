@@ -152,13 +152,13 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
               <div style={{marginBottom:6}}>
                 <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              <div style={{display:"grid",gridTemplateColumns:simple?"1fr":"1fr 1fr",gap:6}}>
                 <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                   style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
-                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                {!simple&&<input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
+                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>}
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#16a34a"}}>{simple?<span style={{color:"var(--text-3)",fontWeight:600}}>Summa: </span>:null}{bc?"Tan narxidan past!":(jS?jS.toLocaleString("ru-RU")+" so'm":"—")}</span>
                   <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
                 </div>
               </div>
@@ -208,13 +208,13 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
               <div style={{marginBottom:6}}>
                 <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6}}>
+              <div style={{display:"grid",gridTemplateColumns:simple?"1fr":"1fr 1fr",gap:6}}>
                 <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                   style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-                <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
-                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
+                {!simple&&<input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
+                  style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>}
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gridColumn:"1/-1"}}>
-                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:bc?"#ef4444":"#2563eb"}}>{simple?<span style={{color:"var(--text-3)",fontWeight:600}}>Summa: </span>:null}{bc?"Tan narxidan past!":(jU?fmtUsd(jU):"—")}</span>
                   <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:6,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",fontSize:16,fontWeight:700}}>−</button>
                 </div>
               </div>
@@ -314,6 +314,7 @@ export default function SotuvDetailPage() {
   const [editIzoh, setEditIzoh]           = useState("");
   const [editItems, setEditItems] = useState<SavatItem[]>([]);
   const [editKurs, setEditKurs]           = useState("");
+  const [editSana, setEditSana]           = useState("");
   const [editSaving, setEditSaving]       = useState(false);
   const [isAddMode, setIsAddMode]         = useState(false);
 
@@ -520,6 +521,7 @@ export default function SotuvDetailPage() {
       ...savatDollar.map(r=>({id:uid(),Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:"",Narx:r.Narx,valyuta:"dollar" as const})),
     ];
     setEditKurs(savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"");
+    setEditSana(sanaToIso(sotuv.Sana));
     setEditItems(items.length>0?items:[{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som"}]);
     setEditOpen(true);
   }
@@ -530,6 +532,7 @@ export default function SotuvDetailPage() {
     setEditMijoz(sotuv.Mijoz_ID); setEditAgent(sotuv.Agent); setEditIzoh(sotuv.Izoh||"");
     setEditItems([{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta,Izoh:""}]);
     setEditKurs(savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"");
+    setEditSana(sanaToIso(sotuv.Sana));
     setEditOpen(true);
   }
 
@@ -560,7 +563,7 @@ export default function SotuvDetailPage() {
     try {
       if(isAddMode) {
         // Bir vaqtda ko'p mahsulot qo'shish — barchasini POST + keshni iliq saqlab (ro'yxat sekin bo'lmaydi)
-        const snRow=sotuv.Sana; const [,moRow,yRow]=snRow.split(".");
+        const snRow=editSana?editSana.split("-").reverse().join("."):sotuv.Sana; const [,moRow,yRow]=snRow.split(".");
         const somSheet:Record<string,string|number>[]=[]; const dollarSheet:Record<string,string|number>[]=[];
         const newSom:SotuvSavatRow[]=[]; const newDollar:SotuvSavatDollarRow[]=[];
         for(const r of valid){
@@ -599,7 +602,7 @@ export default function SotuvDetailPage() {
           await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID})});
         }
-        const snRow=sotuv.Sana; const [,moRow,yRow]=snRow.split(".");
+        const snRow=editSana?editSana.split("-").reverse().join("."):sotuv.Sana; const [,moRow,yRow]=snRow.split(".");
         for(const r of valid){
           const m=mMap[r.Mahsulot_ID];
           if(num(r.Som_Narx)>0){
@@ -1524,11 +1527,18 @@ export default function SotuvDetailPage() {
                   </div>
                 </div>
               )}
-              {/* Kurs */}
-              <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:8,marginBottom:14}}>
-                <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
-                <input value={editKurs} onChange={e=>setEditKurs(e.target.value)} placeholder="12800" inputMode="numeric"
-                  style={{width:110,padding:"8px 10px",border:`1px solid ${num(editKurs)>0&&num(editKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+              {/* Sana + Kurs */}
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:14,flexWrap:"wrap"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Sana:</label>
+                  <input type="date" value={editSana} onChange={e=>setEditSana(e.target.value)}
+                    style={{padding:"8px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",background:"var(--white)",color:"var(--text)"}}/>
+                </div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)"}}>Kurs:</label>
+                  <input value={editKurs} onChange={e=>setEditKurs(e.target.value)} placeholder="12800" inputMode="numeric"
+                    style={{width:110,padding:"8px 10px",border:`1px solid ${num(editKurs)>0&&num(editKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
+                </div>
               </div>
               <SavatEditor items={editItems} onUpdate={updateItem} onRemove={removeItem} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} isMobile={isMobile} somItems={mhItems} dollarItems={mhItems} mMap={mMap} simple={isAddMode}/>
             </div>
