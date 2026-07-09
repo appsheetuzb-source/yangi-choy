@@ -481,6 +481,8 @@ export default function SotuvPage() {
   },[]);
 
   useEffect(()=>{loadData();},[loadData]);
+  // Foydalanuvchi kirganda agent filtri o'ziga tanlanib qoladi (o'z sotuvlari darhol ko'rinadi)
+  useEffect(()=>{ if(user?.id) setFilterAgent([user.id]); },[user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function addSomItem() {
     setSavat(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);

@@ -460,6 +460,8 @@ export default function SotuvTolovPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+  // Foydalanuvchi kirganda agent filtri o'ziga tanlanib qoladi (o'z to'lovlari darhol ko'rinadi)
+  useEffect(() => { if (user?.id) setFilterAgent([user.id]); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchSheet("Gazna")
