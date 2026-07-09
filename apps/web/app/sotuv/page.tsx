@@ -319,7 +319,8 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
 export default function SotuvPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const isSotuvchi = user?.lavozim === "Sotuvchi";
+  // Admin emas (Sotuvchi/Omborchi/...) — faqat o'z agentiga tegishli ma'lumotni ko'radi
+  const isSotuvchi = !!user && user.lavozim !== "Admin";
   const isAdmin = user?.lavozim === "Admin";
   const [sotuvlar, setSotuvlar]             = useState<Sotuv[]>([]);
   const [savatSomMap, setSavatSomMap]       = useState<Record<string,SotuvSavatRow[]>>({});

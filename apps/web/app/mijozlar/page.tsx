@@ -94,7 +94,8 @@ function BalansCell({ som, usd, label }: { som: number; usd: number; label?: str
 export default function MijozlarPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const isSotuvchi = user?.lavozim === "Sotuvchi";
+  // Admin emas (Sotuvchi/Omborchi/...) — faqat o'z agentiga tegishli mijozlarni ko'radi
+  const isSotuvchi = !!user && user.lavozim !== "Admin";
   const [mijozlar, setMijozlar]         = useState<Mijoz[]>([]);
   const [balansMap, setBalansMap]       = useState<Record<string, MijozBalans>>({});
   const [sotuvSomMap, setSotuvSomMap]   = useState<Record<string, number>>({});

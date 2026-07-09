@@ -353,7 +353,8 @@ const TolovList = memo(function TolovList({
 export default function SotuvTolovPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const isSotuvchi = user?.lavozim === "Sotuvchi";
+  // Admin emas (Sotuvchi/Omborchi/...) — faqat o'z agentiga tegishli ma'lumotni ko'radi
+  const isSotuvchi = !!user && user.lavozim !== "Admin";
   const isAdmin = user?.lavozim === "Admin";
   const [tolovlar, setTolovlar]       = useState<STolov[]>([]);
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);

@@ -5,6 +5,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
+import { useAuth } from "@/lib/AuthContext";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,10 @@ interface Ombor {
 }
 
 export default function MahsulotPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.lavozim === "Admin";
+  // Non-admin (Sotuvchi/Omborchi) faqat o'ziga biriktirilgan ombor mahsulotlarini ko'radi
+  const myOmbor = (user?.omborId || "").trim();
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [omborlar, setOmborlar]       = useState<Ombor[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -120,10 +125,14 @@ export default function MahsulotPage() {
     });
   }, [loadData]);
 
-  const filtered = useMemo(()=>mahsulotlar.filter(m =>
+  // Non-admin (Sotuvchi/Omborchi) faqat o'z omboriga tegishli mahsulotlarni ko'radi (Admin — barchasi)
+  const omborMahsulotlar = useMemo(()=>
+    (isAdmin || !myOmbor) ? mahsulotlar : mahsulotlar.filter(m => (m.Ombor_ID || "").trim() === myOmbor),
+    [mahsulotlar,isAdmin,myOmbor]);
+  const filtered = useMemo(()=>omborMahsulotlar.filter(m =>
     String(m.Nomi || "").toLowerCase().includes(search.toLowerCase()) &&
     (!filterMijoz || (mijMahMap[filterMijoz]?.has(m.Mahsulot_ID) ?? false))
-  ),[mahsulotlar,search,filterMijoz,mijMahMap]);
+  ),[omborMahsulotlar,search,filterMijoz,mijMahMap]);
 
   function toggleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -311,9 +320,9 @@ export default function MahsulotPage() {
           const fmt    = (v: number) => v.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
           const fmtUsd = (v: number) => v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           // Hozirda bor — DONA da (balansMap: xarid Soni - sotuv Soni)
-          const hozirdaBorDona   = mahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0), 0);
-          const hozirdaBorSom    = mahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_som),    0);
-          const hozirdaBorDollar = mahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_dollar), 0);
+          const hozirdaBorDona   = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0), 0);
+          const hozirdaBorSom    = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_som),    0);
+          const hozirdaBorDollar = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_dollar), 0);
           return (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
               {[
@@ -439,7 +448,8 @@ export default function MahsulotPage() {
       <ProductDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        omborlar={omborlar}
+        omborlar={isAdmin || !myOmbor ? omborlar : omborlar.filter(o => o.Ombor_ID === myOmbor)}
+        defaultOmborId={myOmbor || undefined}
         editTarget={editTarget}
         onSaved={() => loadData(800)}
       />

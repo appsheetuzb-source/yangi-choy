@@ -141,10 +141,14 @@ export default function GaznaPage() {
       const myGaznaIds = (me?.Gazna_ID || "").split(",").map(s => s.trim()).filter(Boolean);
       setUserGaznaId(myGaznaIds.join(","));
       const allGaznalar = ((gR.data as Gazna[]) || []).filter(g => g.Gazna_ID);
-      // Admin barcha gaznalarni, boshqalar faqat o'ziga biriktirilganlarini ko'radi
+      // Admin barcha gaznalarni; boshqalar — o'ziga biriktirilgan (Gazna_ID)
+      // yoki o'zi Masul (mas'ul) etib belgilangan kassalarni ko'radi
+      const uid = (user?.id || "").trim();
       const visibleGaznalar = user?.lavozim === "Admin"
         ? allGaznalar
-        : allGaznalar.filter(g => myGaznaIds.includes(g.Gazna_ID));
+        : allGaznalar.filter(g =>
+            myGaznaIds.includes(g.Gazna_ID) ||
+            (g.Masul || "").split(",").map(s => s.trim()).includes(uid));
       setGaznalar(visibleGaznalar);
       setStolov((sR.data as STolov[]) || []);
       setXtolov((xR.data as XTolov[]) || []);

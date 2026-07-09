@@ -48,7 +48,8 @@ const EMPTY = {
 
 export default function XarajatPage() {
   const { user } = useAuth();
-  const isSotuvchi = user?.lavozim === "Sotuvchi";
+  // Admin emas (Sotuvchi/Omborchi/...) — faqat o'z xarajatlarini ko'radi; Admin — barchasi
+  const isSotuvchi = !!user && user.lavozim !== "Admin";
   const isAdmin = user?.lavozim === "Admin";
 
   const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);

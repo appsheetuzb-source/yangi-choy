@@ -40,9 +40,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             nomi: fresh.Nomi,
             lavozim: fresh.Lavozim || "Sotuvchi",
             pochta: fresh.Pochta || fresh.Telefon || stored.pochta,
+            omborId: fresh.Ombor_ID || "",
             gaznaIds: freshGaznaIds,
           };
           if (updated.lavozim !== stored.lavozim || updated.nomi !== stored.nomi
+              || updated.omborId !== (stored.omborId || "")
               || (freshGaznaIds.join(",") !== (stored.gaznaIds || []).join(","))) {
             setUser(updated);
             setUserState(updated);
@@ -78,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         nomi:    found.Nomi,
         lavozim: found.Lavozim || "Sotuvchi",
         pochta:  found.Pochta || found.Telefon || pochta,
+        omborId: found.Ombor_ID || "",
         gaznaIds: parseGaznaIds(found.Gazna_ID),
       };
       setUser(u);

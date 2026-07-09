@@ -24,7 +24,8 @@ function isoKey(iso: string) { return iso ? iso.replace(/-/g, "") : ""; }
 export default function AktSverkaPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const isSotuvchi = user?.lavozim === "Sotuvchi";
+  // Admin emas (Sotuvchi/Omborchi/...) — faqat o'z mijozlarini ko'radi
+  const isSotuvchi = !!user && user.lavozim !== "Admin";
 
   const [mijozlar, setMijozlar] = useState<Mijoz[]>([]);
   const [sotuvlar, setSotuvlar] = useState<Sotuv[]>([]);

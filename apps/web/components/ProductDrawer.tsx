@@ -24,6 +24,7 @@ const EMPTY: ProductRow = {
   Qoshilgan_sana: "", Kg: "", Check: "TRUE",
 };
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function num(v: string) { return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0; }
 
 function Field({ label, value, onChange, placeholder }: {
   label: string; value: string; onChange: (v: string) => void; placeholder?: string;
@@ -51,8 +52,6 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
   onSaved: (saved: ProductRow) => void;
 }) {
   const [formData, setFormData]     = useState<ProductRow>(EMPTY);
-  const [formSom, setFormSom]       = useState(true);
-  const [formDollar, setFormDollar] = useState(false);
   const [saving, setSaving]         = useState(false);
   const [imgPreview, setImgPreview] = useState<string | null>(null);
   const [uploading, setUploading]   = useState(false);
@@ -64,14 +63,8 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
     if (!open) return;
     if (editTarget) {
       setFormData({ ...editTarget });
-      const hasSom    = editTarget.Sotuv_som    && String(editTarget.Sotuv_som).trim()    !== "" && String(editTarget.Sotuv_som).trim()    !== "0";
-      const hasDollar = editTarget.Sotuv_dollar && String(editTarget.Sotuv_dollar).trim() !== "" && String(editTarget.Sotuv_dollar).trim() !== "0";
-      setFormSom(hasSom || (!hasSom && !hasDollar));
-      setFormDollar(!!hasDollar);
     } else {
       setFormData({ ...EMPTY, Mahsulot_ID: uid(), Ombor_ID: defaultOmborId || omborlar[0]?.Ombor_ID || "", Nomi: initialNomi || "" });
-      setFormSom(true);
-      setFormDollar(false);
     }
     setImgPreview(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -97,10 +90,10 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
 
   function isValid() {
     if (!formData.Nomi.trim()) return false;
-    if (!formData.Sotuv_som.trim() || !formData.Sotuv_dollar.trim()) return false;
-    if (!formSom && !formDollar) return false;
-    if (formSom && !formData.Tan_som.trim()) return false;
-    if (formDollar && !formData.Tan_dollar.trim()) return false;
+    // Sotuv narxi: so'm yoki $ dan kamida bittasi
+    if (num(formData.Sotuv_som) <= 0 && num(formData.Sotuv_dollar) <= 0) return false;
+    // Tan narxi: so'm yoki $ dan kamida bittasi
+    if (num(formData.Tan_som) <= 0 && num(formData.Tan_dollar) <= 0) return false;
     return true;
   }
 
@@ -123,6 +116,8 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
 
   if (!open) return null;
   const nameEntered = formData.Nomi.trim().length > 0;
+  const sotuvOk = num(formData.Sotuv_som) > 0 || num(formData.Sotuv_dollar) > 0;
+  const tanOk   = num(formData.Tan_som) > 0 || num(formData.Tan_dollar) > 0;
 
   return (
     <>
@@ -187,49 +182,27 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
             <div className="drawer__section fade-in">
               <p className="drawer__section-label">Narxlar *</p>
 
-              {/* Sotuv narxi — har doim ikkalasi, majburiy */}
+              {/* Sotuv narxi — so'm yoki $ dan kamida bittasi majburiy */}
               <div className="grid-2">
-                <Field label="Sotuv narxi so'm *" value={formData.Sotuv_som} placeholder="0"
+                <Field label="Sotuv narxi so'm" value={formData.Sotuv_som} placeholder="0"
                   onChange={v => setFormData(p => ({ ...p, Sotuv_som: v }))} />
-                <Field label="Sotuv narxi $ *" value={formData.Sotuv_dollar} placeholder="0"
+                <Field label="Sotuv narxi $" value={formData.Sotuv_dollar} placeholder="0"
                   onChange={v => setFormData(p => ({ ...p, Sotuv_dollar: v }))} />
               </div>
+              <p style={{ fontSize: 11, fontWeight: 600, color: sotuvOk ? "var(--text-3)" : "#ef4444", margin: "-4px 0 12px" }}>
+                Sotuv narxi: so&apos;m yoki $ dan kamida bittasini to&apos;ldiring *
+              </p>
 
-              {/* Tan narx valyuta toggle — majburiy */}
-              <div className="field">
-                <label>Tan narx valyutasi *</label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  {([
-                    { key: "som",    label: "So'm", active: formSom,    toggle: () => setFormSom(p => !p) },
-                    { key: "dollar", label: "$",    active: formDollar, toggle: () => setFormDollar(p => !p) },
-                  ]).map(({ key, label, active, toggle }) => (
-                    <button key={key} type="button" onClick={toggle}
-                      style={{
-                        flex: 1, padding: "9px 0", borderRadius: 10, border: "1.5px solid",
-                        fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all .15s",
-                        background: active ? "var(--primary)" : "var(--bg)",
-                        color:      active ? "#fff"           : "var(--text-2)",
-                        borderColor: active ? "var(--primary)" : "var(--border)",
-                      }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
+              {/* Tan narxi — so'm yoki $ dan kamida bittasi majburiy */}
+              <div className="grid-2">
+                <Field label="Tan narxi so'm" value={formData.Tan_som} placeholder="0"
+                  onChange={v => setFormData(p => ({ ...p, Tan_som: v }))} />
+                <Field label="Tan narxi $" value={formData.Tan_dollar} placeholder="0"
+                  onChange={v => setFormData(p => ({ ...p, Tan_dollar: v }))} />
               </div>
-
-              {/* Tan narxi — tanlangan valyutaga ko'ra, majburiy */}
-              {(formSom || formDollar) && (
-                <div className={formSom && formDollar ? "grid-2 fade-in" : "fade-in"}>
-                  {formSom && (
-                    <Field label="Tan narxi so'm *" value={formData.Tan_som} placeholder="0"
-                      onChange={v => setFormData(p => ({ ...p, Tan_som: v }))} />
-                  )}
-                  {formDollar && (
-                    <Field label="Tan narxi $ *" value={formData.Tan_dollar} placeholder="0"
-                      onChange={v => setFormData(p => ({ ...p, Tan_dollar: v }))} />
-                  )}
-                </div>
-              )}
+              <p style={{ fontSize: 11, fontWeight: 600, color: tanOk ? "var(--text-3)" : "#ef4444", margin: "-4px 0 0" }}>
+                Tan narxi: so&apos;m yoki $ dan kamida bittasini to&apos;ldiring *
+              </p>
             </div>
           )}
 
