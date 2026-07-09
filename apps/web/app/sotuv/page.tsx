@@ -796,8 +796,10 @@ export default function SotuvPage() {
   // Sana (oy/yil) filtrisiz baza — agent/qidiruv/sotuvchi bo'yicha. "Bo'sh" tab shundan oladi.
   const filteredNoDate = useMemo(()=>sotuvlar.filter(s=>{
     if(!s.Sotuv_ID) return false;
-    // Sotuvchi faqat o'z sotuvlarini ko'radi
+    // Non-admin faqat o'z sotuvlarini ko'radi
     if(isSotuvchi && user?.id && s.Agent !== user.id) return false;
+    // Admin: agent tanlanmaguncha sotuv ko'rsatilmaydi (agent tanlansa — o'shaniki)
+    if(isAdmin && filterAgent.length===0) return false;
     const matchAgent=filterAgent.length===0||filterAgent.includes(s.Agent);
     const mJozIsi=(mjMap[s.Mijoz_ID]?.Ism||"");
     const matchSearch=!search||
@@ -805,7 +807,7 @@ export default function SotuvPage() {
       (s.Sotuv_Raqami||"").includes(search)||
       (s.Izoh||"").toLowerCase().includes(search.toLowerCase());
     return matchAgent&&matchSearch;
-  }),[sotuvlar,filterAgent,search,mijozlar,isSotuvchi,user]);
+  }),[sotuvlar,filterAgent,search,mijozlar,isSotuvchi,isAdmin,user]);
 
   // Sana filtri qo'llangan baza (qolgan tablar uchun)
   const filtered = useMemo(()=>filteredNoDate.filter(s=>{
@@ -1028,8 +1030,8 @@ export default function SotuvPage() {
                   </div>
                   {/* Table header */}
                   {viewTab!=="berilmagan"&&(
-                  <div style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(100px,.85fr) minmax(100px,.85fr) minmax(110px,.95fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",padding:"8px 16px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
-                    {["#","SANA/RAQAM","MIJOZ","AGENT","JAMI SO'M","JAMI DOLLAR","TO'LANDI","QARZ","IZOH",""].map(h=>(
+                  <div style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",padding:"8px 16px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
+                    {["#","SANA/RAQAM","MIJOZ","AGENT","QARZ","IZOH",""].map(h=>(
                       <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text)",letterSpacing:".05em"}}>{h}</span>
                     ))}
                   </div>
@@ -1194,7 +1196,7 @@ export default function SotuvPage() {
                       const qarzDollar = jD - paidDollar;
                       return (
                         <div key={s.Sotuv_ID||idx} onClick={()=>router.push(`/sotuv/${s.Sotuv_ID}`)}
-                          style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(100px,.85fr) minmax(100px,.85fr) minmax(110px,.95fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",
+                          style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(120px,1.4fr) minmax(80px,.8fr) minmax(120px,1fr) minmax(50px,.5fr) 96px",
                             padding:"10px 16px",alignItems:"center",borderBottom:idx<viewFiltered.length-1?"1px solid var(--border)":"none",
                             cursor:"pointer",background:"transparent",transition:"background .1s"}}
                           onMouseEnter={e=>(e.currentTarget.style.background="var(--bg)")}
@@ -1216,13 +1218,6 @@ export default function SotuvPage() {
                             <p style={{fontSize:13,fontWeight:800,color:"var(--primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{mjNomi}</p>
                           </div>
                           <span style={{fontSize:12,fontWeight:600,color:"var(--text-2)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{agNomi}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:jS?(jS<0?"#ec4899":"#16a34a"):"var(--text-3)"}}>{jS?jS.toLocaleString("ru-RU")+" so'm":(balansReady?"—":"…")}</span>
-                          <span style={{fontSize:13,fontWeight:700,color:jD?(jD<0?"#ec4899":"#2563eb"):"var(--text-3)"}}>{jD?fmtUsd(jD):(balansReady?"—":"…")}</span>
-                          <div>
-                            {paidSom>0&&<p style={{fontSize:12,fontWeight:700,color:"#16a34a"}}>{paidSom.toLocaleString("ru-RU")} so&apos;m</p>}
-                            {paidDollar>0&&<p style={{fontSize:12,fontWeight:700,color:"#2563eb",marginTop:paidSom>0?2:0}}>{fmtUsd(paidDollar)}</p>}
-                            {!paidSom&&!paidDollar&&<span style={{fontSize:12,color:"var(--text-3)"}}>{balansReady?"—":"…"}</span>}
-                          </div>
                           <div>
                             {jS>0&&<p style={{fontSize:12,fontWeight:700,color:qarzSom>0?"#ef4444":qarzSom<0?"#2563eb":"#16a34a"}}>{qarzSom>0?"Qarz: "+qarzSom.toLocaleString("ru-RU")+" so'm":qarzSom<0?"Ortiq: "+Math.abs(qarzSom).toLocaleString("ru-RU")+" so'm":"To'liq so'm"}</p>}
                             {jD>0&&<p style={{fontSize:12,fontWeight:700,color:qarzDollar>0?"#ef4444":qarzDollar<0?"#2563eb":"#16a34a",marginTop:jS>0?2:0}}>{qarzDollar>0?"Qarz: "+fmtUsd(qarzDollar):qarzDollar<0?"Ortiq: "+fmtUsd(Math.abs(qarzDollar)):"To'liq $"}</p>}

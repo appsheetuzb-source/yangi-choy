@@ -38,15 +38,12 @@ export function parseGaznaIds(raw?: string): string[] {
   return (raw || "").split(",").map(s => s.trim()).filter(Boolean);
 }
 
-// Foydalanuvchiga ko'rinadigan gaznalar: Admin → barchasi;
-// boshqalar → o'ziga biriktirilgan (Gazna_ID) yoki o'zi Masul etib belgilangan kassalar
-export function gaznaForUser<T extends { Gazna_ID: string; Masul?: string }>(user: AuthUser | null, gaznalar: T[]): T[] {
+// Foydalanuvchiga ko'rinadigan gaznalar: Admin → barchasi, boshqalar → o'ziga biriktirilgan (Gazna_ID)
+export function gaznaForUser<T extends { Gazna_ID: string }>(user: AuthUser | null, gaznalar: T[]): T[] {
   if (!user) return [];
   if (user.lavozim === "Admin") return gaznalar;
   const ids = user.gaznaIds || [];
-  return gaznalar.filter(g =>
-    ids.includes(g.Gazna_ID) ||
-    (g.Masul || "").split(",").map(s => s.trim()).includes(user.id));
+  return gaznalar.filter(g => ids.includes(g.Gazna_ID));
 }
 
 // Sotuvchi ko'ra oladigan sahifalar

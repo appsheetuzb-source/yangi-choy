@@ -372,6 +372,7 @@ export default function SotuvTolovPage() {
   const [filterOy, setFilterOy]   = usePersistedState("flt:sotuv-tolov:filterOy", "");
   const [filterYil, setFilterYil] = usePersistedState("flt:sotuv-tolov:filterYil", String(now.getFullYear()));
   const [filterM, setFilterM]     = usePersistedState<string[]>("flt:sotuv-tolov:filterM", []);
+  const [filterAgent, setFilterAgent] = usePersistedState<string[]>("flt:sotuv-tolov:filterAgent", []);
   const [filterTuri, setFilterTuri] = usePersistedState("flt:sotuv-tolov:filterTuri", "");
   const [filterSana, setFilterSana] = usePersistedState("flt:sotuv-tolov:filterSana", ""); // DD.MM.YYYY
   const [page, setPage]           = useState(0);
@@ -708,6 +709,8 @@ export default function SotuvTolovPage() {
       : mijozlar;
     return list.map(m => ({ id: m.Mijoz_ID, label: m.Ism }));
   }, [mijozlar, isSotuvchi, user]);
+  // Admin uchun agent filtri variantlari
+  const aItems = useMemo(() => Object.entries(agentMap).map(([id, label]) => ({ id, label })).filter(a => a.id && a.label), [agentMap]);
 
   function num2(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
   const editSotuvItems = useMemo(() => {
@@ -723,8 +726,11 @@ export default function SotuvTolovPage() {
 
   const filtered = useMemo(() => tolovlar.filter(t => {
     if (!t.Tolov_ID) return false;
-    // Sotuvchi faqat o'z to'lovlarini ko'radi
+    // Non-admin faqat o'z to'lovlarini ko'radi
     if (isSotuvchi && user?.id && t.Agent !== user.id) return false;
+    // Admin: agent tanlanmaguncha to'lov ko'rsatilmaydi (agent tanlansa — o'shaniki)
+    if (isAdmin && filterAgent.length === 0) return false;
+    const matchAgent = filterAgent.length === 0 || filterAgent.includes(t.Agent);
     const matchOy  = !filterOy  || String(parseInt(t.Oy || "0")) === filterOy;
     const matchYil = !filterYil || t.Yil === filterYil;
     const matchM   = filterM.length === 0 || filterM.includes(t.Mijoz_ID);
@@ -735,13 +741,13 @@ export default function SotuvTolovPage() {
       mNomi.toLowerCase().includes(search.toLowerCase()) ||
       (t.Sana || "").includes(search) ||
       (t.Turi || "").toLowerCase().includes(search.toLowerCase());
-    return matchOy && matchYil && matchM && matchTuri && matchSana && matchSearch;
-  }), [tolovlar, filterOy, filterYil, filterM, filterTuri, filterSana, mijozNameMap, search, isSotuvchi, user]);
+    return matchAgent && matchOy && matchYil && matchM && matchTuri && matchSana && matchSearch;
+  }), [tolovlar, filterOy, filterYil, filterM, filterAgent, filterTuri, filterSana, mijozNameMap, search, isSotuvchi, isAdmin, user]);
 
   // Filtr uchun mavjud to'lov turlari
   const turilar = useMemo(() => Array.from(new Set(tolovlar.map(t => (t.Turi || "").trim()).filter(Boolean))).sort(), [tolovlar]);
 
-  useEffect(() => setPage(0), [filterOy, filterYil, filterM, filterTuri, filterSana, search]);
+  useEffect(() => setPage(0), [filterOy, filterYil, filterM, filterAgent, filterTuri, filterSana, search]);
   const paged = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);
 
   const totalSom     = useMemo(() => filtered.reduce((s, t) => s + (t.Valyuta !== "Dollar" ? num(t.Som) : 0), 0), [filtered]);
@@ -831,6 +837,7 @@ export default function SotuvTolovPage() {
                     {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                   </div>
                   <MultiSelect items={mItems} value={filterM} onChange={setFilterM} placeholder="Mijoz..." fullWidth/>
+                  {isAdmin && <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..." fullWidth/>}
                   <div style={{ display: "flex", gap: 8 }}>
                     <select value={filterOy} onChange={e => setFilterOy(e.target.value)}
                       style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
@@ -876,6 +883,7 @@ export default function SotuvTolovPage() {
                       {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
                     <MultiSelect items={mItems} value={filterM} onChange={setFilterM} placeholder="Mijoz..."/>
+                    {isAdmin && <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..."/>}
                     <select value={filterTuri} onChange={e => setFilterTuri(e.target.value)}
                       style={{ width: "auto", padding: "8px 12px", border: `1px solid ${filterTuri?"var(--primary)":"var(--border)"}`, borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, background: "var(--white)", cursor: "pointer", outline: "none" }}>
                       <option value="">Barcha turlar</option>
