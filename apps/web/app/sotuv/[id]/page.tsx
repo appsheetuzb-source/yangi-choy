@@ -23,7 +23,7 @@ interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
   Soni: string; Narx: string; Summa: string; Kurs: string; Ombor_ID: string; Check: string; Izoh?: string; Vaqt?: string;
 }
-interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; }
+interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; Lavozim?: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; Dokon_Ombor_ID?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Ombor_ID: string; Sotuv_dollar: string; Sotuv_som: string; Tan_som?: string; Tan_dollar?: string; }
 interface SavatItem { id: string; Mahsulot_ID: string; Soni: string; Som_Narx: string; Narx: string; valyuta: "som"|"dollar"; Izoh?: string; }
@@ -551,7 +551,7 @@ export default function SotuvDetailPage() {
 
   // Ombor semantikasi: Ombor_ID = MANBA (chiqim), Ombor_2 = QABUL (do'konga transfer).
   // Manba sotuv-AGENTiga bog'liq: agent do'kon omboriga biriktirilgan bo'lsa — o'sha ombor, aks holda mahsulot ombori.
-  function ombSrc(agentId: string, mahOmborId: string) { return manbaOmbor(omborByAgent(agentlar)[String(agentId||"").trim()], shopWarehouseSet(mijozlar), mahOmborId||""); }
+  function ombSrc(agentId: string, mahOmborId: string) { return manbaOmbor(omborByAgent(agentlar)[String(agentId||"").trim()], shopWarehouseSet(agentlar), mahOmborId||""); }
   function ombDest(mijozId: string) { return dokonOmbor(mijozlar.find(mz => mz.Mijoz_ID === mijozId)); }
 
   async function handleUpdate() {

@@ -23,7 +23,7 @@ interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
   Soni: string; Narx: string; Summa: string; Kurs: string; Check: string;
 }
-interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; }
+interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; Lavozim?: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent: string; Dokon_Ombor_ID?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Ombor_ID: string;
@@ -571,7 +571,7 @@ export default function SotuvPage() {
       let savatIdx=1;
       // Ombor semantikasi: Ombor_ID = MANBA (chiqim), Ombor_2 = QABUL (do'konga transfer).
       const fOmbor=omborByAgent(agentlar);                 // agent → biriktirilgan ombor
-      const shopSet=shopWarehouseSet(mijozlar);            // barcha do'kon omborlari
+      const shopSet=shopWarehouseSet(agentlar);            // barcha do'kon omborlari
       const agentOmbor=fOmbor[addAgent];                   // sotuvchi-agentning ombori
       const dokonDest=dokonOmbor(mijozlar.find(mz=>mz.Mijoz_ID===addMijoz)); // do'kon-mijozga sotuvda uning ombori, aks holda ""
       for(const r of valid){
@@ -715,7 +715,7 @@ export default function SotuvPage() {
       let savatIdx=1;
       // Ombor semantikasi (handleSave bilan bir xil): Ombor_ID=manba, Ombor_2=qabul(do'konga transfer)
       const fOmbor=omborByAgent(agentlar);
-      const shopSet=shopWarehouseSet(mijozlar);
+      const shopSet=shopWarehouseSet(agentlar);
       const agentOmbor=fOmbor[editAgent];
       const dokonDest=dokonOmbor(mijozlar.find(mz=>mz.Mijoz_ID===editMijoz));
       for(const r of valid){

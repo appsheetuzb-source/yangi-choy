@@ -1,10 +1,10 @@
 "use client";
 
-import { fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
+import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
-import { readOmbor2 } from "@/lib/ombor-transfer";
+import { readOmbor2, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Rasm: string;
@@ -101,6 +101,7 @@ export default function MahsulotDetailPage() {
 
   const [mahsulot, setMahsulot]       = useState<Mahsulot | null>(null);
   const [txAll, setTxAll]             = useState<TxRow[]>([]);
+  const [shopWH, setShopWH]           = useState<Set<string>>(new Set()); // do'kon omborlari (Foydalanuvchi'dan)
   const [avgSotuvSom, setAvgSotuvSom] = useState(0);
   const [avgSotuvUsd, setAvgSotuvUsd] = useState(0);
   const [loading, setLoading]         = useState(true);
@@ -125,7 +126,12 @@ export default function MahsulotDetailPage() {
       fetchSheetWhere("Xarid_Savat", "Mahsulot_ID", id),
       fetchSheetWhere("Sotuv_Savat", "Mahsulot_ID", id),
       fetchSheetWhere("Sotuv_savat_dollar", "Mahsulot_ID", id),
-    ]).then(async ([mRes, xsRes, ssRes, ssdRes]) => {
+      fetchSheet("Foydalanuvchi"),
+    ]).then(async ([mRes, xsRes, ssRes, ssdRes, fRes]) => {
+      const shopWHlocal = shopWarehouseSet((fRes.data as FoydalanuvchiLike[]) || []);
+      setShopWH(shopWHlocal);
+      // Transfer = Ombor_2 do'kon ombori bo'lsa (legacy " Ombor_2"=Asosiy — transfer EMAS, oddiy sotuv)
+      const isTransfer = (r: Record<string, unknown>) => { const d = readOmbor2(r); return !!d && shopWHlocal.has(d); };
       const m = (mRes.data as Mahsulot[])[0] || null;
       setMahsulot(m);
       if (m) setPrices({
@@ -253,8 +259,8 @@ export default function MahsulotDetailPage() {
       setTxAll(all);
 
       // O'rtacha sotuv narxi — transfer (Ombor_2 to'la) qatorlarini hisobga olmaydi (ichki ko'chirish, real sotuv emas)
-      const somRows = (ssRes.data as SotuvSavatRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Som_Narx) > 0 && !readOmbor2(r as unknown as Record<string, unknown>));
-      const usdRows = (ssdRes.data as SotuvSavatDollarRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Narx) > 0 && !readOmbor2(r as unknown as Record<string, unknown>));
+      const somRows = (ssRes.data as SotuvSavatRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Som_Narx) > 0 && !isTransfer(r as unknown as Record<string, unknown>));
+      const usdRows = (ssdRes.data as SotuvSavatDollarRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Narx) > 0 && !isTransfer(r as unknown as Record<string, unknown>));
       const totalSomKg  = somRows.reduce((s, r) => s + num(r.Soni), 0);
       const totalSomSum = somRows.reduce((s, r) => s + num(r.Soni) * num(r.Som_Narx), 0);
       const totalUsdKg  = usdRows.reduce((s, r) => s + num(r.Soni), 0);
@@ -288,7 +294,9 @@ export default function MahsulotDetailPage() {
   const viewOmbor = isAdmin ? "" : myOmbor;
   const viewTxAll = useMemo<TxRow[]>(() => {
     return txAll.map(t => {
-      const src = t.srcOmbor, dest = t.destOmbor, qty = t.qty || 0;
+      const src = t.srcOmbor, qty = t.qty || 0;
+      // Ombor_2 ni FAQAT do'kon ombori bo'lsa transfer deb hisoblaymiz (legacy " Ombor_2"=Asosiy e'tiborsiz)
+      const dest = (t.destOmbor && shopWH.has(t.destOmbor)) ? t.destOmbor : "";
       if (t.linkType === "xarid") {
         if (viewOmbor && src !== viewOmbor) return null;                 // do'kon: faqat o'z ombori xaridi
         return { ...t, kirim: qty, chiqim: 0 };
@@ -303,7 +311,7 @@ export default function MahsulotDetailPage() {
       if (dest === viewOmbor) return { ...t, kirim: qty, chiqim: 0, izoh: t.izoh + " · qabul" };      // do'konga o'tkazma
       return null;                                                       // bu omborga aloqasiz
     }).filter(Boolean) as TxRow[];
-  }, [txAll, viewOmbor]);
+  }, [txAll, viewOmbor, shopWH]);
 
   if (loading) return (
     <div className="page-content" style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>

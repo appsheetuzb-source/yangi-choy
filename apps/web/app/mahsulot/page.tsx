@@ -6,7 +6,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
-import { readOmbor2 } from "@/lib/ombor-transfer";
+import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -87,34 +87,23 @@ export default function MahsulotPage() {
       fetchSheet("Xarid_Savat"),
       fetchSheet("Sotuv"),
       fetchSheet("Mijozlar"),
-    ]).then(([ssRes, ssdRes, xsRes, sRes, mRes]) => {
+      fetchSheet("Foydalanuvchi"),
+    ]).then(([ssRes, ssdRes, xsRes, sRes, mRes, fRes]) => {
       const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
       const som    = (ssRes.data  as Record<string, string>[]).reduce((s, r) => s + n(r.Summa_som), 0);
       const dollar = (ssdRes.data as Record<string, string>[]).reduce((s, r) => s + n(r.Summa),     0);
       setJamiSotuvSom(som);
       setJamiSotuvDollar(dollar);
 
-      // Per-ombor balans: inv[ombor][mahsulot]
-      //   Xarid_Savat  → +Soni  Ombor_ID ga (kirim)
-      //   Sotuv_*      → −Soni  Ombor_ID dan (chiqim/manba); Ombor_2 to'la bo'lsa +Soni Ombor_2 ga (transfer qabul)
-      // Global (barcha omborlar yig'indisi) — transfer qatorlari o'zaro qisqaradi, double-count bo'lmaydi.
-      const inv: Record<string, Record<string, number>> = {};
-      const bump = (ombor: string | undefined, mid: string, d: number) => {
-        const o = String(ombor || "").trim() || "__none__";
-        if (!inv[o]) inv[o] = {};
-        inv[o][mid] = (inv[o][mid] || 0) + d;
-      };
-      (xsRes.data as Record<string, string>[]).forEach(r => { if (r.Mahsulot_ID) bump(r.Ombor_ID, r.Mahsulot_ID, n(r.Soni)); });
-      const applySale = (r: Record<string, string>) => {
-        if (!r.Mahsulot_ID) return;
-        bump(r.Ombor_ID, r.Mahsulot_ID, -n(r.Soni));
-        const dest = readOmbor2(r);
-        if (dest) bump(dest, r.Mahsulot_ID, n(r.Soni));
-      };
-      (ssRes.data as Record<string, string>[]).forEach(applySale);
-      (ssdRes.data as Record<string, string>[]).forEach(applySale);
-      const global: Record<string, number> = {};
-      for (const o of Object.keys(inv)) for (const mid of Object.keys(inv[o])) global[mid] = (global[mid] || 0) + inv[o][mid];
+      // Per-ombor balans (yagona helper). Ombor_2 ni FAQAT do'kon ombori bo'lsa transfer deb hisoblaydi
+      // (legacy " Ombor_2"=Asosiy e'tiborsiz). Do'kon omborlari Foydalanuvchi'dan quriladi (barqaror).
+      const shopWH = shopWarehouseSet((fRes.data as FoydalanuvchiLike[]) || []);
+      const { inv, global } = computeInvByOmbor(
+        xsRes.data as Record<string, string>[],
+        ssRes.data as Record<string, string>[],
+        ssdRes.data as Record<string, string>[],
+        shopWH,
+      );
       setInvByOmbor(inv);
       setGlobalBalans(global);
 

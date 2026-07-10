@@ -1,6 +1,6 @@
 "use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
-import { computeInvByOmbor } from "@/lib/ombor-transfer";
+import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Ombor { Ombor_ID: string; Nomi: string; Masul: string; Status: string; }
@@ -62,11 +62,14 @@ export default function OmborlarPage() {
       fetchSheet("Sotuv_Savat_Dollar").catch(() => ({ data: [] })),
       fetchSheet("Xarid_Savat").catch(() => ({ data: [] })),
       fetchSheet("Mahsulot").catch(() => ({ data: [] })),
-    ]).then(([ssR, ssdR, xsR, mR]) => {
+      fetchSheet("Foydalanuvchi").catch(() => ({ data: [] })),
+    ]).then(([ssR, ssdR, xsR, mR, fR]) => {
+      const shopWH = shopWarehouseSet((fR.data as FoydalanuvchiLike[]) || []);
       const { inv } = computeInvByOmbor(
         xsR.data as Record<string, string>[],
         ssR.data as Record<string, string>[],
         ssdR.data as Record<string, string>[],
+        shopWH,
       );
       const price: Record<string, { som: number; dollar: number }> = {};
       (mR.data as Record<string, string>[]).forEach(m => { if (m.Mahsulot_ID) price[m.Mahsulot_ID] = { som: num(m.Sotuv_som), dollar: num(m.Sotuv_dollar) }; });

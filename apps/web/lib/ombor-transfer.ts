@@ -10,7 +10,7 @@
 // (Transfer qatorlari — Ombor_2 to'la — global hisobda o'zaro qisqaradi, double-count bo'lmaydi.)
 
 export interface MijozLike { Dokon_Ombor_ID?: string }
-export interface FoydalanuvchiLike { Foydalanuvchi_ID: string; Ombor_ID?: string }
+export interface FoydalanuvchiLike { Foydalanuvchi_ID: string; Ombor_ID?: string; Lavozim?: string }
 
 const t = (v: unknown) => String(v ?? "").trim();
 
@@ -30,10 +30,20 @@ export function omborByAgent(users: FoydalanuvchiLike[]): Record<string, string>
   return m;
 }
 
-/** Barcha do'kon omborlari to'plami (mijozlar.Dokon_Ombor_ID lardan). */
-export function shopWarehouseSet(mijozlar: MijozLike[]): Set<string> {
+/**
+ * Do'kon (shop) omborlari to'plami — Sotuvchi (non-Admin) foydalanuvchilarga biriktirilgan omborlar,
+ * Admin omborlaridan (asosiy) TASHQARI. FOYDALANUVCHI ma'lumotidan quriladi (Ombor_ID + Lavozim):
+ *  - BARQAROR — mijoz Dokon_Ombor_ID keshiga bog'liq emas (do'kon o'z omboridan sotishi kafolatlanadi)
+ *  - Legacy " Ombor_2"=Asosiy ni transferdan ajratish uchun ham ishlatiladi (Asosiy do'kon ombori emas)
+ */
+export function shopWarehouseSet(foydalanuvchilar: FoydalanuvchiLike[]): Set<string> {
+  const adminOmbor = new Set<string>();
+  for (const u of foydalanuvchilar) if (t(u.Lavozim) === "Admin" && t(u.Ombor_ID)) adminOmbor.add(t(u.Ombor_ID));
   const s = new Set<string>();
-  for (const m of mijozlar) { const o = t(m?.Dokon_Ombor_ID); if (o) s.add(o); }
+  for (const u of foydalanuvchilar) {
+    const o = t(u.Ombor_ID);
+    if (o && t(u.Lavozim) && t(u.Lavozim) !== "Admin" && !adminOmbor.has(o)) s.add(o);
+  }
   return s;
 }
 
@@ -75,6 +85,7 @@ export function computeInvByOmbor(
   xarid: Record<string, string>[],
   sotuvSom: Record<string, string>[],
   sotuvDollar: Record<string, string>[],
+  shopWarehouses: Set<string>,
 ): { inv: Record<string, Record<string, number>>; global: Record<string, number> } {
   const inv: Record<string, Record<string, number>> = {};
   const bump = (ombor: string | undefined, mid: string, d: number) => {
@@ -87,7 +98,9 @@ export function computeInvByOmbor(
     if (!r.Mahsulot_ID) return;
     bump(r.Ombor_ID, r.Mahsulot_ID, -numv(r.Soni));
     const dest = readOmbor2(r);
-    if (dest) bump(dest, r.Mahsulot_ID, numv(r.Soni));
+    // Ombor_2 ni FAQAT haqiqiy do'kon ombori bo'lsa transfer deb hisoblaymiz.
+    // Eski " Ombor_2"=Asosiy (legacy) do'kon ombori emas → e'tiborsiz (oddiy sotuv Asosiy'ni kamaytiradi).
+    if (dest && shopWarehouses.has(dest)) bump(dest, r.Mahsulot_ID, numv(r.Soni));
   };
   (sotuvSom || []).forEach(sale);
   (sotuvDollar || []).forEach(sale);
