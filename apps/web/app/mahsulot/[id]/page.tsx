@@ -1,8 +1,10 @@
 "use client";
 
 import { fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useAuth } from "@/lib/AuthContext";
+import { readOmbor2 } from "@/lib/ombor-transfer";
 
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Rasm: string;
@@ -12,17 +14,17 @@ interface Mahsulot {
 }
 interface XaridSavat {
   X_Savat: string; Sana: string; Mahsulot_ID: string; Xarid_ID: string;
-  Soni: string; Narxi: string; Narx_som: string; Summa_Som: string;
+  Soni: string; Narxi: string; Narx_som: string; Summa_Som: string; Ombor_ID?: string;
 }
 interface Xarid { Xarid_ID: string; Taminotchi_ID: string; Sana: string; }
 interface Taminotchi { Taminotchi_ID: string; Ism: string; }
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
-  Soni: string; Som_Narx: string; Summa_som: string;
+  Soni: string; Som_Narx: string; Summa_som: string; Ombor_ID?: string;
 }
 interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
-  Soni: string; Narx: string; Summa: string;
+  Soni: string; Narx: string; Summa: string; Ombor_ID?: string;
 }
 interface Sotuv { Sotuv_ID: string; Sana: string; Mijoz_ID: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; }
@@ -46,6 +48,9 @@ interface TxRow {
   narxDollar: number;
   summaSom: number;
   summaDollar: number;
+  qty: number;          // xom miqdor (Soni) — view bo'yicha kirim/chiqimga taqsimlash uchun
+  srcOmbor: string;     // manba ombor (Ombor_ID)
+  destOmbor: string;    // qabul ombor (Ombor_2) — faqat transferda
 }
 
 function num(v: string | number | undefined) {
@@ -90,6 +95,9 @@ async function fetchWhereChunked(range: string, column: string, ids: string[], c
 export default function MahsulotDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { user } = useAuth();
+  const isAdmin = user?.lavozim === "Admin";
+  const myOmbor = (user?.omborId || "").trim();
 
   const [mahsulot, setMahsulot]       = useState<Mahsulot | null>(null);
   const [txAll, setTxAll]             = useState<TxRow[]>([]);
@@ -182,6 +190,7 @@ export default function MahsulotDetailPage() {
             narxDollar: num(r.Narxi),
             summaSom: num(r.Summa_Som),
             summaDollar: num(r.Soni) * num(r.Narxi),
+            qty: num(r.Soni), srcOmbor: String(r.Ombor_ID || "").trim(), destOmbor: "",
           };
         });
 
@@ -207,6 +216,7 @@ export default function MahsulotDetailPage() {
             narxDollar: 0,
             summaSom: num(r.Summa_som),
             summaDollar: 0,
+            qty: num(r.Soni), srcOmbor: String(r.Ombor_ID || "").trim(), destOmbor: readOmbor2(r as unknown as Record<string, unknown>),
           };
         })
         .filter(Boolean) as TxRow[];
@@ -233,6 +243,7 @@ export default function MahsulotDetailPage() {
             narxDollar: num(r.Narx),
             summaSom: 0,
             summaDollar: num(r.Summa),
+            qty: num(r.Soni), srcOmbor: String(r.Ombor_ID || "").trim(), destOmbor: readOmbor2(r as unknown as Record<string, unknown>),
           };
         })
         .filter(Boolean) as TxRow[];
@@ -241,9 +252,9 @@ export default function MahsulotDetailPage() {
         .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
       setTxAll(all);
 
-      // O'rtacha sotuv narxi
-      const somRows = (ssRes.data as SotuvSavatRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Som_Narx) > 0);
-      const usdRows = (ssdRes.data as SotuvSavatDollarRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Narx) > 0);
+      // O'rtacha sotuv narxi — transfer (Ombor_2 to'la) qatorlarini hisobga olmaydi (ichki ko'chirish, real sotuv emas)
+      const somRows = (ssRes.data as SotuvSavatRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Som_Narx) > 0 && !readOmbor2(r as unknown as Record<string, unknown>));
+      const usdRows = (ssdRes.data as SotuvSavatDollarRow[]).filter(r => r.Mahsulot_ID === id && num(r.Soni) > 0 && num(r.Narx) > 0 && !readOmbor2(r as unknown as Record<string, unknown>));
       const totalSomKg  = somRows.reduce((s, r) => s + num(r.Soni), 0);
       const totalSomSum = somRows.reduce((s, r) => s + num(r.Soni) * num(r.Som_Narx), 0);
       const totalUsdKg  = usdRows.reduce((s, r) => s + num(r.Soni), 0);
@@ -272,6 +283,28 @@ export default function MahsulotDetailPage() {
     } finally { setSaving(null); }
   }
 
+  // View-ga moslash: Admin → GLOBAL (transferlar net-zero, balansga ta'sir qilmaydi);
+  // do'kon (non-admin) → O'Z OMBORI (unga o'tkazma = kirim, undan sotuv = chiqim).
+  const viewOmbor = isAdmin ? "" : myOmbor;
+  const viewTxAll = useMemo<TxRow[]>(() => {
+    return txAll.map(t => {
+      const src = t.srcOmbor, dest = t.destOmbor, qty = t.qty || 0;
+      if (t.linkType === "xarid") {
+        if (viewOmbor && src !== viewOmbor) return null;                 // do'kon: faqat o'z ombori xaridi
+        return { ...t, kirim: qty, chiqim: 0 };
+      }
+      // sotuv
+      if (viewOmbor === "") {                                            // GLOBAL (admin)
+        if (dest) return null;                                          // transfer → net-zero, global balansdan chiqariladi
+        return { ...t, kirim: 0, chiqim: qty };
+      }
+      // DO'KON view
+      if (src === viewOmbor) return { ...t, kirim: 0, chiqim: qty };                                 // do'kon sotdi
+      if (dest === viewOmbor) return { ...t, kirim: qty, chiqim: 0, izoh: t.izoh + " · qabul" };      // do'konga o'tkazma
+      return null;                                                       // bu omborga aloqasiz
+    }).filter(Boolean) as TxRow[];
+  }, [txAll, viewOmbor]);
+
   if (loading) return (
     <div className="page-content" style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>
       <div className="spinner--page"/>
@@ -289,7 +322,7 @@ export default function MahsulotDetailPage() {
 
   const turTabs = ["Barchasi", "Kirim", "Chiqim"];
 
-  const inRangeTx = txAll.filter(t => inRange(t.sana, dateFrom, dateTo));
+  const inRangeTx = viewTxAll.filter(t => inRange(t.sana, dateFrom, dateTo));
   const filtered = activeTur === "Barchasi" ? inRangeTx
     : activeTur === "Kirim"  ? inRangeTx.filter(t => t.kirim > 0)
     : inRangeTx.filter(t => t.chiqim > 0);
@@ -297,11 +330,11 @@ export default function MahsulotDetailPage() {
   const davrKirim  = inRangeTx.reduce((s, t) => s + t.kirim, 0);
   const davrChiqim = inRangeTx.reduce((s, t) => s + t.chiqim, 0);
   const davrSof    = davrKirim - davrChiqim;
-  const joriyBalans = txAll.reduce((s, t) => s + t.kirim - t.chiqim, 0);
+  const joriyBalans = viewTxAll.reduce((s, t) => s + t.kirim - t.chiqim, 0);
 
   // Running balance (oldest→newest, then display newest on top)
   let running = 0;
-  const withBalance = [...txAll]
+  const withBalance = [...viewTxAll]
     .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
     .map(t => {
       running += t.kirim - t.chiqim;
@@ -444,17 +477,19 @@ export default function MahsulotDetailPage() {
 
         {/* Moliyaviy natijalar + Summary cards */}
         {(() => {
-          const olindiDollar  = txAll.filter(t => t.linkType === "xarid").reduce((s, t) => s + t.summaDollar, 0);
-          const sotildiDollar = txAll.filter(t => t.linkType === "sotuv").reduce((s, t) => s + t.summaDollar, 0);
+          // viewTxAll — transfer (Ombor_2 to'la) qatorlari chiqarib tashlangan; SOTILDI faqat REAL chiqim (chiqim>0).
+          // Shu tariqa ichki do'kon-o'tkazma sotuv/foyda sifatida ikki marta sanalmaydi.
+          const olindiDollar  = viewTxAll.filter(t => t.linkType === "xarid").reduce((s, t) => s + t.summaDollar, 0);
+          const sotildiDollar = viewTxAll.filter(t => t.chiqim > 0).reduce((s, t) => s + t.summaDollar, 0);
           const farqDollar    = sotildiDollar - olindiDollar;
-          const olindiSom     = txAll.filter(t => t.linkType === "xarid").reduce((s, t) => s + t.summaSom, 0);
-          const sotildiSom    = txAll.filter(t => t.linkType === "sotuv").reduce((s, t) => s + t.summaSom, 0);
+          const olindiSom     = viewTxAll.filter(t => t.linkType === "xarid").reduce((s, t) => s + t.summaSom, 0);
+          const sotildiSom    = viewTxAll.filter(t => t.chiqim > 0).reduce((s, t) => s + t.summaSom, 0);
           const farqSom       = sotildiSom - olindiSom;
           const fc = (v: number) => v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
           const fs = (v: number) => v.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
 
-          const kirimCount  = txAll.filter(t => t.linkType === "xarid").length;
-          const chiqimCount = txAll.filter(t => t.linkType === "sotuv").length;
+          const kirimCount  = viewTxAll.filter(t => t.linkType === "xarid").length;
+          const chiqimCount = viewTxAll.filter(t => t.chiqim > 0).length;
 
           const Card = ({ label, value, sub, color, bg, border }: { label: string; value: string; sub?: string; color: string; bg: string; border?: string }) => (
             <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", border: border || "1px solid var(--border)", padding: isMobile ? "11px 12px" : "16px 20px", minWidth: 0 }}>

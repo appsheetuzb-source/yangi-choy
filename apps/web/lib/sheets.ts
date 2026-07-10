@@ -80,6 +80,12 @@ async function pgColumns(table: string): Promise<string[]> {
   return cols;
 }
 
+// PG ustun-keshini tozalash — migratsiyadan (ALTER TABLE ADD/RENAME COLUMN) keyin CHAQIRILADI,
+// aks holda yangi ustun keshda ko'rinmay, yozuvlar jimgina tushib qoladi.
+export function resetPgColumnCache() {
+  for (const k of Object.keys(_pgCols)) delete _pgCols[k];
+}
+
 function pgResultToSheet(r: QueryResult<Record<string, unknown>>): { headers: string[]; data: Record<string, string>[] } {
   const headers = r.fields.map((f) => f.name).filter((n) => n !== "_ord");
   const data = r.rows.map((row) => {

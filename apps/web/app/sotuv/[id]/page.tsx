@@ -3,6 +3,7 @@ import { fetchSheet, fetchSheetWhere, afterWrite, appendSheetRows, removeSheetRo
 import { getCurrentKurs } from "@/lib/kurs";
 import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
+import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import LiveClock from "@/components/LiveClock";
@@ -22,8 +23,8 @@ interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
   Soni: string; Narx: string; Summa: string; Kurs: string; Ombor_ID: string; Check: string; Izoh?: string; Vaqt?: string;
 }
-interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
-interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
+interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; }
+interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; Dokon_Ombor_ID?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Ombor_ID: string; Sotuv_dollar: string; Sotuv_som: string; Tan_som?: string; Tan_dollar?: string; }
 interface SavatItem { id: string; Mahsulot_ID: string; Soni: string; Som_Narx: string; Narx: string; valyuta: "som"|"dollar"; Izoh?: string; }
 interface AddRow { id: string; Mahsulot_ID: string; Soni: string; Narx: string; Izoh: string; }
@@ -548,6 +549,11 @@ export default function SotuvDetailPage() {
   function addDollarItem(){ setEditItems(p=>[...p,{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"dollar",Izoh:""}]); }
   function removeItem(itemId:string){ setEditItems(p=>p.filter(s=>s.id!==itemId)); }
 
+  // Ombor semantikasi: Ombor_ID = MANBA (chiqim), Ombor_2 = QABUL (do'konga transfer).
+  // Manba sotuv-AGENTiga bog'liq: agent do'kon omboriga biriktirilgan bo'lsa — o'sha ombor, aks holda mahsulot ombori.
+  function ombSrc(agentId: string, mahOmborId: string) { return manbaOmbor(omborByAgent(agentlar)[String(agentId||"").trim()], shopWarehouseSet(mijozlar), mahOmborId||""); }
+  function ombDest(mijozId: string) { return dokonOmbor(mijozlar.find(mz => mz.Mijoz_ID === mijozId)); }
+
   async function handleUpdate() {
     if(!sotuv||!editMijoz||!editAgent) return;
     // Tan narxidan past narx bo'lsa saqlashga ruxsat berilmaydi
@@ -570,14 +576,14 @@ export default function SotuvDetailPage() {
           const m=mMap[r.Mahsulot_ID];
           if(num(r.Som_Narx)>0){
             const sid=uid(); const summa=String(num(r.Soni)*num(r.Som_Narx));
-            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:m?.Ombor_ID||"",Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
+            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",row})});
             somSheet.push(row);
             newSom.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||""});
           }
           if(num(r.Narx)>0){
             const sid=uid(); const summa=String(num(r.Soni)*num(r.Narx));
-            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narx:r.Narx,Kurs:kurs,Summa:summa,Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:m?.Ombor_ID||"",Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
+            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narx:r.Narx,Kurs:kurs,Summa:summa,Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",row})});
             dollarSheet.push(row);
             newDollar.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narx:r.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||""});
@@ -613,7 +619,7 @@ export default function SotuvDetailPage() {
                 Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,
                 Summa_som:String(num(r.Soni)*num(r.Som_Narx)),
                 Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",
-                Ombor_ID:m?.Ombor_ID||"",Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
+                Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
               }})});
           }
           if(num(r.Narx)>0){
@@ -623,7 +629,7 @@ export default function SotuvDetailPage() {
                 Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,
                 Soni:r.Soni,Narx:r.Narx,Kurs:kurs,Summa:String(num(r.Soni)*num(r.Narx)),
                 Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",
-                Ombor_ID:m?.Ombor_ID||"",Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
+                Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
               }})});
           }
         }
@@ -649,7 +655,7 @@ export default function SotuvDetailPage() {
         Soni:editSomSoni,Som_Narx:editSomNarx,Kurs:editSomRow.Kurs||"0",
         Summa_som:String(newSumma),
         Som_tan_narx:mMap[editSomMahsulot||editSomRow.Mahsulot_ID]?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",
-        Ombor_ID:mMap[editSomMahsulot||editSomRow.Mahsulot_ID]?.Ombor_ID||editSomRow.Ombor_ID||"",Raqam:"",Vaqt:sotuv.Sana,Check:editSomRow.Check||"",Izoh:editSomIzoh,Mijoz_ID:sotuv.Mijoz_ID,
+        Ombor_ID:ombSrc(sotuv.Agent,mMap[editSomMahsulot||editSomRow.Mahsulot_ID]?.Ombor_ID||editSomRow.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:sotuv.Sana,Check:editSomRow.Check||"",Izoh:editSomIzoh,Mijoz_ID:sotuv.Mijoz_ID,
       };
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:editSomRow.Savat_ID})});
@@ -675,7 +681,7 @@ export default function SotuvDetailPage() {
         Soni:editDollarSoni,Narx:editDollarNarx,Kurs:editDollarRow.Kurs||"0",
         Summa:String(newSumma),
         Tan_narx:mMap[editDollarMahsulot||editDollarRow.Mahsulot_ID]?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",
-        Ombor_ID:mMap[editDollarMahsulot||editDollarRow.Mahsulot_ID]?.Ombor_ID||editDollarRow.Ombor_ID||"",Raqam:"",Vaqt:sotuv.Sana,Check:editDollarRow.Check||"",Izoh:editDollarIzoh,Mijoz_ID:sotuv.Mijoz_ID,
+        Ombor_ID:ombSrc(sotuv.Agent,mMap[editDollarMahsulot||editDollarRow.Mahsulot_ID]?.Ombor_ID||editDollarRow.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:sotuv.Sana,Check:editDollarRow.Check||"",Izoh:editDollarIzoh,Mijoz_ID:sotuv.Mijoz_ID,
       };
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:editDollarRow.Savat_ID})});
@@ -762,14 +768,14 @@ export default function SotuvDetailPage() {
     try {
       if(valyuta==="som"){
         const summa=String(num(row.Soni)*num(row.Narx));
-        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Som_Narx:row.Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:m?.Ombor_ID||"",Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
+        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Som_Narx:row.Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",row:newRow})});
         setSavatSom(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Som_Narx:row.Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||""}]);
         appendSheetRows("Sotuv_Savat",[newRow]);
         setAddSomRows(p=>p.filter(x=>x.id!==row.id));
       } else {
         const summa=String(num(row.Soni)*num(row.Narx));
-        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Narx:row.Narx,Kurs:kurs,Summa:summa,Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:m?.Ombor_ID||"",Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
+        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Narx:row.Narx,Kurs:kurs,Summa:summa,Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:newRow})});
         setSavatDollar(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Narx:row.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||""}]);
         appendSheetRows("Sotuv_savat_dollar",[newRow]);

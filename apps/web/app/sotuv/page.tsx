@@ -5,6 +5,7 @@ import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
+import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
@@ -22,8 +23,8 @@ interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
   Soni: string; Narx: string; Summa: string; Kurs: string; Check: string;
 }
-interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
-interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
+interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; }
+interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent: string; Dokon_Ombor_ID?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Ombor_ID: string;
   Sotuv_dollar: string; Sotuv_som: string;
@@ -568,6 +569,11 @@ export default function SotuvPage() {
       const somSheetRows: Record<string,string|number>[]=[];
       const dollarSheetRows: Record<string,string|number>[]=[];
       let savatIdx=1;
+      // Ombor semantikasi: Ombor_ID = MANBA (chiqim), Ombor_2 = QABUL (do'konga transfer).
+      const fOmbor=omborByAgent(agentlar);                 // agent → biriktirilgan ombor
+      const shopSet=shopWarehouseSet(mijozlar);            // barcha do'kon omborlari
+      const agentOmbor=fOmbor[addAgent];                   // sotuvchi-agentning ombori
+      const dokonDest=dokonOmbor(mijozlar.find(mz=>mz.Mijoz_ID===addMijoz)); // do'kon-mijozga sotuvda uning ombori, aks holda ""
       for(const r of valid){
         const m=mMap[r.Mahsulot_ID];
         if(num(r.Som_Narx)>0){
@@ -583,7 +589,7 @@ export default function SotuvPage() {
             Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,
             Summa_som:summa,
             Som_tan_narx:String(Math.round(somTanNarx)),Foyda:String(Math.round(foyda)),Foyda_summasi_som:String(Math.round(foydaSumma)),
-            Ombor_ID:m?.Ombor_ID||"",Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:addMijoz,
+            Ombor_ID:manbaOmbor(agentOmbor,shopSet,m?.Ombor_ID||""),Ombor_2:dokonDest,Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:addMijoz,
           });
           somRows.push({Savat_ID:savatId,Sotuv_ID:sotuvId,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Check:r.Check||"TRUE"});
         }
@@ -600,7 +606,7 @@ export default function SotuvPage() {
             Mahsulot_ID:r.Mahsulot_ID,Soni:num(r.Soni),Narx:narx,Kurs:num(kurs),
             Summa:summa,
             Tan_narx:tanNarx,Foyda:foyda,Foyda_summasi_som:foydaSumma,
-            Ombor_ID:m?.Ombor_ID||"",Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:addMijoz,
+            Ombor_ID:manbaOmbor(agentOmbor,shopSet,m?.Ombor_ID||""),Ombor_2:dokonDest,Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:addMijoz,
           });
           dollarRows.push({Savat_ID:savatId,Sotuv_ID:sotuvId,Mahsulot_ID:r.Mahsulot_ID,Soni:String(r.Soni),Narx:String(narx),Summa:String(summa),Kurs:kurs,Check:""});
         }
@@ -707,6 +713,11 @@ export default function SotuvPage() {
       // Post new savat rows
       const snRow=detailSotuv.Sana; const [,moRow,yRow]=snRow.split(".");
       let savatIdx=1;
+      // Ombor semantikasi (handleSave bilan bir xil): Ombor_ID=manba, Ombor_2=qabul(do'konga transfer)
+      const fOmbor=omborByAgent(agentlar);
+      const shopSet=shopWarehouseSet(mijozlar);
+      const agentOmbor=fOmbor[editAgent];
+      const dokonDest=dokonOmbor(mijozlar.find(mz=>mz.Mijoz_ID===editMijoz));
       for(const r of valid){
         const m=mMap[r.Mahsulot_ID];
         if(num(r.Som_Narx)>0){
@@ -722,7 +733,7 @@ export default function SotuvPage() {
               Soni:r.Soni,Som_Narx:String(Math.round(num(r.Som_Narx))),Kurs:kurs,
               Summa_som:String(Math.round(num(r.Soni)*num(r.Som_Narx))),
               Som_tan_narx:String(Math.round(somTanNarx)),Foyda:String(Math.round(foyda)),Foyda_summasi_som:String(Math.round(foydaSumma)),
-              Ombor_ID:m?.Ombor_ID||"",Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:editMijoz,
+              Ombor_ID:manbaOmbor(agentOmbor,shopSet,m?.Ombor_ID||""),Ombor_2:dokonDest,Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:editMijoz,
             }})});
         }
         if(num(r.Narx)>0){
@@ -739,7 +750,7 @@ export default function SotuvPage() {
               Soni:num(r.Soni),Narx:narx,Kurs:num(kurs),
               Summa:summa,
               Tan_narx:tanNarx,Foyda:foyda,Foyda_summasi_som:foydaSumma,
-              Ombor_ID:m?.Ombor_ID||"",Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
+              Ombor_ID:manbaOmbor(agentOmbor,shopSet,m?.Ombor_ID||""),Ombor_2:dokonDest,Raqam:savatIdx++,Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
             }})});
         }
       }

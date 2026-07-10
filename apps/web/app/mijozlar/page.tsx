@@ -10,11 +10,13 @@ import { useRouter } from "next/navigation";
 
 interface Mijoz {
   Mijoz_ID: string; Ism: string; Telefon: string; Valyuta: string; Agent: string;
+  Dokon_Ombor_ID?: string;
   Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string;
 }
 interface Foydalanuvchi {
   Foydalanuvchi_ID: string; Nomi: string;
 }
+interface Ombor { Ombor_ID: string; Nomi: string; }
 interface MijozBalans {
   Mijoz_ID: string; Oldi_som: string; Oldi_dollar: string;
   Berdi_som: string; Berdi_dollar: string; Qoldi_som: string; Qoldi_dollar: string;
@@ -33,7 +35,7 @@ interface STolovRow {
 }
 
 const VALYUTALAR = ["So'm", "Dollar", "Dollar , So'm"];
-const EMPTY: Mijoz = { Mijoz_ID: "", Ism: "", Telefon: "", Valyuta: "So'm", Agent: "", Boshlangich_Balans_som: "", Boshlangich_Balans_dollar: "" };
+const EMPTY: Mijoz = { Mijoz_ID: "", Ism: "", Telefon: "", Valyuta: "So'm", Agent: "", Dokon_Ombor_ID: "", Boshlangich_Balans_som: "", Boshlangich_Balans_dollar: "" };
 
 function isDollarValyuta(v: string) {
   const lv = String(v || "").toLowerCase().trim();
@@ -103,6 +105,7 @@ export default function MijozlarPage() {
   const [tolovSomMap, setTolovSomMap]   = useState<Record<string, number>>({});
   const [tolovUsdMap, setTolovUsdMap]   = useState<Record<string, number>>({});
   const [agentlar, setAgentlar]         = useState<Foydalanuvchi[]>([]);
+  const [omborlar, setOmborlar]         = useState<Ombor[]>([]);
   const [agentMap, setAgentMap]         = useState<Record<string, string>>({});
   const [loading, setLoading]           = useState(true);
   const [error, setError]               = useState<string | null>(null);
@@ -137,9 +140,11 @@ export default function MijozlarPage() {
         fetchSheet("Sotuv_Savat").catch(() => ({ data: [] })),
         fetchSheet("Sotuv_savat_dollar").catch(() => ({ data: [] })),
         fetchSheet("S_tolov").catch(() => ({ data: [] })),
-      ]).then(([mR, bR, fR, sR, ssR, sdR, tR]) => {
+        fetchSheet("Ombor").catch(() => ({ data: [] })),
+      ]).then(([mR, bR, fR, sR, ssR, sdR, tR, oR]) => {
         if (mR.error) throw new Error(mR.error);
         setMijozlar(mR.data as Mijoz[]);
+        setOmborlar(((oR.data || []) as Ombor[]).filter(o => o.Ombor_ID));
 
         const bMap: Record<string, MijozBalans> = {};
         ((bR.data || []) as MijozBalans[]).forEach(b => { bMap[String(b.Mijoz_ID).trim()] = b; });
@@ -660,6 +665,14 @@ export default function MijozlarPage() {
                   </select>
                 </div>
                 <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Do&apos;kon ombori <span style={{ color: "var(--text-3)", fontWeight: 500 }}>(do&apos;kon-mijoz bo&apos;lsa)</span></label>
+                  <select value={form.Dokon_Ombor_ID || ""} onChange={e => setForm(p => ({ ...p, Dokon_Ombor_ID: e.target.value }))}
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--white)", boxSizing: "border-box" }}>
+                    <option value="">— Do&apos;kon emas (oddiy mijoz) —</option>
+                    {omborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
+                  </select>
+                </div>
+                <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Boshlang&apos;ich qoldiq (so&apos;m)</label>
                   <input value={form.Boshlangich_Balans_som || ""} onChange={e => setForm(p => ({ ...p, Boshlangich_Balans_som: e.target.value }))} placeholder="0" inputMode="decimal"
                     style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
@@ -710,6 +723,14 @@ export default function MijozlarPage() {
                     style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--bg)" }}>
                     <option value="">— Agent tanlanmagan —</option>
                     {agentlar.map(a => <option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
+                  </select>
+                </div>
+                <div className="drawer__section">
+                  <p className="drawer__section-label">Do&apos;kon ombori <span style={{ color: "var(--text-3)", fontWeight: 400 }}>(do&apos;kon-mijoz bo&apos;lsa)</span></p>
+                  <select value={form.Dokon_Ombor_ID || ""} onChange={e => setForm(p => ({ ...p, Dokon_Ombor_ID: e.target.value }))}
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--bg)" }}>
+                    <option value="">— Do&apos;kon emas (oddiy mijoz) —</option>
+                    {omborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
                   </select>
                 </div>
                 <div className="drawer__section">

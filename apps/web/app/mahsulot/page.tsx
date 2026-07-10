@@ -6,6 +6,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
+import { readOmbor2 } from "@/lib/ombor-transfer";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -41,7 +42,9 @@ export default function MahsulotPage() {
   const [search, setSearch]           = usePersistedState("flt:mahsulot:search", "");
   const [jamiSotuvSom, setJamiSotuvSom]         = useState(0);
   const [jamiSotuvDollar, setJamiSotuvDollar]   = useState(0);
-  const [balansMap, setBalansMap]               = useState<Record<string, number>>({});
+  // Per-ombor inventar: inv[ombor][mahsulot]. Ombor_ID=chiqim(manba), Ombor_2=kirim(transfer qabul).
+  const [invByOmbor, setInvByOmbor]             = useState<Record<string, Record<string, number>>>({});
+  const [globalBalans, setGlobalBalans]         = useState<Record<string, number>>({});
   // Klient (manba) bo'yicha filtr: mijoz qaysi mahsulotlarni olgan
   const [mijMahMap, setMijMahMap]   = useState<Record<string, Set<string>>>({});
   const [mijItems, setMijItems]     = useState<{ id: string; label: string }[]>([]);
@@ -89,18 +92,29 @@ export default function MahsulotPage() {
       setJamiSotuvSom(som);
       setJamiSotuvDollar(dollar);
 
-      // Har mahsulot uchun balans: kirim (xarid) - chiqim (sotuv)
-      const map: Record<string, number> = {};
-      (xsRes.data as Record<string, string>[]).forEach(r => {
-        if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) + n(r.Soni);
-      });
-      (ssRes.data as Record<string, string>[]).forEach(r => {
-        if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) - n(r.Soni);
-      });
-      (ssdRes.data as Record<string, string>[]).forEach(r => {
-        if (r.Mahsulot_ID) map[r.Mahsulot_ID] = (map[r.Mahsulot_ID] || 0) - n(r.Soni);
-      });
-      setBalansMap(map);
+      // Per-ombor balans: inv[ombor][mahsulot]
+      //   Xarid_Savat  → +Soni  Ombor_ID ga (kirim)
+      //   Sotuv_*      → −Soni  Ombor_ID dan (chiqim/manba); Ombor_2 to'la bo'lsa +Soni Ombor_2 ga (transfer qabul)
+      // Global (barcha omborlar yig'indisi) — transfer qatorlari o'zaro qisqaradi, double-count bo'lmaydi.
+      const inv: Record<string, Record<string, number>> = {};
+      const bump = (ombor: string | undefined, mid: string, d: number) => {
+        const o = String(ombor || "").trim() || "__none__";
+        if (!inv[o]) inv[o] = {};
+        inv[o][mid] = (inv[o][mid] || 0) + d;
+      };
+      (xsRes.data as Record<string, string>[]).forEach(r => { if (r.Mahsulot_ID) bump(r.Ombor_ID, r.Mahsulot_ID, n(r.Soni)); });
+      const applySale = (r: Record<string, string>) => {
+        if (!r.Mahsulot_ID) return;
+        bump(r.Ombor_ID, r.Mahsulot_ID, -n(r.Soni));
+        const dest = readOmbor2(r);
+        if (dest) bump(dest, r.Mahsulot_ID, n(r.Soni));
+      };
+      (ssRes.data as Record<string, string>[]).forEach(applySale);
+      (ssdRes.data as Record<string, string>[]).forEach(applySale);
+      const global: Record<string, number> = {};
+      for (const o of Object.keys(inv)) for (const mid of Object.keys(inv[o])) global[mid] = (global[mid] || 0) + inv[o][mid];
+      setInvByOmbor(inv);
+      setGlobalBalans(global);
 
       // Klient (manba) → mahsulotlar xaritasi
       const purifyMid = (raw: string) => { const v = String(raw || "").trim(); return v.includes(".") ? v.split(".")[1] : v; };
@@ -125,10 +139,15 @@ export default function MahsulotPage() {
     });
   }, [loadData]);
 
-  // Non-admin (Sotuvchi/Omborchi) faqat o'z omboriga tegishli mahsulotlarni ko'radi (Admin — barchasi)
+  // Ko'rsatiladigan qoldiq: Admin → global (butun kompaniya bo'yicha), do'kon → o'z ombori qoldig'i
+  const balansMap = useMemo<Record<string, number>>(
+    () => (isAdmin || !myOmbor) ? globalBalans : (invByOmbor[myOmbor] || {}),
+    [isAdmin, myOmbor, globalBalans, invByOmbor]);
+  // Non-admin (do'kon) faqat o'z omborida harakati bo'lgan mahsulotlarni ko'radi (Admin — barchasi)
   const omborMahsulotlar = useMemo(()=>
-    (isAdmin || !myOmbor) ? mahsulotlar : mahsulotlar.filter(m => (m.Ombor_ID || "").trim() === myOmbor),
-    [mahsulotlar,isAdmin,myOmbor]);
+    (isAdmin || !myOmbor) ? mahsulotlar
+      : mahsulotlar.filter(m => (invByOmbor[myOmbor]?.[m.Mahsulot_ID] !== undefined) || (m.Ombor_ID || "").trim() === myOmbor),
+    [mahsulotlar,isAdmin,myOmbor,invByOmbor]);
   const filtered = useMemo(()=>omborMahsulotlar.filter(m =>
     String(m.Nomi || "").toLowerCase().includes(search.toLowerCase()) &&
     (!filterMijoz || (mijMahMap[filterMijoz]?.has(m.Mahsulot_ID) ?? false))

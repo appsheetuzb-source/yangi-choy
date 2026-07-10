@@ -1,0 +1,71 @@
+// Ombor ko'p-skladli (multi-warehouse) inventar uchun umumiy yordamchilar.
+//
+// SEMANTIKA:
+//   Ombor_ID  = MANBA ombor  (mahsulot qayerdan CHIQADI — chiqim, minus)
+//   Ombor_2   = QABUL ombor  (transfer qayerga TUSHADI — kirim, plus; faqat do'konga sotuvda to'ladi)
+//
+// Qoldiq (har ombor w, mahsulot p):
+//   INV[w][p] = Σ Xarid[Ombor_ID=w] + Σ Sotuv[Ombor_2=w] − Σ Sotuv[Ombor_ID=w]
+// Global qoldiq: G[p] = Σ_w INV[w][p] = Σ Xarid − Σ(Ombor_2 BO'SH) Sotuv
+// (Transfer qatorlari — Ombor_2 to'la — global hisobda o'zaro qisqaradi, double-count bo'lmaydi.)
+
+export interface MijozLike { Dokon_Ombor_ID?: string }
+export interface FoydalanuvchiLike { Foydalanuvchi_ID: string; Ombor_ID?: string }
+
+const t = (v: unknown) => String(v ?? "").trim();
+
+/**
+ * Mijoz do'konmi? Do'kon bo'lsa — uning ombori (Dokon_Ombor_ID), aks holda "".
+ * Do'kon aniqlash DETERMINISTIK: Mijozlar jadvalidagi aniq Dokon_Ombor_ID ustuni bo'yicha
+ * (evristikaga tayanmaydi — oddiy mijozlar noto'g'ri "transfer" bo'lib qolmasligi uchun).
+ */
+export function dokonOmbor(mijoz: MijozLike | undefined | null): string {
+  return t(mijoz?.Dokon_Ombor_ID);
+}
+
+/** Foydalanuvchi_ID → Ombor_ID xaritasi (agentning biriktirilgan ombori). */
+export function omborByAgent(users: FoydalanuvchiLike[]): Record<string, string> {
+  const m: Record<string, string> = {};
+  for (const u of users) { const id = t(u.Foydalanuvchi_ID); if (id) m[id] = t(u.Ombor_ID); }
+  return m;
+}
+
+/** Barcha do'kon omborlari to'plami (mijozlar.Dokon_Ombor_ID lardan). */
+export function shopWarehouseSet(mijozlar: MijozLike[]): Set<string> {
+  const s = new Set<string>();
+  for (const m of mijozlar) { const o = t(m?.Dokon_Ombor_ID); if (o) s.add(o); }
+  return s;
+}
+
+/**
+ * Sotuv qatori qaysi ombordan AYIRILADI (Ombor_ID = manba ombor).
+ * Sotuvchi-AGENT (login user emas) bo'yicha aniqlanadi — admin do'kon nomidan sotsa ham to'g'ri.
+ * - Agar agent DO'KON omboriga biriktirilgan bo'lsa (agentOmbor ∈ shopWarehouses) → o'sha do'kon ombori
+ * - Aks holda → mahsulotning uy-ombori (o'zgarmaydi — mavjud sotuvlar uchun regressiya yo'q)
+ */
+export function manbaOmbor(agentOmbor: string | undefined, shopWarehouses: Set<string>, mahsulotOmborId: string): string {
+  const a = t(agentOmbor);
+  if (a && shopWarehouses.has(a)) return a;
+  return t(mahsulotOmborId);
+}
+
+/**
+ * Sotuv_Savat qatorlarida "Ombor_2" ustunining HAQIQIY kaliti.
+ * Eski Google Sheets sarlavhasida boshida bo'shliq bo'lishi mumkin (" Ombor_2") —
+ * yozish/o'qishda aynan mos kalit kerak, aks holda jimgina tushib qoladi.
+ * Namuna qatordan topadi; topilmasa toza "Ombor_2" (migratsiyadan keyingi PG holati).
+ */
+export function ombor2Key(sampleRow?: Record<string, unknown> | null): string {
+  if (sampleRow) {
+    const k = Object.keys(sampleRow).find((x) => x.trim() === "Ombor_2");
+    if (k) return k;
+  }
+  return "Ombor_2";
+}
+
+/** Qator obyektidan Ombor_2 qiymatini bo'shliqli/toza kalitdan qat'i nazar o'qish.
+ *  || ishlatiladi (?? emas): bo'sh toza "Ombor_2" ("") to'la " Ombor_2" ni yashirmasligi uchun
+ *  (PG/Sheets bo'sh katakni "" qilib beradi, shuning uchun ikkala ustun birga bo'lsa muhim). */
+export function readOmbor2(row: Record<string, unknown>): string {
+  return t(row["Ombor_2"] || row[" Ombor_2"] || "");
+}
