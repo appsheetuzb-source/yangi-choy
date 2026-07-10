@@ -204,6 +204,8 @@ export default function MijozlarPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+  // Admin ham (sotuv/pul-ayirish bilan bir xil) kirganda o'z agentiga bog'lanadi; "Barchasi" ni qo'lda tanlash mumkin
+  useEffect(() => { if (user?.id) setActiveAgent(user.id); }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const baseList = useMemo(()=>mijozlar.filter(m => {
     // Sotuvchi faqat o'z mijozlarini ko'radi
