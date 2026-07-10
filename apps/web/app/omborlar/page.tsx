@@ -1,14 +1,19 @@
 "use client";
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
+import { computeInvByOmbor } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Ombor { Ombor_ID: string; Nomi: string; Masul: string; Status: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
+interface OmborStat { dona: number; som: number; dollar: number; }
 
 const STATUSLAR = ["Faol", "Nofaol"];
 const EMPTY: Ombor = { Ombor_ID: "", Nomi: "", Masul: "", Status: "Faol" };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function num(v: unknown) { return parseFloat(String(v ?? "0").replace(/\s/g, "").replace(",", ".")) || 0; }
+function fmt0(v: number) { return v.toLocaleString("ru-RU", { maximumFractionDigits: 0 }); }
+function fmt2(v: number) { return v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 
 // "id , id , id" formatidagi Masul'ni massivga
 function parseIds(raw: string): string[] {
@@ -29,6 +34,7 @@ export default function OmborlarPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Ombor | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [omborStats, setOmborStats] = useState<Record<string, OmborStat>>({});
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
@@ -48,6 +54,34 @@ export default function OmborlarPage() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Inventar (per-ombor qoldiq) — alohida yuklanadi, ombor ro'yxati tez chiqadi
+  useEffect(() => {
+    Promise.all([
+      fetchSheet("Sotuv_Savat").catch(() => ({ data: [] })),
+      fetchSheet("Sotuv_Savat_Dollar").catch(() => ({ data: [] })),
+      fetchSheet("Xarid_Savat").catch(() => ({ data: [] })),
+      fetchSheet("Mahsulot").catch(() => ({ data: [] })),
+    ]).then(([ssR, ssdR, xsR, mR]) => {
+      const { inv } = computeInvByOmbor(
+        xsR.data as Record<string, string>[],
+        ssR.data as Record<string, string>[],
+        ssdR.data as Record<string, string>[],
+      );
+      const price: Record<string, { som: number; dollar: number }> = {};
+      (mR.data as Record<string, string>[]).forEach(m => { if (m.Mahsulot_ID) price[m.Mahsulot_ID] = { som: num(m.Sotuv_som), dollar: num(m.Sotuv_dollar) }; });
+      const stats: Record<string, OmborStat> = {};
+      for (const o of Object.keys(inv)) {
+        let dona = 0, som = 0, dollar = 0;
+        for (const mid of Object.keys(inv[o])) {
+          const q = inv[o][mid]; const p = price[mid] || { som: 0, dollar: 0 };
+          dona += q; som += q * p.som; dollar += q * p.dollar;
+        }
+        stats[o] = { dona, som, dollar };
+      }
+      setOmborStats(stats);
+    }).catch(() => {});
+  }, []);
 
   const userName = useCallback((id: string) => users.find(u => u.Foydalanuvchi_ID === id)?.Nomi || id, [users]);
 
@@ -157,6 +191,16 @@ export default function OmborlarPage() {
                           </button>
                         </div>
                       </div>
+                      {(() => {
+                        const st = omborStats[o.Ombor_ID];
+                        return (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12, padding: "10px 12px", background: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
+                            <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>QOLDIQ</p><p style={{ fontSize: 14, fontWeight: 800, color: "var(--primary)" }}>{st ? fmt0(st.dona) : "…"}<span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-3)" }}> dona</span></p></div>
+                            <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>SO&apos;M</p><p style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{st ? fmt0(st.som) : "…"}</p></div>
+                            <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>DOLLAR</p><p style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{st ? "$" + fmt2(st.dollar) : "…"}</p></div>
+                          </div>
+                        );
+                      })()}
                       <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 6 }}>MAS&apos;ULLAR</p>
                       {masullar.length === 0 ? (
                         <p style={{ fontSize: 13, color: "var(--text-3)" }}>—</p>

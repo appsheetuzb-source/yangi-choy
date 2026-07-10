@@ -45,6 +45,8 @@ export default function MahsulotPage() {
   // Per-ombor inventar: inv[ombor][mahsulot]. Ombor_ID=chiqim(manba), Ombor_2=kirim(transfer qabul).
   const [invByOmbor, setInvByOmbor]             = useState<Record<string, Record<string, number>>>({});
   const [globalBalans, setGlobalBalans]         = useState<Record<string, number>>({});
+  // Ombor bo'yicha ko'rsatish filtri: "all" = jami (barcha omborlar), yoki Ombor_ID
+  const [filterOmbor, setFilterOmbor]           = usePersistedState<string>("flt:mahsulot:ombor", "all");
   // Klient (manba) bo'yicha filtr: mijoz qaysi mahsulotlarni olgan
   const [mijMahMap, setMijMahMap]   = useState<Record<string, Set<string>>>({});
   const [mijItems, setMijItems]     = useState<{ id: string; label: string }[]>([]);
@@ -139,15 +141,17 @@ export default function MahsulotPage() {
     });
   }, [loadData]);
 
-  // Ko'rsatiladigan qoldiq: Admin → global (butun kompaniya bo'yicha), do'kon → o'z ombori qoldig'i
+  // Ko'riladigan ombor: Admin → tanlangan filtr ("all"=jami); Sotuvchi → FAQAT o'z ombori (qulflangan)
+  const effOmbor = (isAdmin || !myOmbor) ? filterOmbor : myOmbor;
+  // Ko'rsatiladigan qoldiq: "all" → global (barcha omborlar jami), aks holda tanlangan ombor qoldig'i
   const balansMap = useMemo<Record<string, number>>(
-    () => (isAdmin || !myOmbor) ? globalBalans : (invByOmbor[myOmbor] || {}),
-    [isAdmin, myOmbor, globalBalans, invByOmbor]);
-  // Non-admin (do'kon) faqat o'z omborida harakati bo'lgan mahsulotlarni ko'radi (Admin — barchasi)
+    () => effOmbor === "all" ? globalBalans : (invByOmbor[effOmbor] || {}),
+    [effOmbor, globalBalans, invByOmbor]);
+  // Mahsulotlar: "all" → barchasi; ombor tanlansa — o'sha omborda harakati bo'lgan mahsulotlar
   const omborMahsulotlar = useMemo(()=>
-    (isAdmin || !myOmbor) ? mahsulotlar
-      : mahsulotlar.filter(m => (invByOmbor[myOmbor]?.[m.Mahsulot_ID] !== undefined) || (m.Ombor_ID || "").trim() === myOmbor),
-    [mahsulotlar,isAdmin,myOmbor,invByOmbor]);
+    effOmbor === "all" ? mahsulotlar
+      : mahsulotlar.filter(m => (invByOmbor[effOmbor]?.[m.Mahsulot_ID] !== undefined) || (m.Ombor_ID || "").trim() === effOmbor),
+    [mahsulotlar,effOmbor,invByOmbor]);
   const filtered = useMemo(()=>omborMahsulotlar.filter(m =>
     String(m.Nomi || "").toLowerCase().includes(search.toLowerCase()) &&
     (!filterMijoz || (mijMahMap[filterMijoz]?.has(m.Mahsulot_ID) ?? false))
@@ -175,7 +179,7 @@ export default function MahsulotPage() {
   // Windowing — kartalarni bo'lib render qilish (skroll tezligi uchun)
   const [shown, setShown] = useState(60);
   const moreRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { setShown(60); }, [search, filterMijoz, view]);
+  useEffect(() => { setShown(60); }, [search, filterMijoz, view, filterOmbor]);
   useEffect(() => {
     const el = moreRef.current; if (!el) return;
     const io = new IntersectionObserver(es => { if (es[0].isIntersecting) setShown(n => n + 60); });
@@ -260,6 +264,14 @@ export default function MahsulotPage() {
                 }}>{label}</button>
               ))}
             </div>
+            {/* Ombor filtri — Admin uchun (jami + har ombor); Sotuvchi o'z omboriga qulflangan */}
+            {isAdmin && omborlar.length > 0 && (
+              <select value={filterOmbor} onChange={e => setFilterOmbor(e.target.value)} title="Ombor bo'yicha qoldiq"
+                style={{ padding: "7px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12, fontWeight: 700, color: filterOmbor === "all" ? "var(--text-2)" : "var(--primary)", outline: "none", cursor: "pointer", maxWidth: 190 }}>
+                <option value="all">Barcha omborlar (jami)</option>
+                {omborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
+              </select>
+            )}
             <button className="btn btn--outline" onClick={() => exportExcel(buildMahsulotExport())} title="Excel yuklash">
               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#1d7c4d"/><path d="M8.6 8.2l6.8 7.6M15.4 8.2l-6.8 7.6" stroke="#fff" strokeWidth="1.7" strokeLinecap="round"/></svg>
               Excel
@@ -330,6 +342,13 @@ export default function MahsulotPage() {
                 }}>{label}</button>
               ))}
             </div>
+            {isAdmin && omborlar.length > 0 && (
+              <select value={filterOmbor} onChange={e => setFilterOmbor(e.target.value)}
+                style={{ width: "100%", marginTop: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 13, fontWeight: 700, color: filterOmbor === "all" ? "var(--text-2)" : "var(--primary)", outline: "none" }}>
+                <option value="all">Barcha omborlar (jami)</option>
+                {omborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
+              </select>
+            )}
           </div>
         )}
 
@@ -413,7 +432,7 @@ export default function MahsulotPage() {
             {filtered.slice(0,shown).map((m, i) => (
               <GridCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
-                omborNomi={omborNomi(m.Ombor_ID)}
+                omborNomi={effOmbor === "all" ? omborNomi(m.Ombor_ID) : omborNomi(effOmbor)}
                 balans={balansMap[m.Mahsulot_ID]}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}

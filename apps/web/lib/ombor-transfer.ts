@@ -63,6 +63,39 @@ export function ombor2Key(sampleRow?: Record<string, unknown> | null): string {
   return "Ombor_2";
 }
 
+function numv(v: unknown) { return parseFloat(String(v ?? "0").replace(/\s/g, "").replace(",", ".")) || 0; }
+
+/**
+ * Per-ombor inventar hisobi (mahsulot va omborlar sahifalari uchun YAGONA manba).
+ *   Xarid_Savat  → +Soni  Ombor_ID ga (kirim)
+ *   Sotuv_*      → −Soni  Ombor_ID dan (chiqim/manba); Ombor_2 to'la bo'lsa +Soni Ombor_2 ga (transfer qabul)
+ * Qaytadi: inv[ombor][mahsulot] va global[mahsulot] (barcha omborlar yig'indisi — transferlar qisqaradi).
+ */
+export function computeInvByOmbor(
+  xarid: Record<string, string>[],
+  sotuvSom: Record<string, string>[],
+  sotuvDollar: Record<string, string>[],
+): { inv: Record<string, Record<string, number>>; global: Record<string, number> } {
+  const inv: Record<string, Record<string, number>> = {};
+  const bump = (ombor: string | undefined, mid: string, d: number) => {
+    const o = t(ombor) || "__none__";
+    if (!inv[o]) inv[o] = {};
+    inv[o][mid] = (inv[o][mid] || 0) + d;
+  };
+  (xarid || []).forEach((r) => { if (r.Mahsulot_ID) bump(r.Ombor_ID, r.Mahsulot_ID, numv(r.Soni)); });
+  const sale = (r: Record<string, string>) => {
+    if (!r.Mahsulot_ID) return;
+    bump(r.Ombor_ID, r.Mahsulot_ID, -numv(r.Soni));
+    const dest = readOmbor2(r);
+    if (dest) bump(dest, r.Mahsulot_ID, numv(r.Soni));
+  };
+  (sotuvSom || []).forEach(sale);
+  (sotuvDollar || []).forEach(sale);
+  const global: Record<string, number> = {};
+  for (const o of Object.keys(inv)) for (const mid of Object.keys(inv[o])) global[mid] = (global[mid] || 0) + inv[o][mid];
+  return { inv, global };
+}
+
 /** Qator obyektidan Ombor_2 qiymatini bo'shliqli/toza kalitdan qat'i nazar o'qish.
  *  || ishlatiladi (?? emas): bo'sh toza "Ombor_2" ("") to'la " Ombor_2" ni yashirmasligi uchun
  *  (PG/Sheets bo'sh katakni "" qilib beradi, shuning uchun ikkala ustun birga bo'lsa muhim). */
