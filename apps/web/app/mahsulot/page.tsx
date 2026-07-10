@@ -215,6 +215,11 @@ export default function MahsulotPage() {
   }
 
   const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
+  // "Barchasi" ko'rinishida mahsulotning ombor bo'yicha taqsimoti (qaysi omborda qancha qoldiq bor)
+  const omborBreakdown = (mid: string) => Object.keys(invByOmbor)
+    .filter(o => o !== "__none__" && Math.round(invByOmbor[o]?.[mid] || 0) !== 0)
+    .map(o => ({ nomi: omborNomi(o) || o, qty: invByOmbor[o][mid] }))
+    .sort((a, b) => b.qty - a.qty);
 
   return (
     <>
@@ -421,7 +426,9 @@ export default function MahsulotPage() {
             {filtered.slice(0,shown).map((m, i) => (
               <GridCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
-                omborNomi={effOmbor === "all" ? omborNomi(m.Ombor_ID) : omborNomi(effOmbor)}
+                omborNomi={effOmbor === "all" ? "" : omborNomi(effOmbor)}
+                jami={effOmbor === "all"}
+                breakdown={effOmbor === "all" ? omborBreakdown(m.Mahsulot_ID) : undefined}
                 balans={balansMap[m.Mahsulot_ID]}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
@@ -588,8 +595,8 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
 }
 
 /* ── Grid Card ──────────────────────────────── */
-function GridCard({ mahsulot: m, currency, omborNomi, balans, onEdit, onDelete }: {
-  mahsulot: Mahsulot; currency: string; omborNomi: string; balans?: number; onEdit: () => void; onDelete: () => void;
+function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; omborNomi: string; jami?: boolean; breakdown?: { nomi: string; qty: number }[]; balans?: number; onEdit: () => void; onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
@@ -625,16 +632,26 @@ function GridCard({ mahsulot: m, currency, omborNomi, balans, onEdit, onDelete }
         <p className="card__name">{m.Nomi || "—"}</p>
 
         {/* Ombor + zaxira chiplari */}
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: breakdown && breakdown.length ? 6 : 8, flexWrap: "wrap" }}>
           {omborNomi && (
             <span style={{ fontSize: 10, fontWeight: 700, color: "#15803d", background: "#dcfce7", padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{omborNomi}</span>
           )}
           {balans !== undefined && (
             <span style={{ fontSize: 10.5, fontWeight: 800, color: balans < 0 ? "#dc2626" : balans === 0 ? "var(--text-3)" : "#15803d", background: balans < 0 ? "#fef2f2" : balans === 0 ? "var(--bg)" : "#f0fdf4", padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
-              {balans.toLocaleString("ru-RU")} dona
+              {jami ? "Jami: " : ""}{balans.toLocaleString("ru-RU")} dona
             </span>
           )}
         </div>
+        {/* "Barchasi" ko'rinishida ombor bo'yicha taqsimot (qaysi omborda qancha) */}
+        {breakdown && breakdown.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 8 }}>
+            {breakdown.map(b => (
+              <span key={b.nomi} style={{ fontSize: 10, fontWeight: 600, color: "var(--text-2)", background: "var(--bg)", border: "1px solid var(--border)", padding: "2px 7px", borderRadius: 8, whiteSpace: "nowrap" }}>
+                {b.nomi}: <b style={{ color: b.qty < 0 ? "#dc2626" : "#15803d" }}>{b.qty.toLocaleString("ru-RU")}</b>
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Narxlar bloki */}
         <div style={{ background: "var(--bg-2)", borderRadius: 10, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 5 }}>
