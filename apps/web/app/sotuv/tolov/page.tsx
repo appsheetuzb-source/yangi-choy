@@ -730,6 +730,10 @@ export default function SotuvTolovPage() {
     if (!t.Tolov_ID) return false;
     // Non-admin faqat o'z to'lovlarini ko'radi
     if (isSotuvchi && user?.id && t.Agent !== user.id) return false;
+    // Sotuvchi FAQAT o'ziga biriktirilgan kassa(lar) to'lovlarini ko'radi (Gazna_ID / Gazna_dollar_ID)
+    if (isSotuvchi && user?.gaznaIds && user.gaznaIds.length > 0
+        && !user.gaznaIds.includes(String(t.Gazna_ID || "").trim())
+        && !user.gaznaIds.includes(String(t.Gazna_dollar_ID || "").trim())) return false;
     // Admin: agent tanlanmaguncha to'lov ko'rsatilmaydi (agent tanlansa — o'shaniki)
     if (isAdmin && filterAgent.length === 0) return false;
     const matchAgent = filterAgent.length === 0 || filterAgent.includes(t.Agent);
