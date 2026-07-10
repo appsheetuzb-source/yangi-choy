@@ -16,7 +16,7 @@ interface STolov {
   Izoh: string; Dollar_Kursi: string; Vaqt: string; Check?: string;
   Gazna_ID?: string; Gazna_dollar_ID?: string;
 }
-interface Mijoz { Mijoz_ID: string; Ism: string; }
+interface Mijoz { Mijoz_ID: string; Ism: string; Agent?: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
 interface Sotuv { Sotuv_ID: string; Sotuv_Raqami: string; }
 
@@ -211,7 +211,8 @@ export default function SotuvTolovDetailPage() {
           `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n` +
           `💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` +
           `📌 Izoh: ${editIzoh && editIzoh.trim() ? editIzoh : "null"}`;
-        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+        const tgAgentT = mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(tolov.Mijoz_ID).trim())?.Agent || "";
+        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: tgAgentT }) }).catch(() => {});
       } catch {}
 
       afterWrite("S_tolov");

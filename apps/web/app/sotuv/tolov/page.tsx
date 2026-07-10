@@ -564,7 +564,9 @@ export default function SotuvTolovPage() {
         `💵 Qoldiq (so'm): ${nS(ostatkaSom - num(summa))}\n` +
         `💵 Qoldiq ($): ${nU(ostatkaDollar - num(summaDollar))}\n` +
         `📌 Izoh: ${addIzoh && addIzoh.trim() ? addIzoh : "null"}`;
-      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+      // Klientning agenti bo'yicha yo'naltirish (o'z do'kon guruhiga)
+      const tgAgent = mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(addMijoz).trim())?.Agent || "";
+      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: tgAgent }) }).catch(() => {});
 
       const qoldiA = balansMap[addMijoz];
       if (qoldiA) {
@@ -686,7 +688,8 @@ export default function SotuvTolovPage() {
           `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n` +
           `💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` +
           `📌 Izoh: ${editIzohV && editIzohV.trim() ? editIzohV : "null"}`;
-        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+        const tgAgentE = mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(editTarget.Mijoz_ID).trim())?.Agent || "";
+        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: tgAgentE }) }).catch(() => {});
       }
 
       const qoldiE = balansMap[editTarget.Mijoz_ID];

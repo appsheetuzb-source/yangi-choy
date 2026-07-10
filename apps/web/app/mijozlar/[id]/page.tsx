@@ -530,7 +530,7 @@ export default function MijozDetailPage() {
         `💵 Qoldiq (so'm): ${nS(ostatkaSom - num(summa))}\n` +
         `💵 Qoldiq ($): ${nU(ostatkaDollar - num(summaDollar))}\n` +
         `📌 Izoh: ${tIzoh && tIzoh.trim() ? tIzoh : "null"}`;
-      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg }) }).catch(() => {});
+      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: mijoz.Agent || "" }) }).catch(() => {});
 
       // MijozBalans qoldig'ini yangilaymiz (mavjud bo'lsa)
       if (mijozBalans) {

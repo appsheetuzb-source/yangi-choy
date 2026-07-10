@@ -16,6 +16,9 @@ const REQUIRED: { table: string; column: string }[] = [
   // Yangi /omborlar CRUD Ombor jadvaliga Masul/Status yozadi — ustunlar bo'lmasa jimgina tushadi.
   { table: "ombor", column: "Masul" },
   { table: "ombor", column: "Status" },
+  // Agent bo'yicha Telegram yo'naltirish: har agentning o'z bot tokeni + guruh chat_id si
+  { table: "foydalanuvchi", column: "Telegram_Token" },
+  { table: "foydalanuvchi", column: "Telegram_Chat" },
 ];
 
 function q(name: string) { return '"' + String(name).replace(/"/g, '""') + '"'; }
