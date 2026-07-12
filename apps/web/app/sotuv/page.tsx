@@ -4,6 +4,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
 import FabAdd from "@/components/FabAdd";
+import ProductDrawer, { type ProductRow } from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
@@ -202,11 +203,12 @@ function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boole
   }
 }
 
-function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap}:{
+function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap,onAddNewProduct}:{
   items:SavatItem[]; onUpdate:(id:string,f:keyof SavatItem,v:string)=>void;
   onRemove:(id:string)=>void; onAddSom:()=>void; onAddDollar:()=>void; jamiS:number; jamiD:number;
   kursVal:string; onKursChange:(v:string)=>void; isMobile:boolean;
   somItems:{id:string;label:string}[]; dollarItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
+  onAddNewProduct?:(query:string, select:(id:string)=>void)=>void;
 }) {
   const somRows    = items.filter(i=>i.valyuta==="som");
   const dollarRows = items.filter(i=>i.valyuta==="dollar");
@@ -228,7 +230,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           if(isMobile) return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"13px minmax(0,1fr) 40px 54px minmax(46px,auto)",gap:5,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
-              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
+              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
                 style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid var(--primary)",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
@@ -241,7 +243,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
-              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
@@ -274,7 +276,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           if(isMobile) return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"13px minmax(0,1fr) 40px 54px minmax(46px,auto)",gap:5,alignItems:"center",marginBottom:6}}>
               <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
-              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact/>
+              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." compact onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
                 style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid #2563eb",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
@@ -287,7 +289,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
-              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
               <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
@@ -331,6 +333,10 @@ export default function SotuvPage() {
   const [mijozlar, setMijozlar]             = useState<Mijoz[]>([]);
   const [mahsulotlar, setMahsulotlar]       = useState<Mahsulot[]>([]);
   const [mMap, setMMap]                     = useState<Record<string,Mahsulot>>({});
+  const [omborlar, setOmborlar]             = useState<{Ombor_ID:string;Nomi:string}[]>([]);
+  const [newProdOpen, setNewProdOpen]       = useState(false);
+  const [newProdNomi, setNewProdNomi]       = useState("");
+  const newProdSelectRef                    = useRef<((id:string)=>void)|null>(null);
   const [stolovMap, setStolovMap]           = useState<Record<string,STolov[]>>({});
   // Mijoz_ID bo'yicha to'lovlar (Sotuv_ID bo'sh — umumiy to'lovlar ham hisoblanadi)
   const [stolovByMijoz, setStolovByMijoz]   = useState<Record<string,{som:number,dollar:number}>>({});
@@ -449,9 +455,10 @@ export default function SotuvPage() {
       };
       loadHeavy(0);
       // Faza 1 — yengil sheet'lar (list DARHOL ko'rinadi)
-      fetchSheets(["Sotuv","Foydalanuvchi","Mijozlar","Mahsulot","Kurs"])
+      fetchSheets(["Sotuv","Foydalanuvchi","Mijozlar","Mahsulot","Kurs","Ombor"])
       .then((rr)=>{
         const sR=rr["Sotuv"], fR=rr["Foydalanuvchi"], mzR=rr["Mijozlar"], mhR=rr["Mahsulot"], kR=rr["Kurs"];
+        setOmborlar(((rr["Ombor"]?.data||[]) as {Ombor_ID:string;Nomi:string}[]).filter(o=>o.Ombor_ID));
         if(sR.error) throw new Error(sR.error);
         // Eski dasturdagidek: sheet'dagi yaratilish tartibi bo'yicha, eng yangi qator (oxirgi qo'shilgan) tepada.
         // Ko'rsatilgan sana/vaqt yoki № emas — aynan sheet qatorlari teskari tartibda.
@@ -632,6 +639,23 @@ export default function SotuvPage() {
     } catch(e) {
       alert("Saqlashda xatolik: "+(e instanceof Error?e.message:"noma'lum")+". Internet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setSaving(false); }
+  }
+
+  // Savat mahsulot dropdownidan "Yangi mahsulot" — ProductDrawer ochiladi; yaratilgach savat qatoriga tanlanadi
+  function openNewMahsulot(query:string, select:(id:string)=>void){
+    newProdSelectRef.current = select;
+    setNewProdNomi(query||"");
+    setNewProdOpen(true);
+  }
+  function onProdSaved(saved:ProductRow){
+    const m = saved as unknown as Mahsulot;
+    setMahsulotlar(prev=>[...prev, m]);
+    setMMap(prev=>({...prev, [saved.Mahsulot_ID]: m}));
+    const sel = newProdSelectRef.current;
+    setNewProdOpen(false);
+    newProdSelectRef.current = null;
+    // mMap state yangilangach tanlaymiz — updateItem narxni mMap dan to'g'ri oladi
+    if(sel) setTimeout(()=>sel(saved.Mahsulot_ID), 0);
   }
 
   // Mijoz dropdownidan "Yangi mijoz" bosilganda — oyna ochiladi, qidiruv matni ism sifatida oldindan to'ldiriladi
@@ -1377,7 +1401,7 @@ export default function SotuvPage() {
               )}
 
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
+                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap} onAddNewProduct={openNewMahsulot}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
@@ -1398,6 +1422,19 @@ export default function SotuvPage() {
       )}
 
       {/* ── Yangi mijoz (Sotuv formasidan to'g'ridan-to'g'ri) ── */}
+      {/* Savatдан "Yangi mahsulot" — ProductDrawer (mahsulot/xarid bilan bir xil forma).
+          Sotuv modali (z-index ~1000+) USTIDA ko'rinishi uchun yuqori stacking-context bilan o'ralgan. */}
+      <div style={{ position: "relative", zIndex: 2000 }}>
+        <ProductDrawer
+          open={newProdOpen}
+          onClose={()=>{ setNewProdOpen(false); newProdSelectRef.current=null; }}
+          omborlar={(isSotuvchi && (user?.omborId||"").trim()) ? omborlar.filter(o=>o.Ombor_ID===(user?.omborId||"").trim()) : omborlar}
+          defaultOmborId={(user?.omborId||"").trim() || undefined}
+          initialNomi={newProdNomi}
+          onSaved={onProdSaved}
+        />
+      </div>
+
       {newMijozOpen&&(
         <div style={{position:"fixed",inset:0,zIndex:1100,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20}}
           onClick={()=>{ if(!newMijozSaving) setNewMijozOpen(false); }}>
@@ -1503,7 +1540,7 @@ export default function SotuvPage() {
                 )}
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap}/>
+                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap} onAddNewProduct={openNewMahsulot}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
