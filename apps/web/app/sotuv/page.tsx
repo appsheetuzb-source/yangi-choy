@@ -1026,7 +1026,7 @@ export default function SotuvPage() {
                     <input className="search__input" placeholder="Mijoz, raqam..." value={search} onChange={e=>setSearch(e.target.value)}/>
                     {search&&<button className="search__clear" onClick={()=>setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                   </div>
-                  <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..." fullWidth/>
+                  {isAdmin && <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..." fullWidth/>}
                   <div style={{display:"flex",gap:8}}>
                     <select value={filterOy} onChange={e=>setFilterOy(e.target.value)} style={{flex:1,padding:"8px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,background:"var(--white)",cursor:"pointer",outline:"none"}}>
                       <option value="">Barcha oylar</option>
@@ -1058,7 +1058,7 @@ export default function SotuvPage() {
                       <input className="search__input" placeholder="Mijoz, raqam..." value={search} onChange={e=>setSearch(e.target.value)}/>
                       {search&&<button className="search__clear" onClick={()=>setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
-                    <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..."/>
+                    {isAdmin && <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..."/>}
                     <span style={{flex:1}}/>
                     <button className="btn btn--primary" onClick={openAdd}>
                       <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
