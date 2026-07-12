@@ -1385,6 +1385,7 @@ export default function SotuvPage() {
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>
+            {(() => { const bad=savat.filter(s=>isBelowCost(s,addKurs,mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setAddOpen(false)}>Bekor</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleSave}
@@ -1510,6 +1511,7 @@ export default function SotuvPage() {
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>
+            {(() => { const bad=editSavat.filter(s=>isBelowCost(s,editKurs,mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setDetailSotuv(null)}>Bekor</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleUpdate}
