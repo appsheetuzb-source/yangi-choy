@@ -203,12 +203,13 @@ function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boole
   }
 }
 
-function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap,onAddNewProduct}:{
+function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap,onAddNewProduct,showDollar=true}:{
   items:SavatItem[]; onUpdate:(id:string,f:keyof SavatItem,v:string)=>void;
   onRemove:(id:string)=>void; onAddSom:()=>void; onAddDollar:()=>void; jamiS:number; jamiD:number;
   kursVal:string; onKursChange:(v:string)=>void; isMobile:boolean;
   somItems:{id:string;label:string}[]; dollarItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
   onAddNewProduct?:(query:string, select:(id:string)=>void)=>void;
+  showDollar?:boolean;
 }) {
   const somRows    = items.filter(i=>i.valyuta==="som");
   const dollarRows = items.filter(i=>i.valyuta==="dollar");
@@ -260,8 +261,8 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
         </button>
       </div>
 
-      {/* Dollar section */}
-      <div style={{marginBottom:8}}>
+      {/* Dollar section — faqat Admin (Sotuvchiga yashiriladi) */}
+      {showDollar && (<div style={{marginBottom:8}}>
         <span style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:".05em",display:"block",marginBottom:8}}>DOLLAR SAVAT</span>
         {!isMobile&&dollarRows.length>0&&(
           <div style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,padding:"6px 0",marginBottom:4}}>
@@ -304,14 +305,14 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
         <button onClick={onAddDollar} style={{display:"flex",alignItems:"center",gap:4,padding:"8px 14px",border:"1px solid #bfdbfe",borderRadius:8,fontSize:13,fontWeight:600,background:"#eff6ff",cursor:"pointer",color:"#2563eb",marginTop:4,width:isMobile?"100%":undefined,justifyContent:"center"}}>
           <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Dollar mahsulot
         </button>
-      </div>
+      </div>)}
 
-      {(jamiS>0||jamiD>0)&&(
+      {(jamiS>0||(showDollar&&jamiD>0))&&(
         <div style={{marginTop:8,background:"var(--bg)",borderRadius:"var(--radius)",overflow:"hidden"}}>
           <div style={{display:"flex",justifyContent:"flex-end",gap:16,padding:"10px 14px"}}>
             <span style={{fontSize:12,fontWeight:600,color:"var(--text-3)"}}>Jami:</span>
             {jamiS>0&&<span style={{fontSize:14,fontWeight:700,color:"#16a34a"}}>{fmtSom(jamiS)}</span>}
-            {jamiD>0&&<span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(jamiD)}</span>}
+            {showDollar&&jamiD>0&&<span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(jamiD)}</span>}
           </div>
         </div>
       )}
@@ -975,7 +976,7 @@ export default function SotuvPage() {
         {!loading&&!error&&(
           <>
             {/* Stats */}
-            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3,1fr)",gap:isMobile?10:14,marginBottom:isMobile?16:24}}>
+            <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":(isAdmin?"repeat(3,1fr)":"repeat(2,1fr)"),gap:isMobile?10:14,marginBottom:isMobile?16:24}}>
               <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"14px 16px":"20px 24px"}}>
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:8}}>JAMI SOTUV</p>
                 <p style={{fontSize:isMobile?20:26,fontWeight:800,lineHeight:1}}>{viewFiltered.length}</p>
@@ -984,10 +985,12 @@ export default function SotuvPage() {
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:8}}>JAMI SO&apos;M</p>
                 <p style={{fontSize:isMobile?15:20,fontWeight:800,lineHeight:1,color:"#16a34a"}}>{totalSom?totalSom.toLocaleString("ru-RU"):"0"}</p>
               </div>
+              {isAdmin && (
               <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"14px 16px":"20px 24px"}}>
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:8}}>JAMI DOLLAR</p>
                 <p style={{fontSize:isMobile?15:20,fontWeight:800,lineHeight:1,color:"#2563eb"}}>{totalDollar?fmtUsd(totalDollar):"$0.00"}</p>
               </div>
+              )}
             </div>
 
             {/* View tabs */}
@@ -999,7 +1002,7 @@ export default function SotuvPage() {
                 {key:"bosh",   label:"Bo'sh",          count: tabCounts.bosh},
                 {key:"bugungi",    label:"Bugungi",    count: tabCounts.bugungi},
                 {key:"berilmagan", label:"Berilmagan", count: tabCounts.berilmagan},
-              ] as const).map(tab=>{
+              ] as const).filter(tab=>isAdmin||tab.key!=="dollar").map(tab=>{
                 const active = viewTab === tab.key;
                 return (
                   <button key={tab.key} onClick={()=>setViewTab(tab.key)}
@@ -1395,13 +1398,13 @@ export default function SotuvPage() {
                   <span style={{fontSize:12,fontWeight:600,color:"var(--text-3)"}}>Sotuvdan keyingi qoldiq:</span>
                   <span style={{display:"flex",gap:10}}>
                     {((addMijozEski.som+jamiSom)!==0||(addMijozEski.dollar+jamiDollar)===0)&&<span style={{fontSize:14,fontWeight:800,color:(addMijozEski.som+jamiSom)>0?"#ef4444":(addMijozEski.som+jamiSom)<0?"#2563eb":"#16a34a"}}>{(addMijozEski.som+jamiSom).toLocaleString("ru-RU")} so&apos;m</span>}
-                    {(addMijozEski.dollar+jamiDollar)!==0&&<span style={{fontSize:14,fontWeight:800,color:(addMijozEski.dollar+jamiDollar)>0?"#ef4444":"#2563eb"}}>{fmtUsd(addMijozEski.dollar+jamiDollar)}</span>}
+                    {isAdmin&&(addMijozEski.dollar+jamiDollar)!==0&&<span style={{fontSize:14,fontWeight:800,color:(addMijozEski.dollar+jamiDollar)>0?"#ef4444":"#2563eb"}}>{fmtUsd(addMijozEski.dollar+jamiDollar)}</span>}
                   </span>
                 </div>
               )}
 
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap} onAddNewProduct={openNewMahsulot}/>
+                <SavatEditor items={savat} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={jamiSom} jamiD={jamiDollar} kursVal={addKurs} onKursChange={setAddKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap} onAddNewProduct={openNewMahsulot} showDollar={isAdmin}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>
@@ -1540,7 +1543,7 @@ export default function SotuvPage() {
                 )}
               </div>
               <div style={{borderTop:"1px solid var(--border)",paddingTop:12}}>
-                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap} onAddNewProduct={openNewMahsulot}/>
+                <SavatEditor items={editSavat} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} onAddSom={addSomEditItem} onAddDollar={addDollarEditItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} onKursChange={setEditKurs} isMobile={savatMobile} somItems={mhSomItems} dollarItems={mhDollarItems} mMap={mMap} onAddNewProduct={openNewMahsulot} showDollar={isAdmin}/>
               </div>
               <div>
                 <label style={{fontSize:12,fontWeight:600,color:"var(--text-2)",display:"block",marginBottom:6}}>Izoh</label>

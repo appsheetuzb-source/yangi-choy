@@ -123,12 +123,12 @@ function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boole
   }
 }
 
-function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,isMobile,somItems,dollarItems,mMap,simple}:{
+function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,isMobile,somItems,dollarItems,mMap,simple,showDollar=true}:{
   items:SavatItem[]; onUpdate:(id:string,f:keyof SavatItem,v:string)=>void;
   onRemove:(id:string)=>void; onAddSom:()=>void; onAddDollar:()=>void; jamiS:number; jamiD:number;
   kursVal:string; isMobile:boolean;
   somItems:{id:string;label:string}[]; dollarItems:{id:string;label:string}[]; mMap:Record<string,Mahsulot>;
-  simple?:boolean;
+  simple?:boolean; showDollar?:boolean;
 }) {
   const somRows    = items.filter(i=>i.valyuta==="som");
   const dollarRows = items.filter(i=>i.valyuta==="dollar");
@@ -190,8 +190,8 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
       </div>
       )}
 
-      {/* Dollar section */}
-      {(!simple||dollarRows.length>0)&&(
+      {/* Dollar section — faqat Admin (Sotuvchiga yashiriladi) */}
+      {showDollar&&(!simple||dollarRows.length>0)&&(
       <div style={{marginBottom:8}}>
         <span style={{fontSize:11,fontWeight:700,color:"#2563eb",letterSpacing:".05em",display:"block",marginBottom:8}}>DOLLAR SAVAT</span>
         {!isMobile&&dollarRows.length>0&&(
@@ -946,7 +946,7 @@ export default function SotuvDetailPage() {
 
       <div className="page-content" style={{maxWidth:1500,paddingBottom:bulkMode?(isMobile?130:90):undefined}}>
         {/* Stats */}
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":"1fr 1fr 1fr",gap:isMobile?10:16,marginBottom:isMobile?16:24}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":(isAdmin?"1fr 1fr 1fr":"1fr 1fr"),gap:isMobile?10:16,marginBottom:isMobile?16:24}}>
           {/* MIJOZ */}
           <div style={{gridColumn:isMobile?"1 / -1":undefined,background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"16px 18px":"20px 24px"}}>
             <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
@@ -1015,7 +1015,8 @@ export default function SotuvDetailPage() {
               </div>
             ))}
           </div>
-          {/* DOLLAR */}
+          {/* DOLLAR — faqat Admin (Sotuvchiga yashiriladi) */}
+          {isAdmin && (
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
             <p style={{fontSize:10,fontWeight:700,color:"#2563eb",letterSpacing:".06em",marginBottom:12}}>DOLLAR</p>
             {[
@@ -1033,11 +1034,12 @@ export default function SotuvDetailPage() {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         <div className="search" style={{marginBottom:16}}><span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span><input className="search__input" placeholder="Mahsulot qidirish..." value={savatSearch} onChange={e=>setSavatSearch(e.target.value)}/>{savatSearch&&<button className="search__clear" onClick={()=>setSavatSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}</div>
 
-        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":"1fr 1fr",gap:16,alignItems:"start"}}>
+        <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":(isAdmin?"1fr 1fr":"1fr"),gap:16,alignItems:"start"}}>
         {/* So'm mahsulotlar */}
         {(savatSom.length>0||addSomRows.length>0||savatDollar.length>0||addDollarRows.length>0)&&(
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",overflowX:isMobile?"auto":undefined}}>
@@ -1241,8 +1243,8 @@ export default function SotuvDetailPage() {
           </div>
         )}
 
-        {/* Dollar mahsulotlar */}
-        {(savatDollar.length>0||addDollarRows.length>0||savatSom.length>0||addSomRows.length>0)&&(
+        {/* Dollar mahsulotlar — faqat Admin (Sotuvchiga yashiriladi) */}
+        {isAdmin&&(savatDollar.length>0||addDollarRows.length>0||savatSom.length>0||addSomRows.length>0)&&(
         <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",overflowX:isMobile?"auto":undefined}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 20px",borderBottom:"1px solid var(--border)",borderRadius:"var(--radius-xl) var(--radius-xl) 0 0",overflow:"hidden"}}>
             {isMobile?<span style={{fontSize:13,fontWeight:700,color:"#2563eb",letterSpacing:".05em"}}>DOLLAR SAVAT</span>:<span style={{fontSize:15,fontWeight:700}}>Dollar mahsulotlar</span>}
@@ -1516,7 +1518,7 @@ export default function SotuvDetailPage() {
                     style={{width:110,padding:"8px 10px",border:`1px solid ${num(editKurs)>0&&num(editKurs)<11000?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 </div>
               </div>
-              <SavatEditor items={editItems} onUpdate={updateItem} onRemove={removeItem} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} isMobile={isMobile} somItems={mhItems} dollarItems={mhItems} mMap={mMap} simple={isAddMode}/>
+              <SavatEditor items={editItems} onUpdate={updateItem} onRemove={removeItem} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} isMobile={isMobile} somItems={mhItems} dollarItems={mhItems} mMap={mMap} simple={isAddMode} showDollar={isAdmin}/>
             </div>
             {(() => { const bad=editItems.filter(s=>isBelowCost(s,editKurs||"0",mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
             <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:isMobile?"14px 16px":"16px 24px",borderTop:"1px solid var(--border)"}}>
