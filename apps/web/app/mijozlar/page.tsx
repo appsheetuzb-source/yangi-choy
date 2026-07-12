@@ -327,11 +327,18 @@ export default function MijozlarPage() {
         )}
 
         {!loading && !error && (() => {
-          const allMijozlar = mijozlar;
-          const totSotuvSom = Object.values(sotuvSomMap).reduce((s, v) => s + v, 0);
-          const totSotuvUsd = Object.values(sotuvUsdMap).reduce((s, v) => s + v, 0);
-          const totTolovSom = Object.values(tolovSomMap).reduce((s, v) => s + v, 0);
-          const totTolovUsd = Object.values(tolovUsdMap).reduce((s, v) => s + v, 0);
+          // Summary — foydalanuvchining O'Z klientlari bo'yicha (RBAC: Sotuvchi → o'z agenti;
+          // Admin → tanlangan agent, "all" bo'lsa barchasi). Qidiruv/valyuta filtri hisobga olinmaydi (umumiy ko'rinish).
+          const allMijozlar = mijozlar.filter(m => {
+            if (isSotuvchi && user?.id && (m.Agent || "").trim() !== user.id) return false;
+            if (activeAgent !== "all" && (m.Agent || "").trim() !== activeAgent) return false;
+            return true;
+          });
+          const sumBy = (map: Record<string, number>) => allMijozlar.reduce((s, m) => s + (map[m.Mijoz_ID] || 0), 0);
+          const totSotuvSom = sumBy(sotuvSomMap);
+          const totSotuvUsd = sumBy(sotuvUsdMap);
+          const totTolovSom = sumBy(tolovSomMap);
+          const totTolovUsd = sumBy(tolovUsdMap);
           const totBoshSom  = allMijozlar.reduce((s, m) => s + num(m.Boshlangich_Balans_som), 0);
           const totBoshUsd  = allMijozlar.reduce((s, m) => s + num(m.Boshlangich_Balans_dollar), 0);
           const totQarzSom  = totBoshSom + totSotuvSom - totTolovSom;
