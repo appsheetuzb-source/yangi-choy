@@ -307,6 +307,9 @@ export default function SotuvDetailPage() {
   const [togglingId, setTogglingId]           = useState<string|null>(null);
   const [mijozQarzSom, setMijozQarzSom]       = useState(0);
   const [mijozQarzDollar, setMijozQarzDollar] = useState(0);
+  // Shu sotuvдан keyingi (keyingi sotuvgacha) barcha to'lovlar — yakuniy qoldiq uchun (strict ledger)
+  const [winTolovSom, setWinTolovSom]         = useState(0);
+  const [winTolovDollar, setWinTolovDollar]   = useState(0);
 
   // Edit drawer
   const [editOpen, setEditOpen]           = useState(false);
@@ -442,6 +445,27 @@ export default function SotuvDetailPage() {
       // (Yakuniy qoldiq = snapshot + shu sotuv tovari − shu sotuvga qilingan to'lov — faqat shu sotuv o'zgarsa o'zgaradi.)
       setMijozQarzSom(num(s?.Balans));
       setMijozQarzDollar(num(s?.Balans_dollar));
+
+      // Yakuniy qoldiq uchun: shu sotuvДAN KEYINGI (keyingi sotuvgacha) barcha to'lovlar (bog'langan yoki umumiy).
+      // Strict ledger — oldingi sotuvlarga ta'sir qilmaydi, yangi sotuv qo'shilsa ham o'zgarmaydi. Fonda hisoblanadi.
+      const _mid = String(s?.Mijoz_ID||"").trim();
+      if (_mid) {
+        (async () => {
+          try {
+            const ts=(sn:string,vq:string)=>{const [d,mo,y]=String(sn||"").split(".").map(Number);const [h,mi,se]=String(vq||"").split(":").map(Number);return (y||0)*1e10+(mo||0)*1e8+(d||0)*1e6+(h||0)*1e4+(mi||0)*100+(se||0);};
+            const thisT = ts(s.Sana||"", s.Vaqt||"");
+            const [salesR, tolovR] = await Promise.all([
+              fetchSheetWhere("Sotuv", "Mijoz_ID", _mid),
+              fetchSheetWhere("S_tolov", "Mijoz_ID", _mid),
+            ]);
+            let nextT = Infinity;
+            (salesR.data as Sotuv[]).forEach(x=>{ if(String(x.Chek||"").trim()===""||x.Sotuv_ID===id) return; const t=ts(x.Sana||"",x.Vaqt||""); if(t>thisT&&t<nextT) nextT=t; });
+            let wSom=0, wDol=0;
+            (tolovR.data as STolov[]).forEach(t=>{ const tt=ts(t.Sana||"",t.Vaqt||""); if(tt>thisT&&tt<nextT){ if(String(t.Valyuta||"")==="Dollar") wDol+=num(t.Summa_dollar); else wSom+=num(t.Summa); } });
+            setWinTolovSom(wSom); setWinTolovDollar(wDol);
+          } catch { /* xato bo'lsa 0 qoladi */ }
+        })();
+      }
     }).finally(()=>setLoading(false));
   }
 
@@ -1003,9 +1027,9 @@ export default function SotuvDetailPage() {
             {[
               {label:"Mijoz balansi", val:mijozQarzSom, color:mijozQarzSom>0?"#ef4444":"#16a34a", bold:false, neg:false},
               {label:"Sotuv summasi", val:jamiSom, color:"var(--text)", bold:false, neg:false},
-              ...(tolovJamiSom>0?[{label:"To'lov", val:tolovJamiSom, color:"#16a34a", bold:false, neg:true}]:[]),
+              ...(winTolovSom>0?[{label:"To'lov", val:winTolovSom, color:"#16a34a", bold:false, neg:true}]:[]),
               // Yakuniy qoldiq = eski qoldiq + shu sotuv tovari − shu sotuvga qilingan to'lov
-              {label:"Yakuniy qoldiq", val:mijozQarzSom+jamiSom-tolovJamiSom, color:"var(--text)", bold:true, neg:false},
+              {label:"Yakuniy qoldiq", val:mijozQarzSom+jamiSom-winTolovSom, color:"var(--text)", bold:true, neg:false},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
                 <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
@@ -1022,9 +1046,9 @@ export default function SotuvDetailPage() {
             {[
               {label:"Mijoz balansi", val:mijozQarzDollar, color:mijozQarzDollar>0?"#ef4444":"#16a34a", bold:false, neg:false},
               {label:"Sotuv summasi", val:jamiDollar, color:"var(--text)", bold:false, neg:false},
-              ...(tolovJamiDollar>0?[{label:"To'lov", val:tolovJamiDollar, color:"#16a34a", bold:false, neg:true}]:[]),
+              ...(winTolovDollar>0?[{label:"To'lov", val:winTolovDollar, color:"#16a34a", bold:false, neg:true}]:[]),
               // Yakuniy qoldiq = eski qoldiq + shu sotuv tovari − shu sotuvga qilingan to'lov
-              {label:"Yakuniy qoldiq", val:mijozQarzDollar+jamiDollar-tolovJamiDollar, color:"var(--text)", bold:true, neg:false},
+              {label:"Yakuniy qoldiq", val:mijozQarzDollar+jamiDollar-winTolovDollar, color:"var(--text)", bold:true, neg:false},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
                 <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
