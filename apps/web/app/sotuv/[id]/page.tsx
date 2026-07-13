@@ -983,7 +983,7 @@ export default function SotuvDetailPage() {
                 <button onClick={()=>{
                     const mj=mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID);
                     sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
-                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(tolovJamiSom),tolovDollar:String(tolovJamiDollar)});
+                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(winTolovSom),tolovDollar:String(winTolovDollar)});
                     router.push(`/sotuv/${sotuv.Sotuv_ID}/chek?${p.toString()}`);
                   }} style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"1px solid #ddd6fe",borderRadius:"var(--radius)",background:"#f5f3ff",cursor:"pointer",fontSize:13,fontWeight:700,color:"#7c3aed"}}>
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
