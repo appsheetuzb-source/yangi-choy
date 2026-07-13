@@ -37,6 +37,9 @@ function num(v: string | number | undefined) {
 function fmtUsd(v: number) {
   return "$" + v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function fmtSom(v: number) {
+  return v.toLocaleString("ru-RU") + " so'm";
+}
 function sanaKey(sana: string) {
   const [d, m, y] = (sana || "").split(".");
   return `${y || "0000"}${(m || "00").padStart(2, "0")}${(d || "00").padStart(2, "0")}`;
@@ -64,6 +67,7 @@ export default function TaminotchiDetailPage() {
   const [isMobile, setIsMobile]     = useState(false);
   const [tick, setTick]             = useState(0);
   const [aktOpen, setAktOpen]       = useState(false);
+  const [tgOpen, setTgOpen]         = useState(false);
   const _y = new Date().getFullYear();
   const _todayISO = `${_y}-${String(new Date().getMonth()+1).padStart(2,"0")}-${String(new Date().getDate()).padStart(2,"0")}`;
   const [aktFrom, setAktFrom]       = useState(`${_y}-01-01`);
@@ -234,6 +238,75 @@ export default function TaminotchiDetailPage() {
     };
   }
 
+  // ── Telegramga qarzdorlik ulashish ──────────────────────
+  function tgSana() { const d = new Date(); return `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`; }
+  function tgMessage() {
+    const lines = ["📋 QARZDORLIK", `Sana: ${tgSana()}`, `Firma: ${taminotchi?.Ism || ""}`];
+    if (qarzSom !== 0) lines.push(`So'm: ${fmtSom(qarzSom)}`);
+    if (qarzUsd !== 0) lines.push(`Dollar: ${fmtUsd(qarzUsd)}`);
+    if (qarzSom === 0 && qarzUsd === 0) lines.push("Qarzdorlik yo'q ✅");
+    return lines.join("\n");
+  }
+  function shareTgText() {
+    // Matnni url paramiga qo'yamiz — Telegram uni oddiy matn sifatida yuboradi (URL emas → link/preview yo'q).
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(tgMessage())}`, "_blank");
+    setTgOpen(false);
+  }
+  function buildDebtImage(): Promise<Blob | null> {
+    return new Promise(resolve => {
+      const W = 680, H = 420;
+      const c = document.createElement("canvas"); c.width = W; c.height = H;
+      const ctx = c.getContext("2d"); if (!ctx) { resolve(null); return; }
+      ctx.fillStyle = "#f0f4ff"; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(24, 24, W - 48, H - 48);
+      ctx.fillStyle = "#1a2744"; ctx.fillRect(24, 24, W - 48, 70);
+      ctx.fillStyle = "#ffffff"; ctx.font = "bold 30px Arial"; ctx.textAlign = "center";
+      ctx.fillText("MUSAFFO TEA", W / 2, 68);
+      ctx.fillStyle = "#1a2744"; ctx.font = "bold 22px Arial"; ctx.textAlign = "left";
+      ctx.fillText("QARZDORLIK", 48, 140);
+      ctx.strokeStyle = "#e0e3ef"; ctx.beginPath(); ctx.moveTo(48, 155); ctx.lineTo(W - 48, 155); ctx.stroke();
+      let y = 200;
+      const row = (label: string, val: string, color: string) => {
+        ctx.fillStyle = "#5a6080"; ctx.font = "18px Arial"; ctx.fillText(label, 48, y);
+        ctx.fillStyle = color; ctx.font = "bold 24px Arial"; ctx.fillText(val, 230, y); y += 52;
+      };
+      row("Sana:", tgSana(), "#1a2744");
+      row("Firma:", taminotchi?.Ism || "—", "#2f6bf7");
+      if (qarzSom !== 0) row("So'm:", fmtSom(qarzSom), qarzSom > 0 ? "#ef4444" : "#16a34a");
+      if (qarzUsd !== 0) row("Dollar:", fmtUsd(qarzUsd), qarzUsd > 0 ? "#ef4444" : "#2563eb");
+      if (qarzSom === 0 && qarzUsd === 0) row("Holat:", "Qarzdorlik yo'q", "#16a34a");
+      ctx.fillStyle = "#b0b8d0"; ctx.font = "14px Arial"; ctx.textAlign = "center";
+      ctx.fillText("musaffotea.uz", W / 2, H - 44);
+      c.toBlob(b => resolve(b), "image/png");
+    });
+  }
+  async function shareTgImage() {
+    const blob = await buildDebtImage();
+    if (!blob) return;
+    const file = new File([blob], `qarzdorlik-${(taminotchi?.Ism || "firma").replace(/\s+/g,"_")}.png`, { type: "image/png" });
+    const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+    const isMobileDevice = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    // 1) Telefon: qurilma ulashish oynasi (Telegramga to'g'ridan-to'g'ri)
+    if (isMobileDevice && nav.canShare && nav.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: tgMessage() }); setTgOpen(false); return; }
+      catch (e) { if (e instanceof Error && e.name === "AbortError") { setTgOpen(false); return; } }
+    }
+    // 2) Kompyuter: rasmni buferga nusxalash (Telegram oynasiga Ctrl+V)
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+        alert("Rasm nusxalandi ✓ — Telegram oynasiga Ctrl+V bilan qo'ying.");
+        setTgOpen(false);
+        return;
+      }
+    } catch { /* clipboard bo'lmasa — pastdagi yuklab olishga o'tamiz */ }
+    // 3) Zaxira: yuklab olish
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = file.name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTgOpen(false);
+  }
+
   async function handleToggleAkt(x: Xarid, val: string) {
     setToggling(p => ({ ...p, [x.Xarid_ID]: true }));
     setXaridlar(prev => prev.map(item => item.Xarid_ID === x.Xarid_ID ? { ...item, Akt_sverka: val } : item));
@@ -373,6 +446,11 @@ export default function TaminotchiDetailPage() {
             Orqaga
           </button>
           <div style={{ flex: 1 }} />
+          <button onClick={() => setTgOpen(true)} title="Telegramga qarzdorlik yuborish"
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1.5px solid #229ED9", borderRadius: "var(--radius)", background: "#e9f6fc", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "#229ED9", flexShrink: 0 }}>
+            <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+            {!isMobile && "Telegram"}
+          </button>
           <button onClick={() => setAktOpen(true)}
             style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", background: "var(--primary-glow)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--primary)", flexShrink: 0 }}>
             <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -408,6 +486,37 @@ export default function TaminotchiDetailPage() {
               </button>
               <button className="btn btn--primary" style={{ flex: 1 }} onClick={() => { exportPDF(buildAkt()); setAktOpen(false); }}>
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3M4 4h9l5 5v11H4V4z"/></svg> PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tgOpen && (
+        <div className="modal-overlay" onClick={() => setTgOpen(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal__head">
+              <h2 className="modal__title">Telegramga yuborish</h2>
+              <button className="modal__close" onClick={() => setTgOpen(false)}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal__body">
+              <div style={{ background: "var(--bg-2)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 16px" }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 8 }}>QARZDORLIK</p>
+                <p style={{ fontSize: 13, color: "var(--text-2)" }}>Sana: <b style={{ color: "var(--text)" }}>{tgSana()}</b></p>
+                <p style={{ fontSize: 13, color: "var(--text-2)" }}>Firma: <b style={{ color: "var(--primary)" }}>{taminotchi?.Ism || "—"}</b></p>
+                {qarzSom !== 0 && <p style={{ fontSize: 14, fontWeight: 800, color: qarzSom > 0 ? "#ef4444" : "#16a34a", marginTop: 4 }}>So&apos;m: {fmtSom(qarzSom)}</p>}
+                {qarzUsd !== 0 && <p style={{ fontSize: 14, fontWeight: 800, color: qarzUsd > 0 ? "#ef4444" : "#2563eb", marginTop: 2 }}>Dollar: {fmtUsd(qarzUsd)}</p>}
+                {qarzSom === 0 && qarzUsd === 0 && <p style={{ fontSize: 14, fontWeight: 800, color: "#16a34a", marginTop: 4 }}>Qarzdorlik yo&apos;q ✅</p>}
+              </div>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={shareTgText}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 4v-4z"/></svg> Matn
+              </button>
+              <button className="btn btn--primary" style={{ flex: 1 }} onClick={shareTgImage}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg> Surat
               </button>
             </div>
           </div>
