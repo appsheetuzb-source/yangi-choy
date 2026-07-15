@@ -648,8 +648,8 @@ export default function XaridPage() {
                       Yangi xarid
                     </button>
                   </div>
-                  <div style={{display:"grid",gridTemplateColumns:"50px 110px 100px 1fr 130px 120px 140px 80px",padding:"10px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
-                    {["#","Sana","Raqam","Ta'minotchi","Summa (so'm)","Summa ($)","Akt sverka",""].map(h=>(
+                  <div style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(140px,1.6fr) minmax(120px,1.1fr) minmax(60px,.6fr) 116px",padding:"8px 20px",background:"var(--bg)",borderBottom:"1px solid var(--border)"}}>
+                    {["#","SANA/RAQAM","TA'MINOTCHI","SUMMA","IZOH",""].map(h=>(
                       <span key={h} style={{fontSize:10,fontWeight:700,color:"var(--text-3)",textTransform:"uppercase",letterSpacing:".04em"}}>{h}</span>
                     ))}
                   </div>
@@ -685,6 +685,14 @@ export default function XaridPage() {
                             {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
                           </div>
                           <div style={{display:"flex",gap:6,flexShrink:0,marginLeft:8}}>
+                            <button onClick={()=>{
+                                sessionStorage.setItem(`xchek_${x.Xarid_ID}`,JSON.stringify({savat:savati,mMap}));
+                                const p=new URLSearchParams({sana:x.Sana||"",firma:tNomi,raqam:x.Sotuv_Raqami||"",tid:x.Taminotchi_ID});
+                                router.push(`/xarid/${x.Xarid_ID}/chek?${p.toString()}`);
+                              }} title="Chek"
+                              style={{width:34,height:34,borderRadius:10,border:"1px solid #ddd6fe",background:"#f5f3ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7c3aed"}}>
+                              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            </button>
                             <button onClick={()=>startEdit(x)}
                               style={{width:34,height:34,borderRadius:10,border:"1px solid #dbeafe",background:"#eff6ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#2563eb"}}>
                               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -725,39 +733,61 @@ export default function XaridPage() {
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
                     const isHa=String(x.Akt_sverka||"").toUpperCase()==="TRUE";
-                    const rowBg=isHa?"#dcfce7":"#fee2e2";
-                    const rowBgHover=isHa?"#bbf7d0":"#fecaca";
                     return (
-                      <div key={x.Xarid_ID}
-                        style={{display:"grid",gridTemplateColumns:"50px 110px 100px 1fr 130px 120px 140px 80px",padding:"13px 20px",alignItems:"center",borderBottom:idx<filtered.length-1?"1px solid var(--border)":"none",transition:"background .12s",cursor:"default",background:rowBg}}
-                        onMouseEnter={e=>(e.currentTarget.style.background=rowBgHover)}
-                        onMouseLeave={e=>(e.currentTarget.style.background=rowBg)}>
-                        <span style={{fontSize:12,fontWeight:700,color:"var(--text-3)"}}>{idx+1}</span>
-                        <span style={{fontSize:13,fontWeight:700}}>{x.Sana}</span>
-                        <span style={{fontSize:12,fontWeight:800,color:"var(--primary)",background:"#f0fdf4",padding:"3px 8px",borderRadius:6,display:"inline-block",width:"fit-content"}}>
-                          {fmtRaqam(x.Sotuv_Raqami)}
-                        </span>
-                        <div style={{cursor:"pointer"}} onClick={()=>router.push(`/xarid/${x.Xarid_ID}`)}>
-                          <p style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{tNomi}</p>
-                          {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
-                        </div>
-                        <span style={{fontSize:13,fontWeight:700}}>{xaridSom!==0?xaridSom.toLocaleString("ru-RU"):"—"}</span>
-                        <span style={{fontSize:13,fontWeight:700,color:xaridUsd!==0?"#2563eb":"var(--text-3)"}}>{xaridUsd!==0?"$"+xaridUsd.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}):"—"}</span>
-                        <div style={{display:"inline-flex",borderRadius:20,overflow:"hidden",border:"1.5px solid var(--border)",opacity:togglingId===x.Xarid_ID?0.6:1,pointerEvents:togglingId===x.Xarid_ID?"none":"auto"}}>
-                          <button onClick={()=>!isHa&&toggleAkt(x)}
-                            style={{padding:"4px 12px",fontSize:11,fontWeight:700,border:"none",borderRight:"1.5px solid var(--border)",cursor:isHa?"default":"pointer",background:isHa?"#16a34a":"var(--white)",color:isHa?"#fff":"var(--text-3)"}}>
-                            Ha
-                          </button>
-                          <button onClick={()=>isHa&&toggleAkt(x)}
-                            style={{padding:"4px 12px",fontSize:11,fontWeight:700,border:"none",cursor:isHa?"pointer":"default",background:!isHa?"#ef4444":"var(--white)",color:!isHa?"#fff":"var(--text-3)"}}>
-                            Yo&apos;q
+                      <div key={x.Xarid_ID} onClick={()=>router.push(`/xarid/${x.Xarid_ID}`)}
+                        style={{display:"grid",gridTemplateColumns:"96px minmax(110px,1.1fr) minmax(140px,1.6fr) minmax(120px,1.1fr) minmax(60px,.6fr) 116px",padding:"10px 20px",alignItems:"center",borderBottom:idx<filtered.length-1?"1px solid var(--border)":"none",cursor:"pointer",background:"transparent",transition:"background .1s"}}
+                        onMouseEnter={e=>(e.currentTarget.style.background="var(--bg)")}
+                        onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
+                        {/* # + Akt sverka badge */}
+                        <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3}} onClick={e=>e.stopPropagation()}>
+                          <span style={{fontSize:13,color:"var(--text-3)"}}>{idx+1}</span>
+                          <button disabled={togglingId===x.Xarid_ID} onClick={e=>{e.stopPropagation();toggleAkt(x);}}
+                            title={isHa?"Akt sverka qilindi (bosib bekor qilish)":"Akt sverka qilinmagan (bosib belgilash)"}
+                            style={{display:"flex",alignItems:"center",gap:3,padding:"3px 8px",borderRadius:20,border:`1.5px solid ${isHa?"#16a34a":"#f59e0b"}`,background:isHa?"#16a34a":"#fffbeb",cursor:"pointer",color:isHa?"#fff":"#b45309",fontSize:10,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.4,opacity:togglingId===x.Xarid_ID?.6:1}}>
+                            {isHa
+                              ?<><svg width="9" height="9" fill="none" stroke="#fff" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3.5} d="M5 13l4 4L19 7"/></svg>Akt</>
+                              :"Akt"}
                           </button>
                         </div>
-                        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
-                          <button className="icon-btn icon-btn--blue" onClick={()=>startEdit(x)}>
+                        {/* SANA / RAQAM */}
+                        <div>
+                          <p style={{fontSize:13,fontWeight:700}}>{x.Sana||"—"}</p>
+                          <p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>#{fmtRaqam(x.Sotuv_Raqami)}{x.Vaqt?` · ${x.Vaqt}`:""}</p>
+                        </div>
+                        {/* TA'MINOTCHI */}
+                        <div>
+                          <p style={{fontSize:13,fontWeight:800,color:"var(--primary)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{tNomi}</p>
+                        </div>
+                        {/* SUMMA */}
+                        <div>
+                          {xaridSom!==0&&<p style={{fontSize:12,fontWeight:700,color:"var(--text)"}}>{xaridSom.toLocaleString("ru-RU")} so&apos;m</p>}
+                          {xaridUsd!==0&&<p style={{fontSize:12,fontWeight:700,color:"#2563eb",marginTop:xaridSom!==0?2:0}}>${xaridUsd.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}</p>}
+                          {xaridSom===0&&xaridUsd===0&&<span style={{fontSize:12,color:"var(--text-3)"}}>—</span>}
+                        </div>
+                        {/* IZOH */}
+                        <span style={{fontSize:12,color:"var(--text-2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{x.Izoh||"—"}</span>
+                        {/* Amallar: Chek / Tahrirlash / O'chirish */}
+                        <div style={{display:"flex",gap:4,justifyContent:"flex-end"}} onClick={e=>e.stopPropagation()}>
+                          <button onClick={()=>{
+                              sessionStorage.setItem(`xchek_${x.Xarid_ID}`,JSON.stringify({savat:savati,mMap}));
+                              const p=new URLSearchParams({sana:x.Sana||"",firma:tNomi,raqam:x.Sotuv_Raqami||"",tid:x.Taminotchi_ID});
+                              router.push(`/xarid/${x.Xarid_ID}/chek?${p.toString()}`);
+                            }} title="Chekni ochish"
+                            style={{width:30,height:30,borderRadius:8,border:"none",background:"#f5f3ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7c3aed"}}
+                            onMouseEnter={e=>(e.currentTarget.style.background="#ddd6fe")}
+                            onMouseLeave={e=>(e.currentTarget.style.background="#f5f3ff")}>
+                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                          </button>
+                          <button onClick={()=>startEdit(x)}
+                            style={{width:30,height:30,borderRadius:8,border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#2563eb"}}
+                            onMouseEnter={e=>(e.currentTarget.style.background="#dbeafe")}
+                            onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
                             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                           </button>
-                          <button className="icon-btn icon-btn--red" onClick={()=>setDeleteTarget(x)}>
+                          <button onClick={()=>setDeleteTarget(x)}
+                            style={{width:30,height:30,borderRadius:8,border:"none",background:"transparent",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#ef4444"}}
+                            onMouseEnter={e=>(e.currentTarget.style.background="#fee2e2")}
+                            onMouseLeave={e=>(e.currentTarget.style.background="transparent")}>
                             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                           </button>
                         </div>
