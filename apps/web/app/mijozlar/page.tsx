@@ -236,10 +236,13 @@ export default function MijozlarPage() {
 
   const visibleGroups = useMemo(()=>activeAgent === "all" ? agentGroups : agentGroups.filter(g => g.agentId === activeAgent),[agentGroups,activeAgent]);
   const totalCount = useMemo(()=>agentGroups.reduce((s, g) => s + g.members.length, 0),[agentGroups]);
+  // Mijoz formasidagi Agent tanlovi: Admin — barcha agentlar; boshqa foydalanuvchi — faqat O'ZI
+  const agentOptions = useMemo(() => isSotuvchi ? agentlar.filter(a => a.Foydalanuvchi_ID === user?.id) : agentlar, [agentlar, isSotuvchi, user]);
 
   function openAdd() {
     setEditTarget(null);
-    setForm({ ...EMPTY, Mijoz_ID: uid() });
+    // Sotuvchi (Admin emas) — yangi mijoz avtomatik O'ZIGA biriktiriladi
+    setForm({ ...EMPTY, Mijoz_ID: uid(), Agent: (isSotuvchi && user?.id) ? user.id : "" });
     setDrawerOpen(true);
   }
   function openEdit(m: Mijoz, e: React.MouseEvent) {
@@ -667,10 +670,10 @@ export default function MijozlarPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Agent</label>
-                  <select value={form.Agent} onChange={e => setForm(p => ({ ...p, Agent: e.target.value }))}
-                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--white)", boxSizing: "border-box" }}>
-                    <option value="">— Agent tanlanmagan —</option>
-                    {agentlar.map(a => <option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
+                  <select value={form.Agent} onChange={e => setForm(p => ({ ...p, Agent: e.target.value }))} disabled={isSotuvchi}
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: isSotuvchi ? "var(--bg)" : "var(--white)", boxSizing: "border-box", opacity: isSotuvchi ? .75 : 1, cursor: isSotuvchi ? "not-allowed" : "pointer" }}>
+                    {!isSotuvchi && <option value="">— Agent tanlanmagan —</option>}
+                    {agentOptions.map(a => <option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
                   </select>
                 </div>
                 <div>
@@ -728,10 +731,10 @@ export default function MijozlarPage() {
                 </div>
                 <div className="drawer__section">
                   <p className="drawer__section-label">Agent</p>
-                  <select value={form.Agent} onChange={e => setForm(p => ({ ...p, Agent: e.target.value }))}
-                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--bg)" }}>
-                    <option value="">— Agent tanlanmagan —</option>
-                    {agentlar.map(a => <option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
+                  <select value={form.Agent} onChange={e => setForm(p => ({ ...p, Agent: e.target.value }))} disabled={isSotuvchi}
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", background: "var(--bg)", opacity: isSotuvchi ? .75 : 1, cursor: isSotuvchi ? "not-allowed" : "pointer" }}>
+                    {!isSotuvchi && <option value="">— Agent tanlanmagan —</option>}
+                    {agentOptions.map(a => <option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
                   </select>
                 </div>
                 <div className="drawer__section">
