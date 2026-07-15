@@ -685,6 +685,14 @@ export default function XaridPage() {
                             {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
                           </div>
                           <div style={{display:"flex",gap:6,flexShrink:0,marginLeft:8}}>
+                            <button onClick={()=>{
+                                sessionStorage.setItem(`xchek_${x.Xarid_ID}`,JSON.stringify({savat:savati,mMap}));
+                                const p=new URLSearchParams({sana:x.Sana||"",firma:tNomi,raqam:x.Sotuv_Raqami||"",tid:x.Taminotchi_ID});
+                                router.push(`/xarid/${x.Xarid_ID}/chek?${p.toString()}`);
+                              }} title="Chek"
+                              style={{width:34,height:34,borderRadius:10,border:"1px solid #ddd6fe",background:"#f5f3ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#7c3aed"}}>
+                              <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                            </button>
                             <button onClick={()=>startEdit(x)}
                               style={{width:34,height:34,borderRadius:10,border:"1px solid #dbeafe",background:"#eff6ff",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#2563eb"}}>
                               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -754,6 +762,13 @@ export default function XaridPage() {
                           </button>
                         </div>
                         <div style={{display:"flex",gap:4,justifyContent:"flex-end"}}>
+                          <button className="icon-btn icon-btn--purple" title="Chek — chop etish" onClick={()=>{
+                              sessionStorage.setItem(`xchek_${x.Xarid_ID}`,JSON.stringify({savat:savati,mMap}));
+                              const p=new URLSearchParams({sana:x.Sana||"",firma:tNomi,raqam:x.Sotuv_Raqami||"",tid:x.Taminotchi_ID});
+                              router.push(`/xarid/${x.Xarid_ID}/chek?${p.toString()}`);
+                            }}>
+                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                          </button>
                           <button className="icon-btn icon-btn--blue" onClick={()=>startEdit(x)}>
                             <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                           </button>

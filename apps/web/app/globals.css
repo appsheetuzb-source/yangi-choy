@@ -236,6 +236,8 @@ select option { background: var(--white-2); color: var(--text); }
 .icon-btn--blue:hover { background: rgba(88,166,255,.22); transform: scale(1.08); }
 .icon-btn--red   { background: var(--red-bg); color: var(--red); }
 .icon-btn--red:hover  { background: rgba(248,81,73,.22); transform: scale(1.08); }
+.icon-btn--purple { background: #f5f3ff; color: #7c3aed; }
+.icon-btn--purple:hover { background: #ede9fe; transform: scale(1.08); }
 
 /* ── Toggle group ─────────────────────────── */
 .toggle-group {
