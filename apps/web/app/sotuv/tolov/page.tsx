@@ -8,9 +8,16 @@ import LiveClock from "@/components/LiveClock";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
 import { useAuth } from "@/lib/AuthContext";
-import { gaznaForUser } from "@/lib/auth";
 import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
+
+// Bu sahifadagi (Pul ayirish) forma hisoblari HAR DOIM foydalanuvchining o'ziga
+// biriktirilgan kassalar bilan cheklanadi — Admin ham faqat o'z kassasini ko'radi
+// (boshqa do'kon kassalari ko'rinmaydi). Sotuvchi uchun ham avvalgidek o'z kassasi.
+function ownGazna<T extends { Gazna_ID: string }>(user: { gaznaIds?: string[] } | null, gaznalar: T[]): T[] {
+  const ids = user?.gaznaIds || [];
+  return gaznalar.filter(g => ids.includes(g.Gazna_ID));
+}
 
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Shakli?: string; }
 
@@ -26,7 +33,7 @@ function GaznaButtons({ turi, shakli, value, onChange, disabled }: {
       .catch(() => {})
       .finally(() => setFetching(false));
   }, []);
-  const visible = gaznaForUser(user, accounts);
+  const visible = ownGazna(user, accounts);
   const byTuri = turi === "Dollar" ? visible.filter(g => g.Turi === "Dollar") : visible.filter(g => g.Turi !== "Dollar");
   // Admin emas — faqat tanlangan gazna ko'rinadi (o'zgartirib bo'lmaydi)
   const shown = disabled ? byTuri.filter(g => g.Gazna_ID === value) : byTuri;
@@ -492,11 +499,11 @@ export default function SotuvTolovPage() {
   function selectAddTuri(turi: string) {
     setAddTuri(turi);
     setAddGazna(""); setAddGaznaDollar(""); // eski tanlovni tozalab, yangi turiga mosini avtomatik tanlaymiz
-    if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setAddGazna, setAddGaznaDollar);
+    if (gaznalar.length) autoSelectGazna(turi, ownGazna(user, gaznalar), setAddGazna, setAddGaznaDollar);
   }
   function selectEditTuri(turi: string) {
     setEditTuri(turi);
-    if (gaznalar.length) autoSelectGazna(turi, gaznaForUser(user, gaznalar), setEditGazna, setEditGaznaDollar);
+    if (gaznalar.length) autoSelectGazna(turi, ownGazna(user, gaznalar), setEditGazna, setEditGaznaDollar);
   }
 
   async function openAdd() {
@@ -509,7 +516,7 @@ export default function SotuvTolovPage() {
       if (Array.isArray(gzR.data) && gzR.data.length > 0) {
         const gz = (gzR.data as Gazna[]).filter(g => g.Gazna_ID);
         setGaznalar(gz);
-        autoSelectGazna("Naqd", gaznaForUser(user, gz), setAddGazna, setAddGaznaDollar);
+        autoSelectGazna("Naqd", ownGazna(user, gz), setAddGazna, setAddGaznaDollar);
       }
     } catch {}
   }
@@ -707,13 +714,19 @@ export default function SotuvTolovPage() {
     } finally { setEditSaving(false); }
   }
 
-  // Sotuvchi faqat o'z mijozlarini ko'radi
+  // Sotuvchi faqat o'z mijozlarini ko'radi (ro'yxat filtri uchun)
   const mItems = useMemo(() => {
     const list = (isSotuvchi && user?.id)
       ? mijozlar.filter(m => (m.Agent||"").trim() === user.id)
       : mijozlar;
     return list.map(m => ({ id: m.Mijoz_ID, label: m.Ism }));
   }, [mijozlar, isSotuvchi, user]);
+  // Pul ayirish FORMASI uchun — HAR DOIM faqat o'ziga tegishli mijozlar (Admin ham
+  // faqat o'z klientini ko'radi, boshqa agentlarning mijozlari formada chiqmaydi)
+  const formMItems = useMemo(() => {
+    const list = user?.id ? mijozlar.filter(m => (m.Agent||"").trim() === user.id) : [];
+    return list.map(m => ({ id: m.Mijoz_ID, label: m.Ism }));
+  }, [mijozlar, user]);
   // Admin uchun agent filtri variantlari
   const aItems = useMemo(() => Object.entries(agentMap).map(([id, label]) => ({ id, label })).filter(a => a.id && a.label), [agentMap]);
 
@@ -1119,7 +1132,7 @@ export default function SotuvTolovPage() {
               <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Mijoz *</label>
-                  <SearchSelect items={mItems} value={addMijoz} onChange={v=>{setAddMijoz(v);setAddSotuvId("");}} placeholder="Mijoz tanlang..."/>
+                  <SearchSelect items={formMItems} value={addMijoz} onChange={v=>{setAddMijoz(v);setAddSotuvId("");}} placeholder="Mijoz tanlang..."/>
                 </div>
                 {mijozQoldi && (
                   <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "8px 14px", background: "var(--bg)", minWidth: 170, display: "flex", alignItems: "center", gap: 12 }}>
@@ -1146,11 +1159,11 @@ export default function SotuvTolovPage() {
                     <button key={v} onClick={() => {
                       setAddValyuta(v);
                       if (v === "Som") {
-                        const acc = gaznaForUser(user, gaznalar).filter(g => g.Turi !== "Dollar");
+                        const acc = ownGazna(user, gaznalar).filter(g => g.Turi !== "Dollar");
                         if (acc.length === 1 || (!isAdmin && acc.length > 0)) setAddGazna(acc[0].Gazna_ID);
                         setAddGaznaDollar("");
                       } else {
-                        const acc = gaznaForUser(user, gaznalar).filter(g => g.Turi === "Dollar");
+                        const acc = ownGazna(user, gaznalar).filter(g => g.Turi === "Dollar");
                         if (acc.length === 1 || (!isAdmin && acc.length > 0)) setAddGaznaDollar(acc[0].Gazna_ID);
                         setAddGazna("");
                       }

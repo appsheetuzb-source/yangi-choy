@@ -1,5 +1,6 @@
 "use client";
 import { fetchSheets } from "@/lib/sheet-cache";
+import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Agent: string; }
@@ -24,6 +25,8 @@ function sanaISO(sana: string): string {
 }
 
 export default function FoydaPage() {
+  const { user } = useAuth();
+  const uid = user?.id || "";  // har foydalanuvchi (Admin ham) faqat O'Z sotuvlaridan foydani ko'radi
   const [sotuvlar, setSotuvlar]       = useState<Sotuv[]>([]);
   const [savatSom, setSavatSom]       = useState<SavatRow[]>([]);
   const [savatDollar, setSavatDollar] = useState<SavatDollarRow[]>([]);
@@ -89,6 +92,8 @@ export default function FoydaPage() {
     const jami = { som: 0, usd: 0 };
     const useRange = !!(dateFrom || dateTo);
     const inFilter = (s: Sotuv) => {
+      // Faqat joriy foydalanuvchining o'z sotuvlari (Agent = user.id)
+      if (!uid || String(s.Agent || "").trim() !== uid) return false;
       if (useRange) {
         const d = sanaISO(s.Sana);
         if (!d) return false;
@@ -130,7 +135,7 @@ export default function FoydaPage() {
       jami.usd += foyda;
     });
     return { clientProfit: cp, productAll: pp, clientProduct: cpp, jami };
-  }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, dateFrom, dateTo, kurs]);
+  }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, dateFrom, dateTo, kurs, uid]);
 
   const combined = (v: { som: number; usd: number }) => v.som + v.usd * kurs;
 
