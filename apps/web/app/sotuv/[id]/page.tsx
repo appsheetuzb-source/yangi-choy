@@ -992,7 +992,7 @@ export default function SotuvDetailPage() {
                 <button onClick={()=>{
                     const mj=mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID);
                     sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
-                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(winTolovSom),tolovDollar:String(winTolovDollar)});
+                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(winTolovSom),tolovDollar:String(winTolovDollar),auto:"1"});
                     router.push(`/sotuv/${sotuv.Sotuv_ID}/chek-pos?${p.toString()}`);
                   }} title="80mm termal chek (telefon orqali chop etish)" style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",background:"#f0fdf4",cursor:"pointer",fontSize:13,fontWeight:700,color:"#16a34a"}}>
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>

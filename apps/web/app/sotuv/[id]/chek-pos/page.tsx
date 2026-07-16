@@ -101,6 +101,18 @@ function PosContent() {
     } finally { setBusy(false); }
   }
 
+  // Detaildagi "80mm" tugmasidan kelinganda (?auto=1) — chek tayyor bo'lishi bilan
+  // avtomatik PDF chiqarib beramiz (foydalanuvchi qo'shimcha tugma bosmasin).
+  const autoFired = useRef(false);
+  useEffect(() => {
+    if (sp.get("auto") === "1" && rowsReady && !autoFired.current) {
+      autoFired.current = true;
+      const t = setTimeout(() => { printPdf(); }, 350);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowsReady]);
+
   const cellHead: React.CSSProperties = { border: "1px solid #000", padding: "3px 4px", fontSize: 12, fontWeight: 800, fontStyle: "italic", textAlign: "center" };
   const cell: React.CSSProperties     = { border: "1px solid #000", padding: "3px 4px", fontSize: 12, fontWeight: 700 };
   const boxRow: React.CSSProperties    = { border: "1px solid #000", borderTop: "none", padding: "3px 6px", fontSize: 12.5, fontWeight: 700 };
