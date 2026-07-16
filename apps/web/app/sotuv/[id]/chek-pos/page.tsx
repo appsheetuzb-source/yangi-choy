@@ -33,7 +33,30 @@ function PosContent() {
   const [savatDollar, setSavatDollar] = useState<SotuvSavatDollarRow[]>([]);
   const [mMap, setMMap]               = useState<Record<string,Mahsulot>>({});
   const [rowsReady, setRowsReady]     = useState(false);
+  const [busy, setBusy]               = useState(false);
   const chekRef = useRef<HTMLDivElement>(null);
+
+  // Chekni PDF qilib YUKLAB beradi -> yuklab olgach uni "Print Label" bilan oching.
+  async function downloadPdf() {
+    if (!rowsReady || !chekRef.current) return;
+    setBusy(true);
+    try {
+      const html2canvas = (await import("html2canvas")).default;
+      const jsPDF = (await import("jspdf")).default;
+      const canvas = await html2canvas(chekRef.current, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
+      const wmm = 80;
+      const hmm = Math.max(40, (wmm * canvas.height) / canvas.width);
+      const doc = new jsPDF({ unit: "mm", format: [wmm, hmm] });
+      doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, wmm, hmm);
+      const url = URL.createObjectURL(doc.output("blob"));
+      const a = document.createElement("a");
+      a.href = url; a.download = `chek-${id}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 180_000);
+    } catch {
+      window.print();
+    } finally { setBusy(false); }
+  }
 
   useEffect(()=>{
     if(!id) return;
@@ -92,10 +115,10 @@ function PosContent() {
       {/* Boshqaruv (chopda ko'rinmaydi) */}
       <div className="no-print" style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360, marginBottom: 12 }}>
         <button onClick={()=>router.back()} style={{ flex: "0 0 auto", padding: "12px 16px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>←</button>
-        <button onClick={()=>{ if(rowsReady) window.print(); }} disabled={!rowsReady}
-          style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: !rowsReady ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+        <button onClick={downloadPdf} disabled={!rowsReady || busy}
+          style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: (!rowsReady||busy) ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
           <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-          {rowsReady ? "Chop etish" : "Yuklanmoqda..."}
+          {busy ? "Tayyorlanmoqda..." : rowsReady ? "Chop etish" : "Yuklanmoqda..."}
         </button>
       </div>
 
