@@ -30,6 +30,16 @@ const X3 = X2 + COL.soni;             // Narxi
 const X4 = X3 + COL.narx;             // Summa
 const XR = X4 + COL.summa;            // o'ng chegara
 
+// Helvetica (WinAnsi) qo'llab-quvvatlamaydigan belgilarni xavfsiz almashtirish
+function safe(s: string): string {
+  return String(s || "")
+    .replace(/№/g, "#")
+    .replace(/[‘’ʼ′]/g, "'")   // burama/modifikator apostroflar -> '
+    .replace(/[–—−]/g, "-")          // tire/minus -> -
+    .replace(/[“”]/g, '"')
+    .replace(/[^\x20-\x7E]/g, " ");                 // qolgan non-ASCII -> bo'sh joy (xatolik bermasin)
+}
+
 function wrap(text: string, maxW: number, font: PDFFont, size: number): string[] {
   const out: string[] = [];
   for (const rawLine of String(text).split("\n")) {
@@ -57,7 +67,13 @@ type Op =
   | { t: "text"; x: number; base: number; text: string; size: number; font: PDFFont; align?: "left" | "center" | "right"; rightX?: number }
   | { t: "line"; x1: number; y1: number; x2: number; y2: number };
 
-function build(d: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: number } {
+function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: number } {
+  const d: Payload = {
+    sana: safe(d0.sana), agent: safe(d0.agent), mijoz: safe(d0.mijoz), tel: safe(d0.tel),
+    items: (d0.items || []).map(it => ({ nomi: safe(it.nomi), soni: safe(it.soni), narx: safe(it.narx), summa: safe(it.summa) })),
+    jami: safe(d0.jami),
+    bal: d0.bal ? { eski: safe(d0.bal.eski), olingan: safe(d0.bal.olingan), tolov: d0.bal.tolov ? safe(d0.bal.tolov) : null, yakuniy: safe(d0.bal.yakuniy) } : null,
+  };
   const ops: Op[] = [];
   let y = M;   // yuqoridan pastga — matn "pastki chegara"si (baseline) sifatida ishlatamiz
 
@@ -87,7 +103,7 @@ function build(d: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: n
   // Jadval sarlavhasi
   const rowTop0 = y;
   const th = (t: string, cx: number, align: "center"|"left") => ops.push({ t: "text", x: align === "left" ? cx : cx, base: y + 8, text: t, size: 6.5, font: bold, align });
-  th("№", X0 + COL.no / 2, "center");
+  th("#", X0 + COL.no / 2, "center");
   th("Mahsulot nomi", X1 + 2, "left");
   th("Soni", X2 + COL.soni / 2, "center");
   th("Narxi", X3 + COL.narx / 2, "center");
