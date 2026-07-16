@@ -76,6 +76,7 @@ function PosContent() {
   const [savatSom, setSavatSom] = useState<SotuvSavatRow[]>([]);
   const [mMap, setMMap]         = useState<Record<string,Mahsulot>>({});
   const [rowsReady, setRowsReady] = useState(false);
+  const [busy, setBusy]         = useState(false);
 
   useEffect(()=>{
     if(!id) return;
@@ -105,6 +106,35 @@ function PosContent() {
   const showSom    = hasSom || totalSom !== 0 || tolovSom !== 0;
   const yakuniySom = totalSom + thisSom - tolovSom;
 
+  // Serverda PDF yasab yuklab olamiz (pdf-lib) -> Print Label bilan oching.
+  async function printChek() {
+    if (!rowsReady || busy) return;
+    setBusy(true);
+    try {
+      const payload = {
+        sana, agent: agentNomi, mijoz: mijozIsm, tel: mijozTel,
+        items: savatSom.map(r => ({
+          nomi: mMap[r.Mahsulot_ID]?.Nomi || r.Mahsulot_ID,
+          soni: fmtSoni(num(r.Soni)),
+          narx: fmtSom(num(r.Som_Narx)),
+          summa: fmtSom(num(r.Summa_som)),
+        })),
+        jami: fmtSom(thisSom),
+        bal: showSom ? { eski: fmtSom(totalSom), olingan: fmtSom(thisSom), tolov: tolovSom > 0 ? fmtSom(tolovSom) : null, yakuniy: fmtSom(yakuniySom) } : null,
+      };
+      const res = await fetch("/api/chek-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error("server");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `chek-${id}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 180_000);
+    } catch {
+      alert("Chek PDF yaratishda xatolik. Qayta urinib ko'ring.");
+    } finally { setBusy(false); }
+  }
+
   return (
     <div className="pos-screen" style={{ minHeight: "100vh", background: "#e9edf5", padding: 12, display: "flex", flexDirection: "column", alignItems: "center" }}>
       <style>{`
@@ -121,10 +151,10 @@ function PosContent() {
 
       <div className="no-print" style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360, marginBottom: 12 }}>
         <button onClick={()=>router.back()} style={{ flex: "0 0 auto", padding: "12px 16px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>←</button>
-        <button onClick={()=>{ if(rowsReady) window.print(); }} disabled={!rowsReady}
-          style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: !rowsReady ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+        <button onClick={printChek} disabled={!rowsReady || busy}
+          style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: (!rowsReady||busy) ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
           <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-          {rowsReady ? "Chop etish" : "Yuklanmoqda..."}
+          {busy ? "Tayyorlanmoqda..." : rowsReady ? "Chop etish" : "Yuklanmoqda..."}
         </button>
       </div>
 
