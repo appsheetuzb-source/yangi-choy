@@ -9,6 +9,7 @@ import { useParams, useRouter } from "next/navigation";
 import LiveClock from "@/components/LiveClock";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
+import { printSotuvChek } from "@/lib/chek-pdf";
 
 interface Sotuv {
   Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Status: string;
@@ -274,6 +275,7 @@ export default function SotuvDetailPage() {
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [mMap, setMMap]               = useState<Record<string,Mahsulot>>({});
+  const [posBusy, setPosBusy]         = useState(false);  // 80mm chek PDF tayyorlanmoqda
   const [loading, setLoading]         = useState(true);
 
   // S_tolov
@@ -989,14 +991,22 @@ export default function SotuvDetailPage() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                   Chek
                 </button>
-                <button onClick={()=>{
+                <button disabled={posBusy} onClick={async ()=>{
+                    if(posBusy) return;
                     const mj=mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID);
-                    sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
-                    const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(winTolovSom),tolovDollar:String(winTolovDollar),auto:"1"});
-                    router.push(`/sotuv/${sotuv.Sotuv_ID}/chek-pos?${p.toString()}`);
-                  }} title="80mm termal chek (telefon orqali chop etish)" style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",background:"#f0fdf4",cursor:"pointer",fontSize:13,fontWeight:700,color:"#16a34a"}}>
+                    setPosBusy(true);
+                    try {
+                      // Tugma bosilishi (gesture) bilan darrov PDF yaratib yuklaymiz -> Print Label'da oching
+                      await printSotuvChek({
+                        id: sotuv.Sotuv_ID, sana: sotuv.Sana||"", agent: agNomi, mijozIsm: mjNomi, mijozTel: mj?.Telefon||"",
+                        savatSom, savatDollar, mMap,
+                        totalSom: mijozQarzSom, totalDollar: mijozQarzDollar, tolovSom: winTolovSom, tolovDollar: winTolovDollar,
+                      });
+                    } catch { alert("Chek PDF yaratishda xatolik. Qayta urinib ko'ring."); }
+                    finally { setPosBusy(false); }
+                  }} title="80mm termal chek — Print Label'da chop etish" style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",background:"#f0fdf4",cursor:posBusy?"default":"pointer",fontSize:13,fontWeight:700,color:"#16a34a",opacity:posBusy?.6:1}}>
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-                  80mm
+                  {posBusy ? "..." : "80mm"}
                 </button>
                 {(() => { const td = String(sotuv.Chek||"").trim()!==""; return (
                 <button onClick={toggleTasdiq} disabled={tasdiqSaving} title={td?"Tasdiqlandi (bosib bekor qilish)":"Tasdiqlash (qarzga qo'shish)"}
