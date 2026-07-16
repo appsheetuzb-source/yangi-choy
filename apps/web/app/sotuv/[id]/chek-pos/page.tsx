@@ -3,9 +3,9 @@ import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-// 80mm termal chek — oq-qora, matnli (vektor) PDF (Print Label uchun). Faqat so'm.
-// Ma'lumotlar A4 "Chek" bilan bir xil: Sana/Agent/Mijoz/Telefon, mahsulot jadvali
-// (№/Mahsulot/Soni/Narxi/Summa/Jami) va balans (Eski qarz/Olingan tovar/[To'lov]/Yakuniy).
+// 80mm termal chek — oq-qora. window.print() orqali chop etiladi.
+// Termal printerga chiqarish uchun "RawBT Print Service" (bepul ilova) tanlanadi.
+// Faqat so'm. Ma'lumot A4 "Chek" bilan bir xil.
 
 interface SotuvSavatRow { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Som_Narx: string; Summa_som: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
@@ -76,7 +76,6 @@ function PosContent() {
   const [savatSom, setSavatSom] = useState<SotuvSavatRow[]>([]);
   const [mMap, setMMap]         = useState<Record<string,Mahsulot>>({});
   const [rowsReady, setRowsReady] = useState(false);
-  const [busy, setBusy]         = useState(false);
 
   useEffect(()=>{
     if(!id) return;
@@ -106,92 +105,30 @@ function PosContent() {
   const showSom    = hasSom || totalSom !== 0 || tolovSom !== 0;
   const yakuniySom = totalSom + thisSom - tolovSom;
 
-  // Matnli (vektor) PDF — Print Label to'g'ri ko'rsatadi (rasm-PDF bo'sh chiqardi).
-  async function downloadPdf() {
-    if (!rowsReady) return;
-    setBusy(true);
-    try {
-      const jsPDF = (await import("jspdf")).default;
-      const autoTable = (await import("jspdf-autotable")).default;
-      const W = 80;
-      let h = 14 + 4 * 4 + 4;
-      if (hasSom)  h += 7 + savatSom.length * 6 + 7;
-      if (showSom) h += 6 + 6 * (3 + (tolovSom > 0 ? 1 : 0));
-      h += 10;
-      const doc = new jsPDF({ unit: "mm", format: [W, Math.max(60, Math.ceil(h))] });
-      const fY = () => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
-
-      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
-      doc.text("MUSAFFO TEA", W / 2, 7, { align: "center" });
-      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
-      doc.text("Sotuv cheki", W / 2, 11, { align: "center" });
-
-      let y = 16;
-      doc.setFontSize(8);
-      const info = (label: string, val: string) => {
-        if (!val) return;
-        doc.setFont("helvetica", "normal"); doc.text(label, 3, y);
-        doc.setFont("helvetica", "bold"); doc.text(doc.splitTextToSize(val, 58), 20, y);
-        y += 4;
-      };
-      info("Sana:", sana || "—");
-      info("Agent:", agentNomi);
-      info("Mijoz:", mijozIsm || "—");
-      info("Telefon:", mijozTel);
-      y += 1;
-
-      if (hasSom) {
-        autoTable(doc, {
-          startY: y, theme: "grid", margin: { left: 2, right: 2 },
-          head: [["№", "Mahsulot nomi", "Soni", "Narxi", "Summa"]],
-          body: savatSom.map((r,i)=>[String(i+1), mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID, fmtSoni(num(r.Soni)), fmtSom(num(r.Som_Narx)), fmtSom(num(r.Summa_som))]),
-          foot: [[{ content: "Jami:", colSpan: 4, styles: { halign: "right" } }, fmtSom(thisSom)]],
-          styles: { font: "helvetica", fontStyle: "bold", fontSize: 7, cellPadding: 1, lineColor: [0,0,0], lineWidth: 0.2, textColor: [0,0,0] },
-          headStyles: { fontStyle: "bolditalic", fillColor: [255,255,255], textColor: [0,0,0], halign: "center", fontSize: 6.5 },
-          footStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: "bold" },
-          columnStyles: { 0: { halign: "center", cellWidth: 7 }, 1: { halign: "left" }, 2: { halign: "center", cellWidth: 10 }, 3: { halign: "right", cellWidth: 15 }, 4: { halign: "right", cellWidth: 17 } },
-        });
-        y = fY() + 1;
-      }
-      if (showSom) {
-        const rows: (string|{content:string;colSpan?:number;styles?:Record<string,unknown>})[][] = [
-          ["Eski qarz", fmtSom(totalSom)],
-          ["Olingan tovar", fmtSom(thisSom)],
-        ];
-        if (tolovSom > 0) rows.push(["To'lov", "− " + fmtSom(tolovSom)]);
-        rows.push([{ content: "Yakuniy balans", styles: { fontStyle: "bold" } }, { content: fmtSom(yakuniySom), styles: { fontStyle: "bold" } }]);
-        autoTable(doc, {
-          startY: y, theme: "grid", margin: { left: 2, right: 2 },
-          head: [[{ content: "BALANS", colSpan: 2, styles: { halign: "center" } }]],
-          body: rows,
-          styles: { font: "helvetica", fontStyle: "bold", fontSize: 8, cellPadding: 1.2, lineColor: [0,0,0], lineWidth: 0.2, textColor: [0,0,0] },
-          headStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: "bold", halign: "center", fontSize: 8 },
-          columnStyles: { 0: { halign: "left" }, 1: { halign: "right" } },
-        });
-      }
-
-      const url = URL.createObjectURL(doc.output("blob"));
-      const a = document.createElement("a");
-      a.href = url; a.download = `chek-${id}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 180_000);
-    } catch {
-      alert("PDF yaratishda xatolik. Qayta urinib ko'ring.");
-    } finally { setBusy(false); }
-  }
-
   return (
-    <div style={{ minHeight: "100vh", background: "#e9edf5", padding: 12, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <div style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360, marginBottom: 12 }}>
+    <div className="pos-screen" style={{ minHeight: "100vh", background: "#e9edf5", padding: 12, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <style>{`
+        @media print {
+          @page { size: 80mm auto; margin: 0; }
+          html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .no-print { display: none !important; }
+          .pos-screen { display: block !important; min-height: 0 !important; background: #fff !important; padding: 0 !important; }
+          .chek-body { width: 76mm !important; margin: 0 auto !important; padding: 1mm 2mm !important; }
+          .chek-body table th, .chek-body table td { font-size: 8.5px !important; padding: 2px 3px !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+        }
+      `}</style>
+
+      <div className="no-print" style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360, marginBottom: 12 }}>
         <button onClick={()=>router.back()} style={{ flex: "0 0 auto", padding: "12px 16px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>←</button>
-        <button onClick={downloadPdf} disabled={!rowsReady || busy}
-          style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: (!rowsReady||busy) ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
+        <button onClick={()=>{ if(rowsReady) window.print(); }} disabled={!rowsReady}
+          style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: !rowsReady ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
           <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-          {busy ? "Tayyorlanmoqda..." : rowsReady ? "Chop etish" : "Yuklanmoqda..."}
+          {rowsReady ? "Chop etish" : "Yuklanmoqda..."}
         </button>
       </div>
 
-      <div style={{ width: 360, background: "#fff", color: "#000", padding: "12px 14px 14px", fontFamily: "Arial, sans-serif" }}>
+      <div className="chek-body" style={{ width: 360, background: "#fff", color: "#000", padding: "12px 14px 14px", fontFamily: "Arial, sans-serif" }}>
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: 1 }}>MUSAFFO TEA</div>
           <div style={{ fontSize: 11, fontWeight: 700 }}>Sotuv cheki</div>
