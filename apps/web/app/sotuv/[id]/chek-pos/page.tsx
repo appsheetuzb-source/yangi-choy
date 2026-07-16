@@ -86,19 +86,16 @@ function PosContent() {
       const doc = new jsPDF({ unit: "mm", format: [wmm, hmm] });
       doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, wmm, hmm);
       const blob = doc.output("blob");
-      const file = new File([blob], `chek-${id}.pdf`, { type: "application/pdf" });
-      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
-      const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-      // Telefon: ulashish/ochish oynasi -> Print Label ni tanlaysiz
-      if (isMob && nav.canShare && nav.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: "Chek — Musaffo Tea" }); return; }
-        catch (e) { if (e instanceof Error && e.name === "AbortError") return; }
-      }
-      // Zaxira: PDF ni ochish / yuklab olish
       const url = URL.createObjectURL(blob);
-      const w = window.open(url, "_blank");
-      if (!w) { const a=document.createElement("a"); a.href=url; a.download=`chek-${id}.pdf`; a.click(); }
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      // Print Label "ulashish" (share) orqali chiqmaydi — faqat "ochish" (open with).
+      // Shuning uchun PDF ni YUKLAB olamiz: Chrome pastida "Ochish" chiqadi ->
+      // uni "Print Label" bilan oching (58/80 tanlab chop etasiz).
+      const a = document.createElement("a");
+      a.href = url; a.download = `chek-${id}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      if (!isMob) { window.open(url, "_blank"); }   // kompyuterda ko'rish uchun ochib ham beramiz
+      setTimeout(() => URL.revokeObjectURL(url), 120_000);
     } catch {
       window.print();
     } finally { setBusy(false); }
@@ -110,6 +107,21 @@ function PosContent() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#e9edf5", padding: 12, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      {/* "Downloading PDF" oynasi — PDF tayyorlanayotganda */}
+      {busy && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "56px 20px" }}>
+          <div style={{ background: "#fff", borderRadius: 10, width: "100%", maxWidth: 380, overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,.3)" }}>
+            <div style={{ background: "#1e3a5f", color: "#fff", padding: "14px 18px", fontSize: 17, fontWeight: 800 }}>PDF tayyorlanmoqda</div>
+            <div style={{ padding: "16px 18px" }}>
+              <p style={{ fontSize: 14, color: "#334155", marginBottom: 14, lineHeight: 1.5 }}>PDF yuklangач uni ochish uchun ilova so&apos;raladi — <b>Print Label</b> ni tanlang.</p>
+              <div style={{ height: 10, borderRadius: 5, background: "#e5e7eb", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: "100%", background: "#16a34a" }} />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Boshqaruv (chekka kirmaydi) */}
       <div style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360, marginBottom: 12 }}>
         <button onClick={()=>router.back()} style={{ flex: "0 0 auto", padding: "12px 16px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>←</button>
