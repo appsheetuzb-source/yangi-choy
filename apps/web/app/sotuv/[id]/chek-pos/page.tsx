@@ -3,9 +3,10 @@ import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
-// 80mm termal chek (Xprinter M817). Telefon: "Chop etish" -> chek RASM qilinib
-// ulashish oynasi ochiladi -> Printlaber (yoki boshqa termal ilova) tanlanadi.
-// Rasm tor (80mm nisbatida), oq fon + qora matn — termal printerga toza chiqadi.
+// 80mm termal chek — "Print Label" ilovasi uchun.
+// "Chop etish" -> chek PDF qilinib ulashish oynasiga beriladi -> Print Label tanlanadi
+// -> u yerda 58/80 kenglik tanlab termal printerga chop etiladi.
+// Dizayn: toza jadval (Mahsulot nomi/Soni/Narxi/Summa/Jami) + qarzdorlik qutisi.
 
 interface SotuvSavatRow { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Som_Narx: string; Summa_som: string; }
 interface SotuvSavatDollarRow { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Narx: string; Summa: string; }
@@ -14,6 +15,7 @@ interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
 function fmtSom(v: number) { return v.toLocaleString("ru-RU"); }
 function fmtUsd(v: number) { return "$" + v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtSoni(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:1,maximumFractionDigits:2}); }
 
 function PosContent() {
   const { id } = useParams<{id:string}>();
@@ -66,142 +68,152 @@ function PosContent() {
   const thisDollar = savatDollar.reduce((s,r)=>s+num(r.Summa),0);
   const hasSom    = savatSom.length > 0;
   const hasDollar = savatDollar.length > 0;
-  const showSomBal    = hasSom    || totalSom !== 0    || tolovSom !== 0    || thisSom !== 0;
-  const showDollarBal = hasDollar || totalDollar !== 0 || tolovDollar !== 0 || thisDollar !== 0;
-  const yakuniySom = totalSom + thisSom - tolovSom;
-  const yakuniyUsd = totalDollar + thisDollar - tolovDollar;
+  const showSom    = hasSom    || totalSom !== 0    || tolovSom !== 0;
+  const showDollar = hasDollar || totalDollar !== 0 || tolovDollar !== 0;
+  const yangiSom = totalSom + thisSom - tolovSom;
+  const yangiUsd = totalDollar + thisDollar - tolovDollar;
 
-  // Chekni tor (80mm) RASM qilib qaytaradi — termal printer ilovasiga toza chiqishi uchun
-  async function buildImage(): Promise<Blob | null> {
-    if (!chekRef.current) return null;
-    const html2canvas = (await import("html2canvas")).default;
-    const canvas = await html2canvas(chekRef.current, {
-      scale: 2, backgroundColor: "#ffffff", useCORS: true,
-    });
-    return await new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
-  }
-
-  // Telefon: ulashish oynasi (Printlaber/termal ilova). Kompyuter: yuklab olish/print.
-  async function printOrShare() {
-    if (!rowsReady) return;
+  // Chekni PDF qilib "Print Label"ga (yoki boshqa ilovaga) beradi.
+  async function printPdf() {
+    if (!rowsReady || !chekRef.current) return;
     setBusy(true);
     try {
-      const blob = await buildImage();
-      if (!blob) { window.print(); return; }
-      const file = new File([blob], `chek-${id}.png`, { type: "image/png" });
+      const html2canvas = (await import("html2canvas")).default;
+      const jsPDF = (await import("jspdf")).default;
+      const canvas = await html2canvas(chekRef.current, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
+      const wmm = 80;                                   // 80mm rulon eni
+      const hmm = Math.max(40, (wmm * canvas.height) / canvas.width);
+      const doc = new jsPDF({ unit: "mm", format: [wmm, hmm] });
+      doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, wmm, hmm);
+      const blob = doc.output("blob");
+      const file = new File([blob], `chek-${id}.pdf`, { type: "application/pdf" });
       const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
       const isMob = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+      // Telefon: ulashish/ochish oynasi -> Print Label ni tanlaysiz
       if (isMob && nav.canShare && nav.canShare({ files: [file] })) {
-        try { await navigator.share({ files: [file], title: `Chek — Musaffo Tea` }); return; }
+        try { await navigator.share({ files: [file], title: "Chek — Musaffo Tea" }); return; }
         catch (e) { if (e instanceof Error && e.name === "AbortError") return; }
       }
-      // Kompyuter (yoki share bo'lmasa): rasmni yangi oynada ochamiz — chop etish/saqlash uchun
+      // Zaxira: PDF ni ochish / yuklab olish
       const url = URL.createObjectURL(blob);
       const w = window.open(url, "_blank");
-      if (!w) { const a=document.createElement("a"); a.href=url; a.download=`chek-${id}.png`; a.click(); }
+      if (!w) { const a=document.createElement("a"); a.href=url; a.download=`chek-${id}.pdf`; a.click(); }
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
       window.print();
     } finally { setBusy(false); }
   }
 
-  const it: React.CSSProperties = { fontSize: 13, fontWeight: 700, lineHeight: 1.5 };
-  const hr = <div style={{ borderTop: "1px dashed #000", margin: "7px 0" }} />;
+  const cellHead: React.CSSProperties = { border: "1px solid #000", padding: "3px 4px", fontSize: 12, fontWeight: 800, fontStyle: "italic", textAlign: "center" };
+  const cell: React.CSSProperties     = { border: "1px solid #000", padding: "3px 4px", fontSize: 12, fontWeight: 700 };
+  const boxRow: React.CSSProperties    = { border: "1px solid #000", borderTop: "none", padding: "3px 6px", fontSize: 12.5, fontWeight: 700 };
 
   return (
     <div style={{ minHeight: "100vh", background: "#e9edf5", padding: 12, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      {/* Boshqaruv (rasmga tushmaydi) */}
+      {/* Boshqaruv (chekka kirmaydi) */}
       <div style={{ display: "flex", gap: 8, width: "100%", maxWidth: 360, marginBottom: 12 }}>
         <button onClick={()=>router.back()} style={{ flex: "0 0 auto", padding: "12px 16px", borderRadius: 10, border: "1px solid #cbd5e1", background: "#fff", color: "#334155", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>←</button>
-        <button onClick={printOrShare} disabled={!rowsReady || busy}
+        <button onClick={printPdf} disabled={!rowsReady || busy}
           style={{ flex: 1, padding: "12px 10px", borderRadius: 10, border: "none", background: (!rowsReady||busy) ? "#9ca3af" : "#16a34a", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 7 }}>
           <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-          {busy ? "Tayyorlanmoqda..." : rowsReady ? "Chop etish / Ulashish" : "Yuklanmoqda..."}
+          {busy ? "Tayyorlanmoqda..." : rowsReady ? "Chop etish (PDF)" : "Yuklanmoqda..."}
         </button>
       </div>
 
-      {/* CHEK — tor (80mm), oq fon + qora matn */}
-      <div ref={chekRef} style={{ width: 360, background: "#fff", color: "#000", padding: "14px 16px 18px", fontFamily: "Arial, sans-serif", boxShadow: "0 4px 18px rgba(0,0,0,.12)" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: 1 }}>MUSAFFO TEA</div>
-          <div style={{ fontSize: 12, fontWeight: 800, marginTop: 1 }}>SOTUV CHEKI</div>
+      {/* CHEK — Print Label uchun PDF shu yerdan olinadi */}
+      <div ref={chekRef} style={{ width: 360, background: "#fff", color: "#000", padding: "12px 14px 14px", fontFamily: "Arial, sans-serif" }}>
+        {/* Sarlavha */}
+        <div style={{ textAlign: "center", marginBottom: 6 }}>
+          <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: 1 }}>MUSAFFO TEA</div>
+          <div style={{ fontSize: 11, fontWeight: 700 }}>Sotuv cheki</div>
         </div>
-        {hr}
-        <div style={it}>
-          <div>Sana: <b>{sana||"—"}</b></div>
-          <div>Mijoz: <b>{mijozIsm||"—"}</b></div>
-          {agentNomi && <div>Agent: <b>{agentNomi}</b></div>}
-          {mijozTel && <div>Tel: <b>{mijozTel}</b></div>}
+        {/* Info */}
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, fontWeight: 700, marginBottom: 2 }}>
+          <span>Sana: <b>{sana||"—"}</b></span>
+          <span>Mijoz: <b>{mijozIsm||"—"}</b></span>
         </div>
-        {hr}
+        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 700, marginBottom: 8, borderBottom: "1px solid #000", paddingBottom: 6 }}>
+          <span>{agentNomi||""}</span>
+          <span>{mijozTel||""}</span>
+        </div>
 
         {!rowsReady ? (
           <div style={{ textAlign: "center", fontSize: 13, padding: "8px 0" }}>Yuklanmoqda...</div>
         ) : (
           <>
+            {/* So'm jadval */}
             {hasSom && (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 4 }}>MAHSULOTLAR (SO&apos;M)</div>
-                {savatSom.map((r,i)=>(
-                  <div key={r.Savat_ID||i} style={{ marginBottom: 5 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800 }}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-                      <span>{num(r.Soni).toFixed(1)} × {fmtSom(num(r.Som_Narx))}</span>
-                      <span>{fmtSom(num(r.Summa_som))}</span>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 900, marginTop: 3 }}>
-                  <span>JAMI so&apos;m</span><span>{fmtSom(thisSom)}</span>
-                </div>
-                {hr}
-              </>
+              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...cellHead, textAlign: "left" }}>Mahsulot nomi</th>
+                    <th style={{ ...cellHead, width: 40 }}>Soni</th>
+                    <th style={{ ...cellHead, width: 64 }}>Narxi</th>
+                    <th style={{ ...cellHead, width: 72 }}>Summa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {savatSom.map((r,i)=>(
+                    <tr key={r.Savat_ID||i}>
+                      <td style={{ ...cell, textAlign: "left" }}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
+                      <td style={{ ...cell, textAlign: "center" }}>{fmtSoni(num(r.Soni))}</td>
+                      <td style={{ ...cell, textAlign: "right" }}>{fmtSom(num(r.Som_Narx))}</td>
+                      <td style={{ ...cell, textAlign: "right" }}>{fmtSom(num(r.Summa_som))}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ ...cell, textAlign: "right", fontWeight: 800 }} colSpan={3}>Jami:</td>
+                    <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmtSom(thisSom)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            )}
+            {/* So'm qarzdorlik qutisi */}
+            {showSom && (
+              <div style={{ marginBottom: hasDollar||showDollar ? 10 : 0 }}>
+                <div style={{ ...boxRow, borderTop: "1px solid #000" }}>Eski qarzdorlik: {fmtSom(totalSom)}</div>
+                <div style={boxRow}>To&apos;lovlar: {fmtSom(tolovSom)}</div>
+                <div style={{ ...boxRow, fontWeight: 900 }}>Yangi qarzdorlik: {fmtSom(yangiSom)}</div>
+              </div>
             )}
 
+            {/* Dollar jadval */}
             {hasDollar && (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 4 }}>MAHSULOTLAR ($)</div>
-                {savatDollar.map((r,i)=>(
-                  <div key={r.Savat_ID||i} style={{ marginBottom: 5 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800 }}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</div>
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-                      <span>{num(r.Soni).toFixed(1)} × {fmtUsd(num(r.Narx))}</span>
-                      <span>{fmtUsd(num(r.Summa))}</span>
-                    </div>
-                  </div>
-                ))}
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 900, marginTop: 3 }}>
-                  <span>JAMI $</span><span>{fmtUsd(thisDollar)}</span>
-                </div>
-                {hr}
-              </>
+              <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...cellHead, textAlign: "left" }}>Mahsulot ($)</th>
+                    <th style={{ ...cellHead, width: 40 }}>Soni</th>
+                    <th style={{ ...cellHead, width: 64 }}>Narxi</th>
+                    <th style={{ ...cellHead, width: 72 }}>Summa</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {savatDollar.map((r,i)=>(
+                    <tr key={r.Savat_ID||i}>
+                      <td style={{ ...cell, textAlign: "left" }}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
+                      <td style={{ ...cell, textAlign: "center" }}>{fmtSoni(num(r.Soni))}</td>
+                      <td style={{ ...cell, textAlign: "right" }}>{fmtUsd(num(r.Narx))}</td>
+                      <td style={{ ...cell, textAlign: "right" }}>{fmtUsd(num(r.Summa))}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td style={{ ...cell, textAlign: "right", fontWeight: 800 }} colSpan={3}>Jami:</td>
+                    <td style={{ ...cell, textAlign: "right", fontWeight: 900 }}>{fmtUsd(thisDollar)}</td>
+                  </tr>
+                </tbody>
+              </table>
             )}
-
-            {showSomBal && (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 4 }}>BALANS (SO&apos;M)</div>
-                <div style={{ display: "flex", justifyContent: "space-between", ...it }}><span>Eski qarz</span><span>{fmtSom(totalSom)}</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between", ...it }}><span>Olingan tovar</span><span>{fmtSom(thisSom)}</span></div>
-                {tolovSom>0 && <div style={{ display: "flex", justifyContent: "space-between", ...it }}><span>To&apos;lov</span><span>− {fmtSom(tolovSom)}</span></div>}
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14.5, fontWeight: 900, marginTop: 2 }}><span>YAKUNIY</span><span>{fmtSom(yakuniySom)}</span></div>
-                {showDollarBal && hr}
-              </>
-            )}
-            {showDollarBal && (
-              <>
-                <div style={{ fontSize: 12, fontWeight: 900, marginBottom: 4 }}>BALANS ($)</div>
-                <div style={{ display: "flex", justifyContent: "space-between", ...it }}><span>Eski qarz</span><span>{fmtUsd(totalDollar)}</span></div>
-                <div style={{ display: "flex", justifyContent: "space-between", ...it }}><span>Olingan tovar</span><span>{fmtUsd(thisDollar)}</span></div>
-                {tolovDollar>0 && <div style={{ display: "flex", justifyContent: "space-between", ...it }}><span>To&apos;lov</span><span>− {fmtUsd(tolovDollar)}</span></div>}
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14.5, fontWeight: 900, marginTop: 2 }}><span>YAKUNIY</span><span>{fmtUsd(yakuniyUsd)}</span></div>
-              </>
+            {/* Dollar qarzdorlik qutisi */}
+            {showDollar && (
+              <div>
+                <div style={{ ...boxRow, borderTop: "1px solid #000" }}>Eski qarzdorlik ($): {fmtUsd(totalDollar)}</div>
+                <div style={boxRow}>To&apos;lovlar ($): {fmtUsd(tolovDollar)}</div>
+                <div style={{ ...boxRow, fontWeight: 900 }}>Yangi qarzdorlik ($): {fmtUsd(yangiUsd)}</div>
+              </div>
             )}
           </>
         )}
-
-        {hr}
-        <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700 }}>Rahmat! · musaffotea.uz</div>
-        <div style={{ textAlign: "center", fontSize: 12, fontWeight: 700, marginTop: 2 }}>{sana}</div>
       </div>
     </div>
   );
