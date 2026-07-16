@@ -36,25 +36,89 @@ function PosContent() {
   const [busy, setBusy]               = useState(false);
   const chekRef = useRef<HTMLDivElement>(null);
 
-  // Chekni PDF qilib YUKLAB beradi -> yuklab olgach uni "Print Label" bilan oching.
+  // Chekni MATNLI (vektor) PDF qilib yuklab beradi — Print Label to'g'ri ko'rsatadi
+  // (rasm-PDF bo'sh chiqardi). Yuklab olgach "Print Label" bilan oching.
   async function downloadPdf() {
-    if (!rowsReady || !chekRef.current) return;
+    if (!rowsReady) return;
     setBusy(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
       const jsPDF = (await import("jspdf")).default;
-      const canvas = await html2canvas(chekRef.current, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
-      const wmm = 80;
-      const hmm = Math.max(40, (wmm * canvas.height) / canvas.width);
-      const doc = new jsPDF({ unit: "mm", format: [wmm, hmm] });
-      doc.addImage(canvas.toDataURL("image/png"), "PNG", 0, 0, wmm, hmm);
+      const autoTable = (await import("jspdf-autotable")).default;
+      const W = 80;
+      // Balandlikni taxminlash — kontent bitta betga sig'sin (Print Label 1/1)
+      let h = 16;
+      h += 4; if (agentNomi) h += 4; if (mijozTel) h += 4; h += 2;
+      if (hasSom)     h += 7 + savatSom.length * 6 + 7;
+      if (showSom)    h += 6 * 3 + 4;
+      if (hasDollar)  h += 7 + savatDollar.length * 6 + 7;
+      if (showDollar) h += 6 * 3 + 4;
+      h += 8;
+      const doc = new jsPDF({ unit: "mm", format: [W, Math.max(55, Math.ceil(h))] });
+      const fY = () => (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
+
+      doc.setFont("helvetica", "bold"); doc.setFontSize(13);
+      doc.text("MUSAFFO TEA", W / 2, 7, { align: "center" });
+      doc.setFont("helvetica", "normal"); doc.setFontSize(8);
+      doc.text("Sotuv cheki", W / 2, 11, { align: "center" });
+
+      let y = 16;
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8);
+      doc.text(`Sana: ${sana || "—"}`, 3, y);
+      if (mijozIsm) doc.text(`Mijoz: ${mijozIsm}`, W - 3, y, { align: "right" });
+      y += 4;
+      if (agentNomi) { doc.text(agentNomi, 3, y); y += 4; }
+      if (mijozTel)  { doc.text(`Tel: ${mijozTel}`, 3, y); y += 4; }
+      y += 1;
+
+      if (hasSom) {
+        autoTable(doc, {
+          startY: y, theme: "grid", margin: { left: 2, right: 2 },
+          head: [["Mahsulot nomi", "Soni", "Narxi", "Summa"]],
+          body: savatSom.map(r => [mMap[r.Mahsulot_ID]?.Nomi || r.Mahsulot_ID, fmtSoni(num(r.Soni)), fmtSom(num(r.Som_Narx)), fmtSom(num(r.Summa_som))]),
+          foot: [[{ content: "Jami:", colSpan: 3, styles: { halign: "right" } }, fmtSom(thisSom)]],
+          styles: { font: "helvetica", fontStyle: "bold", fontSize: 7, cellPadding: 1, lineColor: [0,0,0], lineWidth: 0.2, textColor: [0,0,0] },
+          headStyles: { fontStyle: "bolditalic", fillColor: [255,255,255], textColor: [0,0,0], halign: "center" },
+          footStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: "bold" },
+          columnStyles: { 0: { halign: "left" }, 1: { halign: "center", cellWidth: 10 }, 2: { halign: "right", cellWidth: 16 }, 3: { halign: "right", cellWidth: 18 } },
+        });
+        y = fY() + 1;
+      }
+      if (showSom) {
+        autoTable(doc, {
+          startY: y, theme: "grid", margin: { left: 2, right: 2 },
+          body: [[`Eski qarzdorlik: ${fmtSom(totalSom)}`], [`To'lovlar: ${fmtSom(tolovSom)}`], [`Yangi qarzdorlik: ${fmtSom(yangiSom)}`]],
+          styles: { font: "helvetica", fontStyle: "bold", fontSize: 8, cellPadding: 1.2, lineColor: [0,0,0], lineWidth: 0.2, textColor: [0,0,0], halign: "left" },
+        });
+        y = fY() + 2;
+      }
+      if (hasDollar) {
+        autoTable(doc, {
+          startY: y, theme: "grid", margin: { left: 2, right: 2 },
+          head: [["Mahsulot ($)", "Soni", "Narxi", "Summa"]],
+          body: savatDollar.map(r => [mMap[r.Mahsulot_ID]?.Nomi || r.Mahsulot_ID, fmtSoni(num(r.Soni)), fmtUsd(num(r.Narx)), fmtUsd(num(r.Summa))]),
+          foot: [[{ content: "Jami:", colSpan: 3, styles: { halign: "right" } }, fmtUsd(thisDollar)]],
+          styles: { font: "helvetica", fontStyle: "bold", fontSize: 7, cellPadding: 1, lineColor: [0,0,0], lineWidth: 0.2, textColor: [0,0,0] },
+          headStyles: { fontStyle: "bolditalic", fillColor: [255,255,255], textColor: [0,0,0], halign: "center" },
+          footStyles: { fillColor: [255,255,255], textColor: [0,0,0], fontStyle: "bold" },
+          columnStyles: { 0: { halign: "left" }, 1: { halign: "center", cellWidth: 10 }, 2: { halign: "right", cellWidth: 16 }, 3: { halign: "right", cellWidth: 18 } },
+        });
+        y = fY() + 1;
+      }
+      if (showDollar) {
+        autoTable(doc, {
+          startY: y, theme: "grid", margin: { left: 2, right: 2 },
+          body: [[`Eski qarzdorlik ($): ${fmtUsd(totalDollar)}`], [`To'lovlar ($): ${fmtUsd(tolovDollar)}`], [`Yangi qarzdorlik ($): ${fmtUsd(yangiUsd)}`]],
+          styles: { font: "helvetica", fontStyle: "bold", fontSize: 8, cellPadding: 1.2, lineColor: [0,0,0], lineWidth: 0.2, textColor: [0,0,0], halign: "left" },
+        });
+      }
+
       const url = URL.createObjectURL(doc.output("blob"));
       const a = document.createElement("a");
       a.href = url; a.download = `chek-${id}.pdf`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 180_000);
     } catch {
-      window.print();
+      alert("PDF yaratishda xatolik. Qayta urinib ko'ring.");
     } finally { setBusy(false); }
   }
 
