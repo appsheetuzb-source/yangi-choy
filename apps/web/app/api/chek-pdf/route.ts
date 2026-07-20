@@ -185,7 +185,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const bytes = await pdf.save();
+    // useObjectStreams:false -> an'anaviy PDF tuzilishi (eski/oddiy renderlar,
+    // jumladan Print Label, uni o'qiy oladi; object stream'li PDF'ni oppoq ko'rsatgan edi)
+    const bytes = await pdf.save({ useObjectStreams: false });
     return new NextResponse(Buffer.from(bytes), {
       status: 200,
       headers: {
