@@ -15,7 +15,7 @@ interface Payload {
 }
 
 const W = 226.772;          // 80mm nuqtada
-const M = 6;                // chekka
+const M = 4;                // chekka (yon)
 const innerW = W - 2 * M;
 const BLACK = rgb(0, 0, 0);
 
@@ -92,7 +92,7 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
   gap(5);
 
   // Info
-  const info = (label: string, val: string) => { if (!val) return; txt(label, M, 8.5, font); const b = y; ops.push({ t: "text", x: M + 32, base: b, text: val, size: 8.5, font: bold }); gap(3); };
+  const info = (label: string, val: string) => { if (!val) return; txt(label, M, 9, font); const b = y; ops.push({ t: "text", x: M + 42, base: b, text: val, size: 9, font: bold }); gap(3); };
   info("Sana:", d.sana || "—");
   info("Agent:", d.agent || "");
   info("Mijoz:", d.mijoz || "—");
@@ -102,7 +102,7 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
 
   // Jadval sarlavhasi
   const rowTop0 = y;
-  const th = (t: string, cx: number, align: "center"|"left") => ops.push({ t: "text", x: align === "left" ? cx : cx, base: y + 8, text: t, size: 7.5, font: bold, align });
+  const th = (t: string, cx: number, align: "center"|"left") => ops.push({ t: "text", x: align === "left" ? cx : cx, base: y + 8, text: t, size: 8, font: bold, align });
   th("#", X0 + COL.no / 2, "center");
   th("Mahsulot nomi", X1 + 2, "left");
   th("Soni", X2 + COL.soni / 2, "center");
@@ -114,23 +114,23 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
 
   // Jadval qatorlari
   d.items.forEach((it, i) => {
-    const nameLines = wrap(it.nomi, COL_NOMI - 4, font, 9);
-    const rowH = Math.max(15, nameLines.length * 11 + 4);
+    const nameLines = wrap(it.nomi, COL_NOMI - 4, font, 10);
+    const rowH = Math.max(16, nameLines.length * 12 + 5);
     const top = y;
-    const cy = top + 10;
-    ops.push({ t: "text", x: X0 + COL.no / 2, base: cy, text: String(i + 1), size: 9, font, align: "center" });
-    nameLines.forEach((ln, li) => ops.push({ t: "text", x: X1 + 2, base: top + 10 + li * 11, text: ln, size: 9, font }));
-    ops.push({ t: "text", x: X2 + COL.soni / 2, base: cy, text: it.soni, size: 9, font, align: "center" });
-    ops.push({ t: "text", x: 0, base: cy, text: it.narx, size: 9, font, align: "right", rightX: X4 - 2 });
-    ops.push({ t: "text", x: 0, base: cy, text: it.summa, size: 9, font, align: "right", rightX: XR - 2 });
+    const cy = top + 11;
+    ops.push({ t: "text", x: X0 + COL.no / 2, base: cy, text: String(i + 1), size: 10, font, align: "center" });
+    nameLines.forEach((ln, li) => ops.push({ t: "text", x: X1 + 2, base: top + 11 + li * 12, text: ln, size: 10, font }));
+    ops.push({ t: "text", x: X2 + COL.soni / 2, base: cy, text: it.soni, size: 10, font, align: "center" });
+    ops.push({ t: "text", x: 0, base: cy, text: it.narx, size: 10, font, align: "right", rightX: X4 - 2 });
+    ops.push({ t: "text", x: 0, base: cy, text: it.summa, size: 10, font, align: "right", rightX: XR - 2 });
     y = top + rowH;
     hline(M, XR);
   });
   // Jami qatori
   const jamiTop = y;
-  ops.push({ t: "text", x: 0, base: jamiTop + 10, text: "Jami:", size: 9, font: bold, align: "right", rightX: X4 - 2 });
-  ops.push({ t: "text", x: 0, base: jamiTop + 10, text: d.jami, size: 9, font: bold, align: "right", rightX: XR - 2 });
-  y = jamiTop + 15;
+  ops.push({ t: "text", x: 0, base: jamiTop + 11, text: "Jami:", size: 10, font: bold, align: "right", rightX: X4 - 2 });
+  ops.push({ t: "text", x: 0, base: jamiTop + 11, text: d.jami, size: 10, font: bold, align: "right", rightX: XR - 2 });
+  y = jamiTop + 16;
   hline(M, XR);
   const tableBot = y;
   // Vertikal chiziqlar (butun jadval bo'yicha)
@@ -143,13 +143,13 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
   // Balans
   if (d.bal) {
     const bTop = y;
-    ops.push({ t: "text", x: M + innerW / 2, base: y + 10, text: "BALANS", size: 10, font: bold, align: "center" });
-    y += 15; hline(M, XR);
+    ops.push({ t: "text", x: M + innerW / 2, base: y + 11, text: "BALANS", size: 10, font: bold, align: "center" });
+    y += 16; hline(M, XR);
     const balRow = (label: string, val: string, b = false) => {
       const top = y;
-      ops.push({ t: "text", x: M + 3, base: top + 10, text: label, size: 9.5, font: b ? bold : font });
-      ops.push({ t: "text", x: 0, base: top + 10, text: val, size: 9.5, font: b ? bold : font, align: "right", rightX: XR - 3 });
-      y = top + 15; hline(M, XR);
+      ops.push({ t: "text", x: M + 3, base: top + 11, text: label, size: 10, font: b ? bold : font });
+      ops.push({ t: "text", x: 0, base: top + 11, text: val, size: 10, font: b ? bold : font, align: "right", rightX: XR - 3 });
+      y = top + 16; hline(M, XR);
     };
     balRow("Eski qarz", d.bal.eski);
     balRow("Olingan tovar", d.bal.olingan);
