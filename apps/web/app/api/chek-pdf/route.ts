@@ -92,7 +92,7 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
   gap(5);
 
   // Info
-  const info = (label: string, val: string) => { if (!val) return; txt(label, M, 7.5, font); const b = y; ops.push({ t: "text", x: M + 34, base: b, text: val, size: 7.5, font: bold }); gap(2); };
+  const info = (label: string, val: string) => { if (!val) return; txt(label, M, 7.5, bold); const b = y; ops.push({ t: "text", x: M + 34, base: b, text: val, size: 7.5, font: bold }); gap(2); };
   info("Sana:", d.sana || "—");
   info("Agent:", d.agent || "");
   info("Mijoz:", d.mijoz || "—");
@@ -114,22 +114,22 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
 
   // Jadval qatorlari
   d.items.forEach((it, i) => {
-    const nameLines = wrap(it.nomi, COL_NOMI - 4, font, 7);
+    const nameLines = wrap(it.nomi, COL_NOMI - 4, bold, 7.5);
     const rowH = Math.max(12, nameLines.length * 9 + 3);
     const top = y;
     const cy = top + 8;
-    ops.push({ t: "text", x: X0 + COL.no / 2, base: cy, text: String(i + 1), size: 7, font, align: "center" });
-    nameLines.forEach((ln, li) => ops.push({ t: "text", x: X1 + 2, base: top + 8 + li * 9, text: ln, size: 7, font }));
-    ops.push({ t: "text", x: X2 + COL.soni / 2, base: cy, text: it.soni, size: 7, font, align: "center" });
-    ops.push({ t: "text", x: 0, base: cy, text: it.narx, size: 7, font, align: "right", rightX: X4 - 2 });
-    ops.push({ t: "text", x: 0, base: cy, text: it.summa, size: 7, font, align: "right", rightX: XR - 2 });
+    ops.push({ t: "text", x: X0 + COL.no / 2, base: cy, text: String(i + 1), size: 7.5, font: bold, align: "center" });
+    nameLines.forEach((ln, li) => ops.push({ t: "text", x: X1 + 2, base: top + 8 + li * 9, text: ln, size: 7.5, font: bold }));
+    ops.push({ t: "text", x: X2 + COL.soni / 2, base: cy, text: it.soni, size: 7.5, font: bold, align: "center" });
+    ops.push({ t: "text", x: 0, base: cy, text: it.narx, size: 7.5, font: bold, align: "right", rightX: X4 - 2 });
+    ops.push({ t: "text", x: 0, base: cy, text: it.summa, size: 7.5, font: bold, align: "right", rightX: XR - 2 });
     y = top + rowH;
     hline(M, XR);
   });
   // Jami qatori
   const jamiTop = y;
-  ops.push({ t: "text", x: 0, base: jamiTop + 8, text: "Jami:", size: 7, font: bold, align: "right", rightX: X4 - 2 });
-  ops.push({ t: "text", x: 0, base: jamiTop + 8, text: d.jami, size: 7, font: bold, align: "right", rightX: XR - 2 });
+  ops.push({ t: "text", x: 0, base: jamiTop + 8, text: "Jami:", size: 7.5, font: bold, align: "right", rightX: X4 - 2 });
+  ops.push({ t: "text", x: 0, base: jamiTop + 8, text: d.jami, size: 7.5, font: bold, align: "right", rightX: XR - 2 });
   y = jamiTop + 12;
   hline(M, XR);
   const tableBot = y;
@@ -145,16 +145,16 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
     const bTop = y;
     ops.push({ t: "text", x: M + innerW / 2, base: y + 9, text: "BALANS", size: 8, font: bold, align: "center" });
     y += 13; hline(M, XR);
-    const balRow = (label: string, val: string, b = false) => {
+    const balRow = (label: string, val: string) => {
       const top = y;
-      ops.push({ t: "text", x: M + 3, base: top + 9, text: label, size: 8, font: b ? bold : font });
-      ops.push({ t: "text", x: 0, base: top + 9, text: val, size: 8, font: b ? bold : font, align: "right", rightX: XR - 3 });
+      ops.push({ t: "text", x: M + 3, base: top + 9, text: label, size: 8, font: bold });
+      ops.push({ t: "text", x: 0, base: top + 9, text: val, size: 8, font: bold, align: "right", rightX: XR - 3 });
       y = top + 13; hline(M, XR);
     };
     balRow("Eski qarz", d.bal.eski);
     balRow("Olingan tovar", d.bal.olingan);
     if (d.bal.tolov) balRow("To'lov", "- " + d.bal.tolov);
-    balRow("Yakuniy balans", d.bal.yakuniy, true);
+    balRow("Yakuniy balans", d.bal.yakuniy);
     vlines([M, XR], bTop, y);
   }
 
