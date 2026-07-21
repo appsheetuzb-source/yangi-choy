@@ -11,7 +11,7 @@ interface SotuvSavatRow { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: strin
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
 
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
-function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
+function fmtSom(v: number) { return v.toLocaleString("ru-RU"); }
 function fmtSoni(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:1,maximumFractionDigits:2}); }
 
 const cellHead: React.CSSProperties = { border: "1px solid #000", padding: "3px 3px", fontSize: 10.5, fontWeight: 800, fontStyle: "italic", textAlign: "center" };
