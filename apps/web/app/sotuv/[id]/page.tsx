@@ -973,13 +973,14 @@ export default function SotuvDetailPage() {
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":(isAdmin?"1fr 1fr 1fr":"1fr 1fr"),gap:isMobile?10:16,marginBottom:isMobile?16:24}}>
           {/* MIJOZ */}
           <div style={{gridColumn:isMobile?"1 / -1":undefined,background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"16px 18px":"20px 24px"}}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
-              <div onClick={()=>router.push(`/mijozlar/${sotuv.Mijoz_ID}`)} style={{minWidth:0,flex:1,cursor:"pointer"}}>
+            <div>
+              <div onClick={()=>router.push(`/mijozlar/${sotuv.Mijoz_ID}`)} style={{minWidth:0,cursor:"pointer"}}>
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:10}}>MIJOZ</p>
                 <p style={{fontSize:16,fontWeight:800,color:"var(--primary)"}}>{mjNomi}</p>
-                <p style={{fontSize:11,color:"var(--text-3)",marginTop:4}}>Agent: {agNomi}</p>
               </div>
-              <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginTop:6}}>
+                <p style={{fontSize:11,color:"var(--text-3)"}}>Agent: {agNomi}</p>
+                <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
                 {/* Chek (A4, pechat uchun) — faqat WEB (desktop) */}
                 {!isMobile && (
                 <button onClick={()=>{
@@ -1013,6 +1014,7 @@ export default function SotuvDetailPage() {
                   }
                 </button>
                 ); })()}
+                </div>
               </div>
             </div>
             {isAdmin && (savatSom.length>0||savatDollar.length>0) && (
