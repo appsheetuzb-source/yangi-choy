@@ -1,6 +1,6 @@
 "use client";
 import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
-import { useEffect, useState, useRef, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 // 80mm termal chek — oq-qora. window.print() orqali chop etiladi.
@@ -77,7 +77,6 @@ function PosContent() {
   const [mMap, setMMap]         = useState<Record<string,Mahsulot>>({});
   const [rowsReady, setRowsReady] = useState(false);
   const [busy, setBusy]         = useState(false);
-  const chekRef = useRef<HTMLDivElement>(null);
 
   useEffect(()=>{
     if(!id) return;
@@ -107,23 +106,32 @@ function PosContent() {
   const showSom    = hasSom || totalSom !== 0 || tolovSom !== 0;
   const yakuniySom = totalSom + thisSom - tolovSom;
 
-  // Chekni PNG RASM qilib yuklab beramiz -> Print Label (yoki boshqa) bilan oching.
-  // PDF hamma joyda oppoq chiqardi; rasm esa universal (Print Label — rasm/label ilovasi).
+  // Serverda PDF yasab yuklab olamiz (pdf-lib) -> Print Label bilan oching.
   async function printChek() {
-    if (!rowsReady || !chekRef.current || busy) return;
+    if (!rowsReady || busy) return;
     setBusy(true);
     try {
-      const html2canvas = (await import("html2canvas")).default;
-      const canvas = await html2canvas(chekRef.current, { scale: 3, backgroundColor: "#ffffff", useCORS: true });
-      const blob: Blob | null = await new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
-      if (!blob) throw new Error("img");
+      const payload = {
+        sana, agent: agentNomi, mijoz: mijozIsm, tel: mijozTel,
+        items: savatSom.map(r => ({
+          nomi: mMap[r.Mahsulot_ID]?.Nomi || r.Mahsulot_ID,
+          soni: fmtSoni(num(r.Soni)),
+          narx: fmtSom(num(r.Som_Narx)),
+          summa: fmtSom(num(r.Summa_som)),
+        })),
+        jami: fmtSom(thisSom),
+        bal: showSom ? { eski: fmtSom(totalSom), olingan: fmtSom(thisSom), tolov: tolovSom > 0 ? fmtSom(tolovSom) : null, yakuniy: fmtSom(yakuniySom) } : null,
+      };
+      const res = await fetch("/api/chek-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error("server");
+      const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `chek-${id}.png`;
+      a.href = url; a.download = `chek-${id}.pdf`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 180_000);
     } catch {
-      alert("Chek rasm yaratishda xatolik. Qayta urinib ko'ring.");
+      alert("Chek PDF yaratishda xatolik. Qayta urinib ko'ring.");
     } finally { setBusy(false); }
   }
 
@@ -150,7 +158,7 @@ function PosContent() {
         </button>
       </div>
 
-      <div className="chek-body" ref={chekRef} style={{ width: 360, background: "#fff", color: "#000", padding: "12px 14px 14px", fontFamily: "Arial, sans-serif" }}>
+      <div className="chek-body" style={{ width: 360, background: "#fff", color: "#000", padding: "12px 14px 14px", fontFamily: "Arial, sans-serif" }}>
         <div style={{ textAlign: "center", marginBottom: 8 }}>
           <div style={{ fontSize: 21, fontWeight: 900, letterSpacing: 1 }}>MUSAFFO TEA</div>
           <div style={{ fontSize: 11, fontWeight: 700 }}>Sotuv cheki</div>
