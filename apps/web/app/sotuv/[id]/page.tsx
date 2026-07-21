@@ -973,14 +973,13 @@ export default function SotuvDetailPage() {
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 1fr":(isAdmin?"1fr 1fr 1fr":"1fr 1fr"),gap:isMobile?10:16,marginBottom:isMobile?16:24}}>
           {/* MIJOZ */}
           <div style={{gridColumn:isMobile?"1 / -1":undefined,background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"16px 18px":"20px 24px"}}>
-            <div>
-              <div onClick={()=>router.push(`/mijozlar/${sotuv.Mijoz_ID}`)} style={{minWidth:0,cursor:"pointer"}}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}>
+              <div onClick={()=>router.push(`/mijozlar/${sotuv.Mijoz_ID}`)} style={{minWidth:0,flex:1,cursor:"pointer"}}>
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:10}}>MIJOZ</p>
-                <p style={{fontSize:16,fontWeight:800,color:"var(--primary)"}}>{mjNomi}</p>
+                <p style={{fontSize:16,fontWeight:800,color:"var(--primary)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{mjNomi}</p>
+                <p style={{fontSize:11,color:"var(--text-3)",marginTop:4}}>Agent: {agNomi}</p>
               </div>
-              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,flexWrap:"wrap",marginTop:6}}>
-                <p style={{fontSize:11,color:"var(--text-3)"}}>Agent: {agNomi}</p>
-                <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
                 {/* Chek (A4, pechat uchun) — faqat WEB (desktop) */}
                 {!isMobile && (
                 <button onClick={()=>{
@@ -1000,9 +999,8 @@ export default function SotuvDetailPage() {
                     sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
                     const p=new URLSearchParams({sana:sotuv.Sana,agent:agNomi,mijozIsm:mjNomi,mijozTel:mj?.Telefon||"",totalSom:String(mijozQarzSom),totalDollar:String(mijozQarzDollar),tolovSom:String(winTolovSom),tolovDollar:String(winTolovDollar)});
                     router.push(`/sotuv/${sotuv.Sotuv_ID}/chek-pos?${p.toString()}`);
-                  }} title="80mm termal chek" style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",background:"#f0fdf4",cursor:"pointer",fontSize:13,fontWeight:700,color:"#16a34a"}}>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-                  80mm
+                  }} title="80mm termal chek — chop etish" style={{display:"flex",alignItems:"center",justifyContent:"center",padding:"8px 12px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",background:"#f0fdf4",cursor:"pointer",color:"#16a34a"}}>
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
                 </button>
                 )}
                 {(() => { const td = String(sotuv.Chek||"").trim()!==""; return (
@@ -1016,7 +1014,6 @@ export default function SotuvDetailPage() {
                 ); })()}
                 </div>
               </div>
-            </div>
             {isAdmin && (savatSom.length>0||savatDollar.length>0) && (
               <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)"}}>
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:8}}>SHU SOTUVDAN FOYDA</p>
