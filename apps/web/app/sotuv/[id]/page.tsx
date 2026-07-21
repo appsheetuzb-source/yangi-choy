@@ -980,6 +980,8 @@ export default function SotuvDetailPage() {
                 <p style={{fontSize:11,color:"var(--text-3)",marginTop:4}}>Agent: {agNomi}</p>
               </div>
               <div style={{display:"flex",gap:8,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                {/* Chek (A4, pechat uchun) — faqat WEB (desktop) */}
+                {!isMobile && (
                 <button onClick={()=>{
                     const mj=mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID);
                     sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
@@ -989,6 +991,9 @@ export default function SotuvDetailPage() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                   Chek
                 </button>
+                )}
+                {/* 80mm termal chek — faqat MOBILE */}
+                {isMobile && (
                 <button onClick={()=>{
                     const mj=mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID);
                     sessionStorage.setItem(`chek_${sotuv.Sotuv_ID}`,JSON.stringify({savatSom,savatDollar,mMap}));
@@ -998,6 +1003,7 @@ export default function SotuvDetailPage() {
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
                   80mm
                 </button>
+                )}
                 {(() => { const td = String(sotuv.Chek||"").trim()!==""; return (
                 <button onClick={toggleTasdiq} disabled={tasdiqSaving} title={td?"Tasdiqlandi (bosib bekor qilish)":"Tasdiqlash (qarzga qo'shish)"}
                   style={{display:"flex",alignItems:"center",gap:6,padding:"8px 14px",borderRadius:"var(--radius)",border:`1.5px solid ${td?"#16a34a":"#f59e0b"}`,background:td?"#16a34a":"#fffbeb",cursor:"pointer",fontSize:13,fontWeight:700,color:td?"#fff":"#b45309",transition:"all .15s",opacity:tasdiqSaving?.6:1}}>
