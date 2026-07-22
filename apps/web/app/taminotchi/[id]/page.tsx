@@ -674,8 +674,8 @@ export default function TaminotchiDetailPage() {
               })}
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 560 }}>
-              <div style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 620 }}>
+              <div style={{ display: "grid", gridTemplateColumns: COLS_X, columnGap: 14, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
                 {["#","SANA / RAQAM","SUMMA (SO'M)","SUMMA ($)","AKT"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
@@ -686,8 +686,8 @@ export default function TaminotchiDetailPage() {
                 const usd = sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
                 const isHa = String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                 return (
-                  <div key={x.Xarid_ID} onClick={() => router.push(`/xarid/${x.Xarid_ID}`)}
-                    style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "12px 20px", alignItems: "center", borderBottom: i < fXarid.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isHa ? "#86efac" : "#fca5a5" }}
+                  <div key={x.Xarid_ID}
+                    style={{ display: "grid", gridTemplateColumns: COLS_X, columnGap: 14, padding: "12px 20px", alignItems: "center", borderBottom: i < fXarid.length - 1 ? "1px solid var(--border)" : "none", background: isHa ? "#86efac" : "#fca5a5" }}
                     onMouseEnter={e => (e.currentTarget.style.background = isHa ? "#4ade80" : "#f87171")}
                     onMouseLeave={e => (e.currentTarget.style.background = isHa ? "#86efac" : "#fca5a5")}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
@@ -695,11 +695,11 @@ export default function TaminotchiDetailPage() {
                         style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
                       <span style={{ fontSize: 11, color: isHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
                     </div>
-                    <div style={{ minWidth: 0 }}>
+                    <div onClick={() => router.push(`/xarid/${x.Xarid_ID}`)} title="Xarid detali" style={{ minWidth: 0, cursor: "pointer" }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{x.Sana}</div>
                       <span style={{ fontSize: 11, fontWeight: 800, color: isHa ? "#14532d" : "#7f1d1d", background: "rgba(255,255,255,.55)", padding: "1px 7px", borderRadius: 6, display: "inline-block", marginTop: 2 }}>#{x.Sotuv_Raqami}</span>
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"}</span>
+                    <span onClick={() => router.push(`/xarid/${x.Xarid_ID}`)} title="Xarid detali" style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d", cursor: "pointer" }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{usd !== 0 ? fmtUsd(usd) : "$0,00"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
                       {["True","False"].map(val => {
@@ -793,8 +793,8 @@ export default function TaminotchiDetailPage() {
               })}
             </div>
           ) : (
-            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 600 }}>
-              <div style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+            <div style={{ overflowX: "auto" }}><div style={{ minWidth: 700 }}>
+              <div style={{ display: "grid", gridTemplateColumns: COLS_T, columnGap: 14, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
                 {["#","SANA / TURI","SO'M","DOLLAR","JAMI (SO'M)","JAMI ($)","AKT","IZOH"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
@@ -806,8 +806,8 @@ export default function TaminotchiDetailPage() {
                 const jamiDollar = num(t.Summa_dollar);
                 const tIsHa = String(t.Check||"").toUpperCase()==="TRUE";
                 return (
-                  <div key={t.X_Tolov_ID || i} onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
-                    style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "12px 20px", alignItems: "center", borderBottom: i < fTolov.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: tIsHa ? "#86efac" : "#fca5a5" }}
+                  <div key={t.X_Tolov_ID || i}
+                    style={{ display: "grid", gridTemplateColumns: COLS_T, columnGap: 14, padding: "12px 20px", alignItems: "center", borderBottom: i < fTolov.length - 1 ? "1px solid var(--border)" : "none", background: tIsHa ? "#86efac" : "#fca5a5" }}
                     onMouseEnter={e => (e.currentTarget.style.background = tIsHa ? "#4ade80" : "#f87171")}
                     onMouseLeave={e => (e.currentTarget.style.background = tIsHa ? "#86efac" : "#fca5a5")}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
@@ -815,13 +815,13 @@ export default function TaminotchiDetailPage() {
                         style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
                       <span style={{ fontSize: 11, color: tIsHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
                     </div>
-                    <div style={{ minWidth: 0 }}>
+                    <div onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)} title="To'lov detali" style={{ minWidth: 0, cursor: "pointer" }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{t.Sana || "—"}</div>
                       <span style={{ fontSize: 11, background: t.Turi ? "rgba(255,255,255,.55)" : "transparent", padding: t.Turi ? "1px 6px" : 0, borderRadius: 10, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d", display: "inline-block", marginTop: 2 }}>
                         {t.Turi || "—"}
                       </span>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
+                    <span onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)} title="To'lov detali" style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d", cursor: "pointer" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiDollar !== 0 ? fmtUsd(jamiDollar) : "$0,00"}</span>
