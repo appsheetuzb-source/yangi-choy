@@ -864,12 +864,11 @@ export default function XaridTolovPage() {
                     const rowHover  = isHa ? "#bbf7d0" : "#fecaca";
                     return (
                       <div key={t.X_Tolov_ID || idx}
-                        onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)}
                         style={{
                           display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px",
                           padding: "10px 16px", alignItems: "center",
                           borderBottom: idx < filtered.length - 1 ? "1px solid var(--border)" : "none",
-                          background: rowBg, cursor: "pointer",
+                          background: rowBg,
                         }}
                         onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
                         onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
@@ -878,12 +877,12 @@ export default function XaridTolovPage() {
                             onClick={e => e.stopPropagation()}
                             onChange={() => toggleSel(t.X_Tolov_ID)}
                             style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
-                          <div style={{ minWidth: 0 }}>
+                          <div onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)} title="To'lov detali" style={{ minWidth: 0, cursor: "pointer" }}>
                             <p style={{ fontSize: 13, fontWeight: 800, color: "#ef4444", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tNomi}</p>
                             <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginTop: 1 }}>{t.Sana || "—"}{xRaqam ? ` · #${xRaqam}` : ""}{t.Vaqt ? ` · ${t.Vaqt}` : ""}</p>
                           </div>
                         </div>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: somVal ? "var(--text)" : "var(--text-3)" }}>
+                        <span onClick={() => router.push(`/xarid/tolov/${t.X_Tolov_ID}`)} title="To'lov detali" style={{ fontSize: 13, fontWeight: 700, color: somVal ? "var(--text)" : "var(--text-3)", cursor: "pointer" }}>
                           {somVal ? somVal.toLocaleString("ru-RU") : "—"}
                         </span>
                         <span style={{ fontSize: 13, fontWeight: 700, color: dollarVal ? "#2563eb" : "var(--text-3)" }}>
