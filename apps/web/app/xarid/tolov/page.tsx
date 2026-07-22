@@ -575,8 +575,9 @@ export default function XaridTolovPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const toggleSel = (id: string) => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const selSum = useMemo(() => {
+    // JAMI bo'yicha: so'mdagi to'lov -> Jami (so'm), dollardagi -> Jami ($). Har to'lovda faqat bittasi to'la.
     let som = 0, dollar = 0, count = 0;
-    filtered.forEach(t => { if (selected.has(t.X_Tolov_ID)) { som += num(t.Som); dollar += num(t.Dollar); count++; } });
+    filtered.forEach(t => { if (selected.has(t.X_Tolov_ID)) { som += num(t.Summa); dollar += num(t.Summa_dollar); count++; } });
     return { som, dollar, count };
   }, [filtered, selected]);
 
@@ -744,26 +745,20 @@ export default function XaridTolovPage() {
                       Yangi to&apos;lov
                     </button>
                   </div>
-                  {/* Jami qatori */}
-                  <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px", padding: "10px 16px", borderBottom: "1px solid var(--border)", background: "#f8fafc" }}>
-                    {selSum.count > 0 ? (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-                        <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>TANLANGAN ({selSum.count})</span>
-                        {selSum.som !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a", whiteSpace: "nowrap" }}>{selSum.som.toLocaleString("ru-RU")}</span>}
-                        {selSum.dollar !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb", whiteSpace: "nowrap" }}>{fmtUsd(selSum.dollar)}</span>}
-                        {selSum.som === 0 && selSum.dollar === 0 && <span style={{ fontSize: 12, color: "var(--text-3)" }}>0</span>}
-                      </div>
-                    ) : <span/>}
-                    <span style={{ fontSize: 16, fontWeight: 800, color: "#16a34a" }}>{totalSom !== 0 ? totalSom.toLocaleString("ru-RU") : "—"}</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{totalDollar !== 0 ? fmtUsd(totalDollar) : "—"}</span>
-                    <span/>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{totalJamiUsd !== 0 ? fmtUsd(totalJamiUsd) : "—"}</span>
-                    <span style={{ fontSize: 16, fontWeight: 800, color: "#16a34a" }}>{totalJamiSom !== 0 ? totalJamiSom.toLocaleString("ru-RU") : "—"}</span>
-                    <span/><span/><span/>
-                  </div>
-                  {/* Table header */}
-                  <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px", padding: "8px 16px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                    {["TA'MINOTCHI","SO'M","DOLLAR","DOLLAR KURSI","JAMI ($)","JAMI (SO'M)","IZOH","AKT SVERKA",""].map(h => (
+                  {/* Table header — TA'MINOTCHI yonida tanlangan to'lovlar yig'indisi */}
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px", padding: "8px 16px", background: "var(--bg)", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", letterSpacing: ".05em", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", minWidth: 0 }}>
+                      TA&apos;MINOTCHI
+                      {selSum.count > 0 && (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "2px 9px", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 7 }}>
+                          <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)" }}>TANLANGAN {selSum.count}:</span>
+                          {selSum.som !== 0 && <span style={{ fontSize: 12, fontWeight: 800, color: "#16a34a" }}>{selSum.som.toLocaleString("ru-RU")}</span>}
+                          {selSum.dollar !== 0 && <span style={{ fontSize: 12, fontWeight: 800, color: "#2563eb" }}>{fmtUsd(selSum.dollar)}</span>}
+                          {selSum.som === 0 && selSum.dollar === 0 && <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-3)" }}>0</span>}
+                        </span>
+                      )}
+                    </span>
+                    {["SO'M","DOLLAR","DOLLAR KURSI","JAMI ($)","JAMI (SO'M)","IZOH","AKT SVERKA",""].map(h => (
                       <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", letterSpacing: ".05em" }}>{h}</span>
                     ))}
                   </div>
