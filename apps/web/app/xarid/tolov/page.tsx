@@ -571,6 +571,15 @@ export default function XaridTolovPage() {
   const totalJamiUsd = useMemo(() => filtered.reduce((s, t) => s + num(t.Summa_dollar), 0), [filtered]);
   const totalJamiSom = useMemo(() => filtered.reduce((s, t) => s + num(t.Summa), 0), [filtered]);
 
+  // Ko'p tanlash — belgilangan to'lovlarni yig'ish (so'm va dollar alohida)
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSel = (id: string) => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const selSum = useMemo(() => {
+    let som = 0, dollar = 0, count = 0;
+    filtered.forEach(t => { if (selected.has(t.X_Tolov_ID)) { som += num(t.Som); dollar += num(t.Dollar); count++; } });
+    return { som, dollar, count };
+  }, [filtered, selected]);
+
   // Windowing — ro'yxatni bo'lib render qilish (skroll tezligi uchun)
   const [shown, setShown] = useState(60);
   const moreRef = useRef<HTMLDivElement>(null);
@@ -737,7 +746,14 @@ export default function XaridTolovPage() {
                   </div>
                   {/* Jami qatori */}
                   <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px", padding: "10px 16px", borderBottom: "1px solid var(--border)", background: "#f8fafc" }}>
-                    <span/>
+                    {selSum.count > 0 ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+                        <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>TANLANGAN ({selSum.count})</span>
+                        {selSum.som !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a", whiteSpace: "nowrap" }}>{selSum.som.toLocaleString("ru-RU")}</span>}
+                        {selSum.dollar !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb", whiteSpace: "nowrap" }}>{fmtUsd(selSum.dollar)}</span>}
+                        {selSum.som === 0 && selSum.dollar === 0 && <span style={{ fontSize: 12, color: "var(--text-3)" }}>0</span>}
+                      </div>
+                    ) : <span/>}
                     <span style={{ fontSize: 16, fontWeight: 800, color: "#16a34a" }}>{totalSom !== 0 ? totalSom.toLocaleString("ru-RU") : "—"}</span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: "#2563eb" }}>{totalDollar !== 0 ? fmtUsd(totalDollar) : "—"}</span>
                     <span/>
@@ -865,9 +881,15 @@ export default function XaridTolovPage() {
                         }}
                         onMouseEnter={e => (e.currentTarget.style.background = rowHover)}
                         onMouseLeave={e => (e.currentTarget.style.background = rowBg)}>
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 800, color: "#ef4444", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tNomi}</p>
-                          <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginTop: 1 }}>{t.Sana || "—"}{xRaqam ? ` · #${xRaqam}` : ""}{t.Vaqt ? ` · ${t.Vaqt}` : ""}</p>
+                        <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0 }}>
+                          <input type="checkbox" checked={selected.has(t.X_Tolov_ID)}
+                            onClick={e => e.stopPropagation()}
+                            onChange={() => toggleSel(t.X_Tolov_ID)}
+                            style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 800, color: "#ef4444", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{tNomi}</p>
+                            <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", marginTop: 1 }}>{t.Sana || "—"}{xRaqam ? ` · #${xRaqam}` : ""}{t.Vaqt ? ` · ${t.Vaqt}` : ""}</p>
+                          </div>
                         </div>
                         <span style={{ fontSize: 13, fontWeight: 700, color: somVal ? "var(--text)" : "var(--text-3)" }}>
                           {somVal ? somVal.toLocaleString("ru-RU") : "—"}

@@ -947,6 +947,9 @@ export default function SotuvDetailPage() {
 
   const mjNomi = mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID)?.Ism||"—";
   const agNomi = aMap[sotuv.Agent]||"—";
+  // Foyda: Admin har doim; boshqa rollar faqat O'ZI sotgan (Agent === user.id) sotuvda ko'radi
+  const isOwnSale = !!user?.id && String(sotuv.Agent||"") === String(user.id);
+  const canSeeFoyda = isAdmin || isOwnSale;
 
   return (
     <>
@@ -1014,7 +1017,7 @@ export default function SotuvDetailPage() {
                 ); })()}
                 </div>
               </div>
-            {isAdmin && (savatSom.length>0||savatDollar.length>0) && (
+            {canSeeFoyda && (savatSom.length>0||savatDollar.length>0) && (
               <div style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)"}}>
                 <p style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".06em",marginBottom:8}}>SHU SOTUVDAN FOYDA</p>
                 <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
