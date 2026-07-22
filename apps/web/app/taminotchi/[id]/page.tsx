@@ -187,6 +187,15 @@ export default function TaminotchiDetailPage() {
     });
   }, [tolovlar, fromKey, toKey, sumQ, qActive]);
 
+  // Ko'p tanlash — belgilangan to'lovlar yig'indisi (JAMI bo'yicha: so'm/dollar alohida)
+  const [selectedT, setSelectedT] = useState<Set<string>>(new Set());
+  const toggleTSel = (id: string) => setSelectedT(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const selTSum = useMemo(() => {
+    let som = 0, dollar = 0, count = 0;
+    fTolov.forEach(t => { if (selectedT.has(t.X_Tolov_ID)) { som += num(t.Summa); dollar += num(t.Summa_dollar); count++; } });
+    return { som, dollar, count };
+  }, [fTolov, selectedT]);
+
   const bSom = num(taminotchi?.Boshlangich_som);
   const bUsd = num(taminotchi?.Boshlangich_Balans);
   const qarzSom = bSom + jamiXaridSom - jamiTolovSom;
@@ -434,7 +443,7 @@ export default function TaminotchiDetailPage() {
   );
 
   const COLS_X = "40px 100px 80px 1fr 1fr 112px";
-  const COLS_T = "26px 70px 48px 1fr 1fr 1fr 1fr 88px 96px";
+  const COLS_T = "44px 70px 48px 1fr 1fr 1fr 1fr 88px 96px";
 
   return (
     <>
@@ -683,8 +692,18 @@ export default function TaminotchiDetailPage() {
 
         {/* To'lovlar tarixi */}
         <div ref={tolovRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "tolov" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", transition: "box-shadow .25s", scrollMarginTop: 80 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-            <span style={{ fontSize: 15, fontWeight: 700 }}>To&apos;lovlar tarixi</span>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", minWidth: 0 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>To&apos;lovlar tarixi</span>
+              {selTSum.count > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: "var(--radius)", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".03em" }}>TANLANGAN {selTSum.count}:</span>
+                  {selTSum.som !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{selTSum.som.toLocaleString("ru-RU")}</span>}
+                  {selTSum.dollar !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>{fmtUsd(selTSum.dollar)}</span>}
+                  {selTSum.som === 0 && selTSum.dollar === 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-3)" }}>0</span>}
+                </span>
+              )}
+            </div>
             <button onClick={openAddT}
               style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: "var(--radius)", border: "none", background: "var(--primary)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
@@ -707,6 +726,8 @@ export default function TaminotchiDetailPage() {
                     style={{ background: tIsHa ? "#86efac" : "#fca5a5", borderRadius: "var(--radius)", padding: "12px 14px", border: `1px solid ${tIsHa ? "#14532d" : "#7f1d1d"}`, cursor: "pointer" }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input type="checkbox" checked={selectedT.has(t.X_Tolov_ID)} onClick={e => e.stopPropagation()} onChange={() => toggleTSel(t.X_Tolov_ID)}
+                          style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
                         <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>#{i+1}</span>
                         <span style={{ fontSize: 12, fontWeight: 700 }}>{t.Sana || "—"}</span>
                         {t.Xarid_Raqami && <span style={{ fontSize: 11, color: "var(--primary)", fontWeight: 600 }}>#{t.Xarid_Raqami}</span>}
@@ -757,7 +778,11 @@ export default function TaminotchiDetailPage() {
                     style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "12px 20px", alignItems: "center", borderBottom: i < fTolov.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: tIsHa ? "#86efac" : "#fca5a5" }}
                     onMouseEnter={e => (e.currentTarget.style.background = tIsHa ? "#4ade80" : "#f87171")}
                     onMouseLeave={e => (e.currentTarget.style.background = tIsHa ? "#86efac" : "#fca5a5")}>
-                    <span style={{ fontSize: 11, color: tIsHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedT.has(t.X_Tolov_ID)} onChange={() => toggleTSel(t.X_Tolov_ID)}
+                        style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
+                      <span style={{ fontSize: 11, color: tIsHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
+                    </div>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{t.Sana || "—"}</span>
                     <span style={{ fontSize: 11, background: t.Turi ? "rgba(255,255,255,.55)" : "transparent", padding: t.Turi ? "2px 6px" : 0, borderRadius: 10, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d", display: "inline-block" }}>
                       {t.Turi || "—"}
