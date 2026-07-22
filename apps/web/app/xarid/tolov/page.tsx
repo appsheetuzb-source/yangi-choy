@@ -739,26 +739,23 @@ export default function XaridTolovPage() {
                     <MultiSelect
                       items={taminotchilar.map(t => ({ id: t.Taminotchi_ID, label: t.Ism }))}
                       value={filterT} onChange={setFilterT} placeholder="Ta'minotchi..."/>
+                    {selSum.count > 0 && (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: "var(--radius)", whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".03em" }}>TANLANGAN {selSum.count}:</span>
+                        {selSum.som !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{selSum.som.toLocaleString("ru-RU")}</span>}
+                        {selSum.dollar !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>{fmtUsd(selSum.dollar)}</span>}
+                        {selSum.som === 0 && selSum.dollar === 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-3)" }}>0</span>}
+                      </span>
+                    )}
                     <span style={{ flex: 1 }}/>
                     <button className="btn btn--primary" onClick={openAdd}>
                       <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                       Yangi to&apos;lov
                     </button>
                   </div>
-                  {/* Table header — TA'MINOTCHI yonida tanlangan to'lovlar yig'indisi */}
-                  <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px", padding: "8px 16px", background: "var(--bg)", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", letterSpacing: ".05em", display: "flex", alignItems: "center", gap: 10, whiteSpace: "nowrap", minWidth: 0 }}>
-                      TA&apos;MINOTCHI
-                      {selSum.count > 0 && (
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "2px 9px", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 7 }}>
-                          <span style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)" }}>TANLANGAN {selSum.count}:</span>
-                          {selSum.som !== 0 && <span style={{ fontSize: 12, fontWeight: 800, color: "#16a34a" }}>{selSum.som.toLocaleString("ru-RU")}</span>}
-                          {selSum.dollar !== 0 && <span style={{ fontSize: 12, fontWeight: 800, color: "#2563eb" }}>{fmtUsd(selSum.dollar)}</span>}
-                          {selSum.som === 0 && selSum.dollar === 0 && <span style={{ fontSize: 12, fontWeight: 800, color: "var(--text-3)" }}>0</span>}
-                        </span>
-                      )}
-                    </span>
-                    {["SO'M","DOLLAR","DOLLAR KURSI","JAMI ($)","JAMI (SO'M)","IZOH","AKT SVERKA",""].map(h => (
+                  {/* Table header */}
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(140px,1.5fr) 120px 110px 95px 120px 120px minmax(80px,1fr) 110px 64px", padding: "8px 16px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+                    {["TA'MINOTCHI","SO'M","DOLLAR","DOLLAR KURSI","JAMI ($)","JAMI (SO'M)","IZOH","AKT SVERKA",""].map(h => (
                       <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", letterSpacing: ".05em" }}>{h}</span>
                     ))}
                   </div>
