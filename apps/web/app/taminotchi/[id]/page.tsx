@@ -196,6 +196,22 @@ export default function TaminotchiDetailPage() {
     return { som, dollar, count };
   }, [fTolov, selectedT]);
 
+  // Xaridlar uchun ko'p tanlash — belgilangan xaridlar summasi (so'm/dollar alohida)
+  const [selectedX, setSelectedX] = useState<Set<string>>(new Set());
+  const toggleXSel = (id: string) => setSelectedX(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const selXSum = useMemo(() => {
+    let som = 0, dollar = 0, count = 0;
+    fXarid.forEach(x => {
+      if (selectedX.has(x.Xarid_ID)) {
+        const sv = savatMap[x.Xarid_ID] || [];
+        som += sv.reduce((s, r) => s + num(r.Summa_Som), 0);
+        dollar += sv.reduce((s, r) => s + num(r.Jami_Summa), 0);
+        count++;
+      }
+    });
+    return { som, dollar, count };
+  }, [fXarid, savatMap, selectedX]);
+
   const bSom = num(taminotchi?.Boshlangich_som);
   const bUsd = num(taminotchi?.Boshlangich_Balans);
   const qarzSom = bSom + jamiXaridSom - jamiTolovSom;
@@ -442,8 +458,8 @@ export default function TaminotchiDetailPage() {
     </div>
   );
 
-  const COLS_X = "40px 100px 80px 1fr 1fr 112px";
-  const COLS_T = "44px 70px 48px 1fr 1fr 1fr 1fr 88px 96px";
+  const COLS_X = "48px 128px 1fr 1fr 112px";
+  const COLS_T = "44px 96px 1fr 1fr 1fr 1fr 88px 96px";
 
   return (
     <>
@@ -602,8 +618,16 @@ export default function TaminotchiDetailPage() {
 
         {/* Xaridlar */}
         <div ref={xaridRef} style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: flash === "xarid" ? "0 0 0 3px var(--primary)" : "var(--shadow-sm)", overflow: "hidden", marginBottom: isMobile ? 16 : 0, transition: "box-shadow .25s", scrollMarginTop: 80 }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>Xaridlar soni: {fXarid.length} ta</span>
+            {selXSum.count > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 12px", background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: "var(--radius)", whiteSpace: "nowrap" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".03em" }}>TANLANGAN {selXSum.count}:</span>
+                {selXSum.som !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>{selXSum.som.toLocaleString("ru-RU")}</span>}
+                {selXSum.dollar !== 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "#2563eb" }}>{fmtUsd(selXSum.dollar)}</span>}
+                {selXSum.som === 0 && selXSum.dollar === 0 && <span style={{ fontSize: 13, fontWeight: 800, color: "var(--text-3)" }}>0</span>}
+              </span>
+            )}
           </div>
 
           {fXarid.length === 0 ? (
@@ -620,6 +644,8 @@ export default function TaminotchiDetailPage() {
                     style={{ background: isHa ? "#86efac" : "#fca5a5", borderRadius: "var(--radius)", padding: "12px 14px", cursor: "pointer", border: `1px solid ${isHa ? "#14532d" : "#7f1d1d"}` }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <input type="checkbox" checked={selectedX.has(x.Xarid_ID)} onClick={e => e.stopPropagation()} onChange={() => toggleXSel(x.Xarid_ID)}
+                          style={{ width: 16, height: 16, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
                         <span style={{ fontSize: 11, color: "var(--text-3)", fontWeight: 700 }}>#{i+1}</span>
                         <span style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", background: "#f0fdf4", padding: "2px 8px", borderRadius: 6 }}>#{x.Sotuv_Raqami}</span>
                         <span style={{ fontSize: 12, fontWeight: 700 }}>{x.Sana}</span>
@@ -650,7 +676,7 @@ export default function TaminotchiDetailPage() {
           ) : (
             <div style={{ overflowX: "auto" }}><div style={{ minWidth: 560 }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#","SANA","RAQAM","SUMMA (SO'M)","SUMMA ($)","AKT"].map(h => (
+                {["#","SANA / RAQAM","SUMMA (SO'M)","SUMMA ($)","AKT"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
@@ -664,9 +690,15 @@ export default function TaminotchiDetailPage() {
                     style={{ display: "grid", gridTemplateColumns: COLS_X, padding: "12px 20px", alignItems: "center", borderBottom: i < fXarid.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer", background: isHa ? "#86efac" : "#fca5a5" }}
                     onMouseEnter={e => (e.currentTarget.style.background = isHa ? "#4ade80" : "#f87171")}
                     onMouseLeave={e => (e.currentTarget.style.background = isHa ? "#86efac" : "#fca5a5")}>
-                    <span style={{ fontSize: 11, color: isHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{x.Sana}</span>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: isHa ? "#14532d" : "#7f1d1d", background: "rgba(255,255,255,.55)", padding: "2px 8px", borderRadius: 6, display: "inline-block" }}>#{x.Sotuv_Raqami}</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedX.has(x.Xarid_ID)} onChange={() => toggleXSel(x.Xarid_ID)}
+                        style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
+                      <span style={{ fontSize: 11, color: isHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{x.Sana}</div>
+                      <span style={{ fontSize: 11, fontWeight: 800, color: isHa ? "#14532d" : "#7f1d1d", background: "rgba(255,255,255,.55)", padding: "1px 7px", borderRadius: 6, display: "inline-block", marginTop: 2 }}>#{x.Sotuv_Raqami}</span>
+                    </div>
                     <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{som !== 0 ? som.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: isHa ? "#14532d" : "#7f1d1d" }}>{usd !== 0 ? fmtUsd(usd) : "$0,00"}</span>
                     <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
@@ -763,7 +795,7 @@ export default function TaminotchiDetailPage() {
           ) : (
             <div style={{ overflowX: "auto" }}><div style={{ minWidth: 600 }}>
               <div style={{ display: "grid", gridTemplateColumns: COLS_T, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
-                {["#","SANA","TURI","SO'M","DOLLAR","JAMI (SO'M)","JAMI ($)","AKT","IZOH"].map(h => (
+                {["#","SANA / TURI","SO'M","DOLLAR","JAMI (SO'M)","JAMI ($)","AKT","IZOH"].map(h => (
                   <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>{h}</span>
                 ))}
               </div>
@@ -783,10 +815,12 @@ export default function TaminotchiDetailPage() {
                         style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "#2563eb" }} />
                       <span style={{ fontSize: 11, color: tIsHa ? "#14532d" : "#7f1d1d", fontWeight: 700 }}>{i + 1}</span>
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{t.Sana || "—"}</span>
-                    <span style={{ fontSize: 11, background: t.Turi ? "rgba(255,255,255,.55)" : "transparent", padding: t.Turi ? "2px 6px" : 0, borderRadius: 10, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d", display: "inline-block" }}>
-                      {t.Turi || "—"}
-                    </span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{t.Sana || "—"}</div>
+                      <span style={{ fontSize: 11, background: t.Turi ? "rgba(255,255,255,.55)" : "transparent", padding: t.Turi ? "1px 6px" : 0, borderRadius: 10, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d", display: "inline-block", marginTop: 2 }}>
+                        {t.Turi || "—"}
+                      </span>
+                    </div>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{somVal !== 0 ? somVal.toLocaleString("ru-RU") : "0"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{usdVal !== 0 ? fmtUsd(usdVal) : "$0,00"}</span>
                     <span style={{ fontSize: 12, fontWeight: 700, color: tIsHa ? "#14532d" : "#7f1d1d" }}>{jamiSom !== 0 ? jamiSom.toLocaleString("ru-RU") : "0"}</span>
