@@ -952,8 +952,11 @@ export default function SotuvPage() {
 
   const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
-  // Sotuv add formi — (deyarli) to'liq ekran (mahsulot dropdown'i sig'sin)
-  const addModalBox:React.CSSProperties={background:"var(--white)",width:isMobile?"100%":"97vw",maxWidth:isMobile?"100%":1500,height:isMobile?undefined:"97vh",maxHeight:isMobile?"92dvh":undefined,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",overflow:"hidden"};
+  // Sotuv add formi — to'liq ekran (desktop'da yon bo'shliq qolmaydi)
+  const addOverlay:React.CSSProperties=isMobile
+    ? modalOverlay
+    : {position:"fixed",inset:0,zIndex:50,background:"var(--white)",display:"flex",alignItems:"stretch",justifyContent:"center",padding:0};
+  const addModalBox:React.CSSProperties={background:"var(--white)",width:isMobile?"100%":"100vw",maxWidth:isMobile?"100%":"none",height:isMobile?undefined:"100dvh",maxHeight:isMobile?"92dvh":undefined,borderRadius:isMobile?"20px 20px 0 0":0,display:"flex",flexDirection:"column",overflow:"hidden"};
 
   return (
     <>
@@ -1321,7 +1324,7 @@ export default function SotuvPage() {
 
       {/* ── Add Modal ── */}
       {addOpen&&(
-        <div style={modalOverlay} onClick={()=>setAddOpen(false)}>
+        <div style={addOverlay} onClick={()=>{ if(isMobile) setAddOpen(false); }}>
           <div style={addModalBox} onClick={e=>e.stopPropagation()}>
             {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
             <div style={{display:"flex",alignItems:"center",gap:16,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
