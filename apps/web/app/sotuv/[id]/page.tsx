@@ -1507,9 +1507,17 @@ export default function SotuvDetailPage() {
         {savatSom.length===0&&savatDollar.length===0&&addSomRows.length===0&&addDollarRows.length===0&&(
           <div style={{marginTop:24,background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:"32px 20px",textAlign:"center"}}>
             <p style={{color:"var(--text-3)",fontSize:13,marginBottom:12}}>Savat bo&apos;sh</p>
-            <button onClick={()=>isMobile?openAddItem("som"):addSomBlank()} className="btn btn--primary">
-              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Mahsulot qo&apos;shish
-            </button>
+            <div style={{display:"flex",gap:10,justifyContent:"center",flexWrap:"wrap"}}>
+              <button onClick={()=>isMobile?openAddItem("som"):addSomBlank()} className="btn btn--primary">
+                <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> {isAdmin?"So'm mahsulot":"Mahsulot qo'shish"}
+              </button>
+              {isAdmin&&(
+                <button onClick={()=>isMobile?openAddItem("dollar"):addDollarBlank()}
+                  style={{display:"flex",alignItems:"center",gap:6,padding:"10px 18px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",background:"#eff6ff",color:"#2563eb",fontSize:14,fontWeight:700,cursor:"pointer"}}>
+                  <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Dollar mahsulot
+                </button>
+              )}
+            </div>
           </div>
         )}
 

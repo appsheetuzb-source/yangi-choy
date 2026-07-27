@@ -952,11 +952,9 @@ export default function SotuvPage() {
 
   const modalOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"rgba(15,42,76,.42)",backdropFilter:"blur(4px)",display:"flex",alignItems:isMobile?"flex-end":"center",justifyContent:"center",padding:isMobile?0:20};
   const modalBox:React.CSSProperties={background:"var(--white)",width:"100%",maxWidth:isMobile?"100%":900,borderRadius:isMobile?"20px 20px 0 0":16,display:"flex",flexDirection:"column",maxHeight:isMobile?"92dvh":"90vh"};
-  // Sotuv add formi — to'liq ekran (desktop'da yon bo'shliq qolmaydi)
-  const addOverlay:React.CSSProperties=isMobile
-    ? modalOverlay
-    : {position:"fixed",inset:0,zIndex:50,background:"var(--white)",display:"flex",alignItems:"stretch",justifyContent:"center",padding:0};
-  const addModalBox:React.CSSProperties={background:"var(--white)",width:isMobile?"100%":"100vw",maxWidth:isMobile?"100%":"none",height:isMobile?undefined:"100dvh",maxHeight:isMobile?"92dvh":undefined,borderRadius:isMobile?"20px 20px 0 0":0,display:"flex",flexDirection:"column",overflow:"hidden"};
+  // Sotuv add formi — mobil va desktop'da to'liq ekran (tashqariga bosilsa yopilmaydi)
+  const addOverlay:React.CSSProperties={position:"fixed",inset:0,zIndex:50,background:"var(--white)",display:"flex",alignItems:"stretch",justifyContent:"center",padding:0};
+  const addModalBox:React.CSSProperties={background:"var(--white)",width:"100vw",maxWidth:"none",height:"100dvh",borderRadius:0,display:"flex",flexDirection:"column",overflow:"hidden"};
 
   return (
     <>
@@ -1324,10 +1322,9 @@ export default function SotuvPage() {
 
       {/* ── Add Modal ── */}
       {addOpen&&(
-        <div style={addOverlay} onClick={()=>{ if(isMobile) setAddOpen(false); }}>
-          <div style={addModalBox} onClick={e=>e.stopPropagation()}>
-            {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
-            <div style={{display:"flex",alignItems:"center",gap:16,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
+        <div style={addOverlay}>
+          <div style={addModalBox}>
+            <div style={{display:"flex",alignItems:"center",gap:16,padding:isMobile?"calc(14px + env(safe-area-inset-top)) 16px 14px":"16px 20px",borderBottom:"1px solid var(--border)"}}>
               <div style={{width:40,height:40,borderRadius:12,background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <svg width="18" height="18" fill="none" stroke="#16a34a" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
               </div>
