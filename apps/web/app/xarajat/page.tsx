@@ -4,7 +4,6 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
-import { gaznaForUser } from "@/lib/auth";
 import { usePersistedState } from "@/lib/usePersistedState";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
@@ -180,8 +179,9 @@ export default function XarajatPage() {
   const qarzUsd  = jamiUsd - tolovUsd;
   const gaznaNomi = (x: Xarajat) => gaznalar.find(g => g.Gazna_ID === (x.Gazna_ID || x.Gazna_dollar_ID))?.Nomi || "—";
 
-  // Ko'rinadigan gaznalar — Admin barchasini, boshqalar faqat biriktirilganini
-  const visibleGaznalar = gaznaForUser(user, gaznalar);
+  // Xarajat hisobi — HAR KIM (Admin ham) faqat O'ZIGA biriktirilgan hisobdan ayiradi
+  const ownGaznaIds = user?.gaznaIds || [];
+  const visibleGaznalar = gaznalar.filter(g => ownGaznaIds.includes(g.Gazna_ID));
   const somGaznalar    = visibleGaznalar.filter(g => g.Turi !== "Dollar");
   const dollarGaznalar = visibleGaznalar.filter(g => g.Turi === "Dollar");
 
@@ -343,7 +343,7 @@ export default function XarajatPage() {
                     <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
                   </div>
                   <div className="field">
-                    <label>Foydalanuvchi <span style={{ color:"var(--red)" }}>*</span></label>
+                    <label>Agent <span style={{ color:"var(--red)" }}>*</span></label>
                     <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value }))}
                       style={!form.Agent ? { borderColor: "var(--red)" } : undefined}>
                       <option value="">Tanlang...</option>
