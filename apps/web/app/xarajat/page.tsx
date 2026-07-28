@@ -55,6 +55,8 @@ export default function XarajatPage() {
   const [xarajatlar, setXarajatlar] = useState<Xarajat[]>([]);
   const [gaznalar, setGaznalar]     = useState<Gazna[]>([]);
   const [agentMap, setAgentMap]     = useState<Record<string, string>>({});
+  // Admin xarajat qo'shganda tanlashi mumkin bo'lgan foydalanuvchilar (Admin'dan boshqa)
+  const [agentOptions, setAgentOptions] = useState<{ id: string; nomi: string }[]>([]);
   const [loading, setLoading]       = useState(true);
   const [filterOy, setFilterOy]     = usePersistedState("flt:xarajat:filterOy", nowStr().oy);
   const [filterYil, setFilterYil]   = usePersistedState("flt:xarajat:filterYil", "");
@@ -82,10 +84,11 @@ export default function XarajatPage() {
       list.sort((a, b) => (b.Sana?.split(".").reverse().join("") || "").localeCompare(a.Sana?.split(".").reverse().join("") || ""));
       setXarajatlar(list);
       setGaznalar((gR.data as Gazna[]) || []);
-      const fArr = (fR.data as (Foydalanuvchi & { Gazna_ID?: string })[]) || [];
+      const fArr = (fR.data as (Foydalanuvchi & { Gazna_ID?: string; Lavozim?: string })[]) || [];
       const am: Record<string, string> = {};
       fArr.forEach(f => { am[f.Foydalanuvchi_ID] = f.Nomi; });
       setAgentMap(am);
+      setAgentOptions(fArr.filter(f => f.Foydalanuvchi_ID && (f.Lavozim || "") !== "Admin").map(f => ({ id: f.Foydalanuvchi_ID, nomi: f.Nomi })));
       const yillar = [...new Set(list.map(x => x.Yil).filter(Boolean))].sort((a,b) => Number(b)-Number(a));
       setFilterYil(prev => prev || yillar[0] || nowStr().yil);
     }).finally(() => setLoading(false));
@@ -108,6 +111,7 @@ export default function XarajatPage() {
   async function handleSave() {
     const som = num(form.Som), dollar = num(form.Dollar);
     if ((!som && !dollar) || !form.Nomi.trim()) return;
+    if (isAdmin && !form.Agent) return; // Admin foydalanuvchi tanlashi shart
     if (som > 0 && !form.Gazna_ID) return;
     if (dollar > 0 && !form.Gazna_dollar_ID) return;
     setSaving(true);
@@ -118,7 +122,7 @@ export default function XarajatPage() {
       const row = {
         Xarajat_ID: form.Xarajat_ID, Yil: y, Oy: String(Number(m)), Sana: sana,
         Kategoriya: form.Kategoriya,
-        Agent: editItem ? (form.Agent || user?.id || "") : (user?.id || ""),
+        Agent: form.Agent || user?.id || "",
         Nomi: form.Nomi, Soni: form.Soni || "1",
         Som: som ? String(som) : "",
         Dollar_kursi: form.Dollar_kursi,
@@ -332,10 +336,30 @@ export default function XarajatPage() {
                 </div>
               </div>
 
-              <div className="field">
-                <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
-                <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
-              </div>
+              {isAdmin ? (
+                <div className="grid-2">
+                  <div className="field">
+                    <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
+                    <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
+                  </div>
+                  <div className="field">
+                    <label>Foydalanuvchi <span style={{ color:"var(--red)" }}>*</span></label>
+                    <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value }))}
+                      style={!form.Agent ? { borderColor: "var(--red)" } : undefined}>
+                      <option value="">Tanlang...</option>
+                      {agentOptions.map(u => <option key={u.id} value={u.id}>{u.nomi}</option>)}
+                      {form.Agent && !agentOptions.some(u => u.id === form.Agent) && (
+                        <option value={form.Agent}>{agentMap[form.Agent] || form.Agent}</option>
+                      )}
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="field">
+                  <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
+                  <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
+                </div>
+              )}
 
               <p className="drawer__section-label" style={{ marginTop:8 }}>💵 Xarajat to&apos;lov</p>
 
@@ -389,7 +413,8 @@ export default function XarajatPage() {
             </div>
             <div className="modal__footer">
               <button className="btn btn--outline" style={{ flex:1 }} onClick={() => setOpen(false)} disabled={saving}>Bekor</button>
-              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim() || (num(form.Som) > 0 && !form.Gazna_ID) || (num(form.Dollar) > 0 && !form.Gazna_dollar_ID)}>
+              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim() || (isAdmin && !form.Agent) || (num(form.Som) > 0 && !form.Gazna_ID) || (num(form.Dollar) > 0 && !form.Gazna_dollar_ID)}>
+
                 {saving ? "Saqlanmoqda..." : "Saqlash"}
               </button>
             </div>
