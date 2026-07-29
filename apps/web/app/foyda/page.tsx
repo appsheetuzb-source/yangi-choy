@@ -1,6 +1,7 @@
 "use client";
 import { fetchSheets } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
+import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Agent: string; }
@@ -39,13 +40,13 @@ export default function FoydaPage() {
   const [heavyReady, setHeavyReady]   = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
 
-  const [yil, setYil] = useState("");    // "" = placeholder "Yil", "all" = Barcha yillar
-  const [oy, setOy]   = useState("");    // "" = placeholder "Oy", "0" = Barcha oylar
-  const [dateFrom, setDateFrom] = useState(""); // YYYY-MM-DD; qo'yilsa Oy/Yil o'rniga sana oralig'i
-  const [dateTo, setDateTo]     = useState("");
+  const [yil, setYil] = usePersistedState("flt:foyda:yil", "");    // "" = placeholder "Yil", "all" = Barcha yillar
+  const [oy, setOy]   = usePersistedState("flt:foyda:oy", "");    // "" = placeholder "Oy", "0" = Barcha oylar
+  const [dateFrom, setDateFrom] = usePersistedState("flt:foyda:dateFrom", ""); // YYYY-MM-DD; qo'yilsa Oy/Yil o'rniga sana oralig'i
+  const [dateTo, setDateTo]     = usePersistedState("flt:foyda:dateTo", "");
   const [selMijoz, setSelMijoz]   = useState<string | null>(null);
-  const [qMijoz, setQMijoz]       = useState("");
-  const [qMahsulot, setQMahsulot] = useState("");
+  const [qMijoz, setQMijoz]       = usePersistedState("flt:foyda:qMijoz", "");
+  const [qMahsulot, setQMahsulot] = usePersistedState("flt:foyda:qMahsulot", "");
 
   useEffect(() => {
     const c = () => setIsMobile(window.innerWidth < 768);
@@ -183,10 +184,9 @@ export default function FoydaPage() {
   const selName = effMijoz ? (mijozMap[effMijoz] || effMijoz) : null;
   // JAMI kartalari: klient tanlangan bo'lsa o'sha klient foydasi, aks holda umumiy jami
   const displayJami = effMijoz ? (clientProfit[effMijoz] || { som: 0, usd: 0 }) : jami;
-  // Klient tanlanmaganda (jami ko'rinish) xarajat ayiriladi → sof foyda
-  const showNet = !selName;
-  const sofSom = jami.som - xarajatJami.som;
-  const sofUsd = jami.usd - xarajatJami.usd;
+  // Sof foyda = ko'rsatilayotgan foyda (jami YOKI tanlangan klient) − shu davr xarajati
+  const netSom = displayJami.som - xarajatJami.som;
+  const netUsd = displayJami.usd - xarajatJami.usd;
 
   // ── UI qismlari ──
   const ProfitCell = ({ som, usd }: { som: number; usd: number }) => (
@@ -249,18 +249,16 @@ export default function FoydaPage() {
             {/* KPI — jami foyda */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · SO'M" : "SOF FOYDA · SO'M"}</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: (showNet ? sofSom : displayJami.som) >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(showNet ? sofSom : displayJami.som) : "Yuklanmoqda…"}</p>
-                {selName
-                  ? <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>
-                  : (heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtSom(jami.som)} · Xarajat: −{fmtSom(xarajatJami.som)}</p>)}
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · SOF FOYDA · SO'M" : "SOF FOYDA · SO'M"}</p>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: netSom >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(netSom) : "Yuklanmoqda…"}</p>
+                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
+                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtSom(displayJami.som)} · Xarajat: −{fmtSom(xarajatJami.som)}</p>}
               </div>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · DOLLAR" : "SOF FOYDA · DOLLAR"}</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: (showNet ? sofUsd : displayJami.usd) >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(showNet ? sofUsd : displayJami.usd) : "Yuklanmoqda…"}</p>
-                {selName
-                  ? <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>
-                  : (heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtUsd(jami.usd)} · Xarajat: −{fmtUsd(xarajatJami.usd)}</p>)}
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · SOF FOYDA · DOLLAR" : "SOF FOYDA · DOLLAR"}</p>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: netUsd >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(netUsd) : "Yuklanmoqda…"}</p>
+                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
+                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtUsd(displayJami.usd)} · Xarajat: −{fmtUsd(xarajatJami.usd)}</p>}
               </div>
             </div>
 
