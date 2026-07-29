@@ -87,7 +87,13 @@ export default function XarajatPage() {
       fetchSheet("Foydalanuvchi"),
     ]).then(([xR, gR, fR]) => {
       const list = (xR.data as Xarajat[]) || [];
-      list.sort((a, b) => (b.Sana?.split(".").reverse().join("") || "").localeCompare(a.Sana?.split(".").reverse().join("") || ""));
+      // Sana bo'yicha (kamayish), bir xil sanada — Qo'shilgan_Vaqt bo'yicha (oxirgi qo'shilgani birinchi)
+      const sortKey = (x: Xarajat) => {
+        const sd = (x.Sana || "").split(".").reverse().join(""); // YYYYMMDD
+        const t = (String(x.Qoshilgan_Vaqt || "").split(" ")[1] || "").replace(/[:.]/g, "");
+        return sd + t.padEnd(6, "0");
+      };
+      list.sort((a, b) => sortKey(b).localeCompare(sortKey(a)));
       setXarajatlar(list);
       setGaznalar((gR.data as Gazna[]) || []);
       const fArr = (fR.data as (Foydalanuvchi & { Gazna_ID?: string; Lavozim?: string })[]) || [];
