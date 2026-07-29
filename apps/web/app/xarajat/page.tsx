@@ -203,19 +203,22 @@ export default function XarajatPage() {
   const somGaznalar    = visibleGaznalar.filter(g => g.Turi !== "Dollar");
   const dollarGaznalar = visibleGaznalar.filter(g => g.Turi === "Dollar");
 
-  // Admin emas — so'm/dollar > 0 bo'lsa biriktirilgan gazna avtomatik tanlanadi (qo'lda tanlash shart emas)
+  // Hisob avtomatik tanlanadi (Admin uchun ham — tanlangan agent hisobi bo'yicha).
+  // Tanlangan agent/foydalanuvchida dollar hisob bo'lmasa — dollar kiritilmaydi.
   useEffect(() => {
-    if (isAdmin || !open) return;
+    if (!open) return;
     setForm(f => {
       let nf = f;
-      if (num(f.Som) > 0 && somGaznalar.length > 0 && !somGaznalar.some(g => g.Gazna_ID === f.Gazna_ID))
+      if (dollarGaznalar.length === 0 && (num(f.Dollar) > 0 || f.Gazna_dollar_ID))
+        nf = { ...nf, Dollar: "", Gazna_dollar_ID: "" };
+      if (num(nf.Som) > 0 && somGaznalar.length > 0 && !somGaznalar.some(g => g.Gazna_ID === nf.Gazna_ID))
         nf = { ...nf, Gazna_ID: somGaznalar[0].Gazna_ID };
-      if (num(f.Dollar) > 0 && dollarGaznalar.length > 0 && !dollarGaznalar.some(g => g.Gazna_ID === f.Gazna_dollar_ID))
+      if (num(nf.Dollar) > 0 && dollarGaznalar.length > 0 && !dollarGaznalar.some(g => g.Gazna_ID === nf.Gazna_dollar_ID))
         nf = { ...nf, Gazna_dollar_ID: dollarGaznalar[0].Gazna_ID };
       return nf;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [form.Som, form.Dollar, gaznalar, isAdmin, open, user]);
+  }, [form.Som, form.Dollar, form.Agent, gaznalar, open, user]);
 
   return (
     <>
@@ -409,7 +412,8 @@ export default function XarajatPage() {
                 )}
               </div>
 
-              {/* Dollar */}
+              {/* Dollar — faqat dollar hisob mavjud bo'lsa (agentlarda dollar hisob yo'q) */}
+              {dollarGaznalar.length > 0 && (
               <div className="grid-2">
                 <div className="field">
                   <label>Dollar ($)</label>
@@ -426,6 +430,7 @@ export default function XarajatPage() {
                   </div>
                 )}
               </div>
+              )}
 
               {num(form.Dollar) > 0 && (
                 <div className="field">
