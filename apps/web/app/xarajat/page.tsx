@@ -4,6 +4,7 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import FabAdd from "@/components/FabAdd";
 import { useAuth } from "@/lib/AuthContext";
+import { parseGaznaIds } from "@/lib/auth";
 import { usePersistedState } from "@/lib/usePersistedState";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
@@ -56,6 +57,8 @@ export default function XarajatPage() {
   const [agentMap, setAgentMap]     = useState<Record<string, string>>({});
   // Admin xarajat qo'shganda tanlashi mumkin bo'lgan foydalanuvchilar (Admin'dan boshqa)
   const [agentOptions, setAgentOptions] = useState<{ id: string; nomi: string }[]>([]);
+  // Har bir foydalanuvchining hisoblari (gazna ID'lari) — tanlangan agent hisobini ko'rsatish uchun
+  const [agentGaznaMap, setAgentGaznaMap] = useState<Record<string, string[]>>({});
   const [loading, setLoading]       = useState(true);
   const [filterOy, setFilterOy]     = usePersistedState("flt:xarajat:filterOy", nowStr().oy);
   const [filterYil, setFilterYil]   = usePersistedState("flt:xarajat:filterYil", "");
@@ -88,6 +91,9 @@ export default function XarajatPage() {
       fArr.forEach(f => { am[f.Foydalanuvchi_ID] = f.Nomi; });
       setAgentMap(am);
       setAgentOptions(fArr.filter(f => f.Foydalanuvchi_ID && (f.Lavozim || "") !== "Admin").map(f => ({ id: f.Foydalanuvchi_ID, nomi: f.Nomi })));
+      const agm: Record<string, string[]> = {};
+      fArr.forEach(f => { if (f.Foydalanuvchi_ID) agm[f.Foydalanuvchi_ID] = parseGaznaIds(f.Gazna_ID); });
+      setAgentGaznaMap(agm);
       const yillar = [...new Set(list.map(x => x.Yil).filter(Boolean))].sort((a,b) => Number(b)-Number(a));
       setFilterYil(prev => prev || yillar[0] || nowStr().yil);
     }).finally(() => setLoading(false));
@@ -179,9 +185,9 @@ export default function XarajatPage() {
   const qarzUsd  = jamiUsd - tolovUsd;
   const gaznaNomi = (x: Xarajat) => gaznalar.find(g => g.Gazna_ID === (x.Gazna_ID || x.Gazna_dollar_ID))?.Nomi || "—";
 
-  // Xarajat hisobi — HAR KIM (Admin ham) faqat O'ZIGA biriktirilgan hisobdan ayiradi
-  const ownGaznaIds = user?.gaznaIds || [];
-  const visibleGaznalar = gaznalar.filter(g => ownGaznaIds.includes(g.Gazna_ID));
+  // Xarajat hisobi: Admin -> tanlangan AGENT hisobi (o'sha agent hisobidan ayiriladi); boshqalar -> o'z hisobi
+  const targetGaznaIds = isAdmin ? (agentGaznaMap[form.Agent] || []) : (user?.gaznaIds || []);
+  const visibleGaznalar = gaznalar.filter(g => targetGaznaIds.includes(g.Gazna_ID));
   const somGaznalar    = visibleGaznalar.filter(g => g.Turi !== "Dollar");
   const dollarGaznalar = visibleGaznalar.filter(g => g.Turi === "Dollar");
 
@@ -344,7 +350,7 @@ export default function XarajatPage() {
                   </div>
                   <div className="field">
                     <label>Agent <span style={{ color:"var(--red)" }}>*</span></label>
-                    <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value }))}
+                    <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value, Gazna_ID: "", Gazna_dollar_ID: "" }))}
                       style={!form.Agent ? { borderColor: "var(--red)" } : undefined}>
                       <option value="">Tanlang...</option>
                       {agentOptions.map(u => <option key={u.id} value={u.id}>{u.nomi}</option>)}
