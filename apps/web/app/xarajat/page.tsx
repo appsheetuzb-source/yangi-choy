@@ -120,7 +120,6 @@ export default function XarajatPage() {
   async function handleSave() {
     const som = num(form.Som), dollar = num(form.Dollar);
     if ((!som && !dollar) || !form.Nomi.trim()) return;
-    if (isAdmin && !form.Agent) return; // Admin foydalanuvchi tanlashi shart
     if (som > 0 && !form.Gazna_ID) return;
     if (dollar > 0 && !form.Gazna_dollar_ID) return;
     setSaving(true);
@@ -182,9 +181,9 @@ export default function XarajatPage() {
     return true;
   });
 
-  // Agent filtri uchun — ma'lumotdagi mavjud agentlar
-  const agentFilterOptions = [...new Set(xarajatlar.map(x => x.Agent).filter(Boolean))]
-    .map(id => ({ id, nomi: agentMap[id] || id }))
+  // Agent filtri uchun — BARCHA foydalanuvchilar (Admin ham), xarajati bo'lmasa ham
+  const agentFilterOptions = Object.entries(agentMap)
+    .map(([id, nomi]) => ({ id, nomi: nomi || id }))
     .sort((a, b) => a.nomi.localeCompare(b.nomi));
 
   const jamiSom = filtered.reduce((s, x) => s + num(x.Som), 0);
@@ -196,8 +195,10 @@ export default function XarajatPage() {
   const qarzUsd  = jamiUsd - tolovUsd;
   const gaznaNomi = (x: Xarajat) => gaznalar.find(g => g.Gazna_ID === (x.Gazna_ID || x.Gazna_dollar_ID))?.Nomi || "—";
 
-  // Xarajat hisobi: Admin -> tanlangan AGENT hisobi (o'sha agent hisobidan ayiriladi); boshqalar -> o'z hisobi
-  const targetGaznaIds = isAdmin ? (agentGaznaMap[form.Agent] || []) : (user?.gaznaIds || []);
+  // Xarajat hisobi: Admin agent tanlasa -> o'sha AGENT hisobi; tanlamasa -> o'z hisobi. Boshqalar -> o'z hisobi
+  const targetGaznaIds = isAdmin
+    ? (form.Agent ? (agentGaznaMap[form.Agent] || []) : (user?.gaznaIds || []))
+    : (user?.gaznaIds || []);
   const visibleGaznalar = gaznalar.filter(g => targetGaznaIds.includes(g.Gazna_ID));
   const somGaznalar    = visibleGaznalar.filter(g => g.Turi !== "Dollar");
   const dollarGaznalar = visibleGaznalar.filter(g => g.Turi === "Dollar");
@@ -371,10 +372,9 @@ export default function XarajatPage() {
                     <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
                   </div>
                   <div className="field">
-                    <label>Agent <span style={{ color:"var(--red)" }}>*</span></label>
-                    <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value, Gazna_ID: "", Gazna_dollar_ID: "" }))}
-                      style={!form.Agent ? { borderColor: "var(--red)" } : undefined}>
-                      <option value="">Tanlang...</option>
+                    <label>Agent</label>
+                    <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value, Gazna_ID: "", Gazna_dollar_ID: "" }))}>
+                      <option value="">O&apos;zim (tanlanmagan)</option>
                       {agentOptions.map(u => <option key={u.id} value={u.id}>{u.nomi}</option>)}
                       {form.Agent && !agentOptions.some(u => u.id === form.Agent) && (
                         <option value={form.Agent}>{agentMap[form.Agent] || form.Agent}</option>
@@ -441,7 +441,7 @@ export default function XarajatPage() {
             </div>
             <div className="modal__footer">
               <button className="btn btn--outline" style={{ flex:1 }} onClick={() => setOpen(false)} disabled={saving}>Bekor</button>
-              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim() || (isAdmin && !form.Agent) || (num(form.Som) > 0 && !form.Gazna_ID) || (num(form.Dollar) > 0 && !form.Gazna_dollar_ID)}>
+              <button className="btn btn--primary" style={{ flex:1 }} onClick={handleSave} disabled={saving || !(num(form.Som) || num(form.Dollar)) || !form.Nomi.trim() || (num(form.Som) > 0 && !form.Gazna_ID) || (num(form.Dollar) > 0 && !form.Gazna_dollar_ID)}>
 
                 {saving ? "Saqlanmoqda..." : "Saqlash"}
               </button>
