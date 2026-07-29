@@ -9,6 +9,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 
 interface Xarajat {
   Xarajat_ID: string; Yil: string; Oy: string; Sana: string;
@@ -48,6 +49,7 @@ const EMPTY = {
 
 export default function XarajatPage() {
   const { user } = useAuth();
+  const router = useRouter();
   // Admin emas (Sotuvchi/Omborchi/...) — faqat o'z xarajatlarini ko'radi; Admin — barchasi
   const isSotuvchi = !!user && user.lavozim !== "Admin";
   const isAdmin = user?.lavozim === "Admin";
@@ -62,6 +64,8 @@ export default function XarajatPage() {
   const [loading, setLoading]       = useState(true);
   const [filterOy, setFilterOy]     = usePersistedState("flt:xarajat:filterOy", nowStr().oy);
   const [filterYil, setFilterYil]   = usePersistedState("flt:xarajat:filterYil", "");
+  const [filterKat, setFilterKat]   = usePersistedState("flt:xarajat:filterKat", "");
+  const [filterAgent, setFilterAgent] = usePersistedState("flt:xarajat:filterAgent", "");
   const [search, setSearch]         = usePersistedState("flt:xarajat:search", "");
 
   const [open, setOpen]       = useState(false);
@@ -172,9 +176,16 @@ export default function XarajatPage() {
     if (isSotuvchi && user?.id && x.Agent !== user.id) return false;
     if (filterYil && x.Yil !== filterYil) return false;
     if (filterOy !== "0" && String(Number(x.Oy)) !== filterOy) return false;
+    if (filterKat && x.Kategoriya !== filterKat) return false;
+    if (isAdmin && filterAgent && x.Agent !== filterAgent) return false;
     if (search && !(`${x.Kategoriya} ${x.Nomi} ${x.Izoh}`).toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  // Agent filtri uchun — ma'lumotdagi mavjud agentlar
+  const agentFilterOptions = [...new Set(xarajatlar.map(x => x.Agent).filter(Boolean))]
+    .map(id => ({ id, nomi: agentMap[id] || id }))
+    .sort((a, b) => a.nomi.localeCompare(b.nomi));
 
   const jamiSom = filtered.reduce((s, x) => s + num(x.Som), 0);
   const jamiUsd = filtered.reduce((s, x) => s + num(x.Dollar), 0);
@@ -221,6 +232,16 @@ export default function XarajatPage() {
           <select value={filterYil} onChange={e => setFilterYil(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
             {yillar.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <select value={filterKat} onChange={e => setFilterKat(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
+            <option value="">Barcha kategoriya</option>
+            {KATEGORIYALAR.map(k => <option key={k} value={k}>{k}</option>)}
+          </select>
+          {isAdmin && (
+            <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
+              <option value="">Barcha agent</option>
+              {agentFilterOptions.map(a => <option key={a.id} value={a.id}>{a.nomi}</option>)}
+            </select>
+          )}
           <div className="header__spacer" />
           {!isMobile && (
             <button className="btn btn--primary" onClick={openAdd}>
@@ -271,7 +292,8 @@ export default function XarajatPage() {
                     {filtered.map((x, i) => {
                       const isDollar = num(x.Dollar) > 0;
                       return (
-                        <tr key={x.Xarajat_ID || i} style={{ borderBottom: "1px solid var(--border)" }}
+                        <tr key={x.Xarajat_ID || i} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
+                          onClick={() => router.push(`/xarajat/${x.Xarajat_ID}`)}
                           onMouseEnter={e => (e.currentTarget.style.background = "var(--bg-2)")}
                           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                           <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 600 }}>{x.Sana || "—"}</td>
@@ -285,7 +307,7 @@ export default function XarajatPage() {
                             {isDollar ? fmtUsd(num(x.Dollar)) : fmtSom(num(x.Som))}
                           </td>
                           <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-3)" }}>{gaznaNomi(x)}</td>
-                          <td style={{ padding: "12px 16px" }}>
+                          <td style={{ padding: "12px 16px" }} onClick={e => e.stopPropagation()}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button className="icon-btn icon-btn--blue" onClick={() => openEdit(x)}>
                                 <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
