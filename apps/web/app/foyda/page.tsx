@@ -9,6 +9,7 @@ interface SavatDollarRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; 
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; }
 interface KursRow { Kurs: string; }
+interface Xarajat { Xarajat_ID: string; Agent: string; Sana: string; Yil: string; Oy: string; Som: string; Dollar: string; }
 
 function num(v: string | number | undefined) {
   return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
@@ -32,6 +33,7 @@ export default function FoydaPage() {
   const [savatDollar, setSavatDollar] = useState<SavatDollarRow[]>([]);
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);
+  const [xarajatlar, setXarajatlar]   = useState<Xarajat[]>([]);
   const [kurs, setKurs]               = useState(12800);
   const [loading, setLoading]         = useState(true);
   const [heavyReady, setHeavyReady]   = useState(false);
@@ -53,10 +55,11 @@ export default function FoydaPage() {
   const loadData = useCallback(() => {
     setLoading(true);
     // Faza 1 — yengil
-    fetchSheets(["Sotuv", "Mahsulot", "Mijozlar", "Kurs"]).then(r => {
+    fetchSheets(["Sotuv", "Mahsulot", "Mijozlar", "Kurs", "Xarajat"]).then(r => {
       setSotuvlar(((r["Sotuv"]?.data) || []) as Sotuv[]);
       setMahsulotlar((((r["Mahsulot"]?.data) || []) as Mahsulot[]).filter(m => m.Nomi));
       setMijozlar(((r["Mijozlar"]?.data) || []) as Mijoz[]);
+      setXarajatlar(((r["Xarajat"]?.data) || []) as Xarajat[]);
       const kA = (((r["Kurs"]?.data) || []) as KursRow[]).filter(k => num(k.Kurs) > 0);
       if (kA.length) setKurs(num(kA[kA.length - 1].Kurs));
     }).catch(() => {}).finally(() => setLoading(false));
@@ -137,6 +140,26 @@ export default function FoydaPage() {
     return { clientProfit: cp, productAll: pp, clientProduct: cpp, jami };
   }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, dateFrom, dateTo, kurs, uid]);
 
+  // ── Joriy foydalanuvchining shu davrdagi xarajatlari (Agent = uid) ──
+  const xarajatJami = useMemo(() => {
+    const res = { som: 0, usd: 0 };
+    const useRange = !!(dateFrom || dateTo);
+    xarajatlar.forEach(x => {
+      if (!x.Xarajat_ID || !uid || String(x.Agent || "").trim() !== uid) return;
+      if (useRange) {
+        const d = sanaISO(x.Sana);
+        if (!d || (dateFrom && d < dateFrom) || (dateTo && d > dateTo)) return;
+      } else {
+        const yilOk = !yil || yil === "all" || x.Yil === yil;
+        const oyOk  = !oy  || oy  === "0"   || String(parseInt(x.Oy || "0")) === oy;
+        if (!(yilOk && oyOk)) return;
+      }
+      res.som += num(x.Som);
+      res.usd += num(x.Dollar);
+    });
+    return res;
+  }, [xarajatlar, uid, yil, oy, dateFrom, dateTo]);
+
   const combined = (v: { som: number; usd: number }) => v.som + v.usd * kurs;
 
   const clientRows = useMemo(() => {
@@ -160,6 +183,10 @@ export default function FoydaPage() {
   const selName = effMijoz ? (mijozMap[effMijoz] || effMijoz) : null;
   // JAMI kartalari: klient tanlangan bo'lsa o'sha klient foydasi, aks holda umumiy jami
   const displayJami = effMijoz ? (clientProfit[effMijoz] || { som: 0, usd: 0 }) : jami;
+  // Klient tanlanmaganda (jami ko'rinish) xarajat ayiriladi → sof foyda
+  const showNet = !selName;
+  const sofSom = jami.som - xarajatJami.som;
+  const sofUsd = jami.usd - xarajatJami.usd;
 
   // ── UI qismlari ──
   const ProfitCell = ({ som, usd }: { som: number; usd: number }) => (
@@ -222,14 +249,18 @@ export default function FoydaPage() {
             {/* KPI — jami foyda */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · SO'M" : "JAMI FOYDA · SO'M"}</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: displayJami.som >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(displayJami.som) : "Yuklanmoqda…"}</p>
-                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · SO'M" : "SOF FOYDA · SO'M"}</p>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: (showNet ? sofSom : displayJami.som) >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(showNet ? sofSom : displayJami.som) : "Yuklanmoqda…"}</p>
+                {selName
+                  ? <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>
+                  : (heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtSom(jami.som)} · Xarajat: −{fmtSom(xarajatJami.som)}</p>)}
               </div>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · DOLLAR" : "JAMI FOYDA · DOLLAR"}</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: displayJami.usd >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(displayJami.usd) : "Yuklanmoqda…"}</p>
-                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT FOYDA · DOLLAR" : "SOF FOYDA · DOLLAR"}</p>
+                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: (showNet ? sofUsd : displayJami.usd) >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(showNet ? sofUsd : displayJami.usd) : "Yuklanmoqda…"}</p>
+                {selName
+                  ? <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>
+                  : (heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtUsd(jami.usd)} · Xarajat: −{fmtUsd(xarajatJami.usd)}</p>)}
               </div>
             </div>
 
