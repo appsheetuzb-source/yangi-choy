@@ -62,7 +62,13 @@ export default function MahsulotPage() {
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
-  useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
+  useEffect(() => {
+    // matchMedia — CSS viewport bilan bir xil signal (innerWidth overflowda noto'g'ri bo'lishi mumkin)
+    const mq = window.matchMedia("(max-width: 767px)");
+    const c = () => setIsMobile(mq.matches);
+    c(); mq.addEventListener("change", c);
+    return () => mq.removeEventListener("change", c);
+  }, []);
   useScrollLock(!!deleteTarget);
 
   const loadData = useCallback((delay = 0) => {
