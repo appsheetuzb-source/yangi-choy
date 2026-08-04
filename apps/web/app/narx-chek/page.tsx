@@ -32,7 +32,13 @@ export default function NarxChekPage() {
   // Tanlangan mahsulotlar + (tahrirlangan) narxlar — localStorage'da saqlanadi
   const [items, setItems]             = usePersistedState<Record<string, SelItem>>("flt:narxchek:items", {});
   const [shown, setShown]             = useState(60);
+  const [isMobile, setIsMobile]       = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const c = () => setIsMobile(window.innerWidth < 900);
+    c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -123,6 +129,32 @@ export default function NarxChekPage() {
     fontSize: 13, fontWeight: 700, outline: "none", textAlign: "right", width: "100%", boxSizing: "border-box", background: "var(--white)",
   };
 
+  // O'ng panel — tanlangan mahsulotlar (nomi + narxi)
+  const summaryPanel = (
+    <div style={{ position: isMobile ? "static" : "sticky", top: 12, background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "14px 16px", maxHeight: isMobile ? undefined : "calc(100dvh - 90px)", overflowY: "auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 800 }}>Tanlangan ({selCount})</span>
+        {selCount > 0 && <button onClick={clearAll} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#ef4444" }}>Tozalash</button>}
+      </div>
+      {selCount === 0 ? (
+        <p style={{ fontSize: 12, color: "var(--text-3)" }}>Mahsulot tanlanmagan</p>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {selectedList().map(({ m, it }, i) => {
+            const som = n(it.som), usd = n(it.usd);
+            const narx = [som ? som.toLocaleString("ru-RU") + " so'm" : "", usd ? "$" + usd.toLocaleString("ru-RU", { maximumFractionDigits: 3 }) : ""].filter(Boolean).join(" · ") || "—";
+            return (
+              <div key={m.Mahsulot_ID} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, paddingBottom: 8, borderBottom: "1px solid var(--border)" }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i + 1}. {m.Nomi || "—"}</span>
+                <span style={{ fontSize: 12, fontWeight: 800, color: "var(--primary)", whiteSpace: "nowrap", flexShrink: 0 }}>{narx}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <>
       <header className="header" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -153,7 +185,10 @@ export default function NarxChekPage() {
         </div>
       </header>
 
-      <div className="page-content" style={{ maxWidth: 820 }}>
+      <div className="page-content" style={{ maxWidth: isMobile ? 820 : 1140 }}>
+        <div style={isMobile ? undefined : { display: "grid", gridTemplateColumns: "1fr 300px", gap: 16, alignItems: "start" }}>
+          <div>
+        {isMobile && selCount > 0 && <div style={{ marginBottom: 12 }}>{summaryPanel}</div>}
         <div className="search" style={{ marginBottom: 14 }}>
           <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></span>
           <input className="search__input" placeholder="Mahsulot qidirish..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -204,6 +239,9 @@ export default function NarxChekPage() {
             )}
           </div>
         )}
+          </div>
+          {!isMobile && summaryPanel}
+        </div>
       </div>
     </>
   );
