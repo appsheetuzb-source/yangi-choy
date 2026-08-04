@@ -151,6 +151,8 @@ export default function MahsulotPage() {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortCol(col); setSortDir("asc"); }
   }
+  // Mobil'da doim grid (jadval ko'rinishi mobilga yaramaydi)
+  const effView = isMobile ? "grid" : view;
 
   const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
 
@@ -306,21 +308,23 @@ export default function MahsulotPage() {
               </button>
             </div>
           )}
+          {!isMobile && (<>
           <div className="toolbar__divider toolbar__divider--auto" />
           <div className="toggle-group">
-            <button className={`toggle-group__btn ${view === "grid" ? "toggle-group__btn--active" : ""}`}
+            <button className={`toggle-group__btn ${effView === "grid" ? "toggle-group__btn--active" : ""}`}
               onClick={() => setView("grid")}>
               <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M1 2.5A1.5 1.5 0 012.5 1h3A1.5 1.5 0 017 2.5v3A1.5 1.5 0 015.5 7h-3A1.5 1.5 0 011 5.5v-3zm8 0A1.5 1.5 0 0110.5 1h3A1.5 1.5 0 0115 2.5v3A1.5 1.5 0 0113.5 7h-3A1.5 1.5 0 019 5.5v-3zm-8 8A1.5 1.5 0 012.5 9h3A1.5 1.5 0 017 10.5v3A1.5 1.5 0 015.5 15h-3A1.5 1.5 0 011 13.5v-3zm8 0A1.5 1.5 0 0110.5 9h3a1.5 1.5 0 011.5 1.5v3a1.5 1.5 0 01-1.5 1.5h-3A1.5 1.5 0 019 13.5v-3z"/>
               </svg>
             </button>
-            <button className={`toggle-group__btn ${view === "list" ? "toggle-group__btn--active" : ""}`}
+            <button className={`toggle-group__btn ${effView === "list" ? "toggle-group__btn--active" : ""}`}
               onClick={() => setView("list")}>
               <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                 <path fillRule="evenodd" d="M2.5 12a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5zm0-4a.5.5 0 01.5-.5h10a.5.5 0 010 1H3a.5.5 0 01-.5-.5z"/>
               </svg>
             </button>
           </div>
+          </>)}
         </div>
       </div>
 
@@ -361,7 +365,7 @@ export default function MahsulotPage() {
           const hozirdaBorSom    = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_som),    0);
           const hozirdaBorDollar = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_dollar), 0);
           return (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 12, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(150px, 1fr))", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 14 : 20 }}>
               {[
                 { label: "HOZIRDA BOR (DONA)", value: `${fmt(hozirdaBorDona)} dona`, color: "var(--primary)", bg: "#dcfce7",
                   icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
@@ -374,15 +378,15 @@ export default function MahsulotPage() {
               ].map(card => (
                 <div key={card.label} style={{
                   background: "var(--white)", borderRadius: "var(--radius-xl)",
-                  boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)", padding: 20,
+                  boxShadow: "var(--shadow-sm)", border: "1px solid var(--border)", padding: isMobile ? "11px 13px" : 20,
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em" }}>{card.label}</span>
-                    <span style={{ width: 28, height: 28, borderRadius: 8, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", color: card.color }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: isMobile ? 6 : 10 }}>
+                    <span style={{ fontSize: isMobile ? 9 : 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{card.label}</span>
+                    <span style={{ width: isMobile ? 22 : 28, height: isMobile ? 22 : 28, borderRadius: 8, background: card.bg, display: "flex", alignItems: "center", justifyContent: "center", color: card.color, flexShrink: 0 }}>
                       {card.icon}
                     </span>
                   </div>
-                  <p style={{ fontSize: 18, fontWeight: 800, color: card.color, lineHeight: 1.1 }}>{card.value}</p>
+                  <p style={{ fontSize: isMobile ? 15 : 18, fontWeight: 800, color: card.color, lineHeight: 1.1 }}>{card.value}</p>
                 </div>
               ))}
             </div>
@@ -392,7 +396,7 @@ export default function MahsulotPage() {
         {!loading && !error && <p className="count-label">{filtered.length} ta mahsulot</p>}
 
         {loading && (
-          view === "grid" ? (
+          effView === "grid" ? (
             <div className="card-grid">
               {Array.from({ length: 10 }).map((_, i) => (
                 <div key={i} className="skeleton">
@@ -426,7 +430,7 @@ export default function MahsulotPage() {
           </div>
         )}
 
-        {!loading && !error && filtered.length > 0 && view === "grid" && (
+        {!loading && !error && filtered.length > 0 && effView === "grid" && (
           <div className="card-grid">
             {filtered.slice(0,shown).map((m, i) => (
               <GridCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
@@ -440,7 +444,7 @@ export default function MahsulotPage() {
           </div>
         )}
 
-        {!loading && !error && filtered.length > 0 && view === "list" && (() => {
+        {!loading && !error && filtered.length > 0 && effView === "list" && (() => {
           const cols = [
             { key: "nomi",        label: "Nomi",         cls: "list__head-name", show: true },
             { key: "sotuv_som",   label: "Sotuv (so'm)", cls: "list__head-col",  show: currency !== "dollar" },
@@ -476,9 +480,9 @@ export default function MahsulotPage() {
           </div>
           );
         })()}
-        {!loading && !error && shown < (view === "grid" ? filtered.length : sorted.length) && (
+        {!loading && !error && shown < (effView === "grid" ? filtered.length : sorted.length) && (
           <div ref={moreRef} style={{ padding: 14, textAlign: "center", color: "var(--text-3)", fontSize: 12, fontWeight: 600 }}>
-            Yuklanmoqda… ({shown}/{view === "grid" ? filtered.length : sorted.length})
+            Yuklanmoqda… ({shown}/{effView === "grid" ? filtered.length : sorted.length})
           </div>
         )}
       </div>
