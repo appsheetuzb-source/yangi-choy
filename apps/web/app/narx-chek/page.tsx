@@ -105,7 +105,7 @@ export default function NarxChekPage() {
       subtitle: `${sanaStr()}  ·  ${list.length} ta mahsulot`,
       filename: `musaffotea-mahsulotlar-${sanaStr().replace(/\./g, "-")}`,
       center: true,
-      sections: [{ headers: ["№", "Mahsulot nomi", "Narx (so'm)", "Narx ($)", "Soni"], rows }],
+      sections: [{ headers: ["№", "Mahsulot nomi", "Narx (so'm)", "Narx ($)", "Omborda bor"], rows }],
     };
   }
 
@@ -134,7 +134,7 @@ export default function NarxChekPage() {
     <div style={{ position: isMobile ? "static" : "sticky", top: 12, background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "14px 16px", maxHeight: isMobile ? undefined : "calc(100dvh - 90px)", overflowY: "auto" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, gap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 800 }}>Tanlangan ({selCount})</span>
-        {selCount > 0 && <button onClick={clearAll} style={{ border: "none", background: "none", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#ef4444" }}>Tozalash</button>}
+        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".03em" }}>Narxlari</span>
       </div>
       {selCount === 0 ? (
         <p style={{ fontSize: 12, color: "var(--text-3)" }}>Mahsulot tanlanmagan</p>
