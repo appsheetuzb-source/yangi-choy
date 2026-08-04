@@ -61,11 +61,11 @@ export default function MahsulotPage() {
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
-  // Chek uchun tanlangan mahsulotlar
-  const [selected, setSelected]       = useState<Set<string>>(new Set());
-  const toggleSel = (id: string) => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const clearSel = () => setSelected(new Set());
-  const [tgSending, setTgSending]     = useState(false);
+  // Chek uchun tanlangan mahsulotlar — localStorage'da saqlanadi (navigatsiyada yo'qolmaydi)
+  const [selArr, setSelArr]           = usePersistedState<string[]>("flt:mahsulot:chekSel", []);
+  const selected = useMemo(() => new Set(selArr), [selArr]);
+  const toggleSel = (id: string) => setSelArr(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const clearSel = () => setSelArr([]);
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useScrollLock(!!deleteTarget);
 
@@ -215,29 +215,23 @@ export default function MahsulotPage() {
     };
   }
 
-  // ── Chekni Telegram orqali matn qilib yuborish ──
-  async function sendChekTelegram() {
-    if (!selected.size || tgSending) return;
-    setTgSending(true);
-    try {
-      const list = sorted.filter(m => selected.has(m.Mahsulot_ID));
-      const d = new Date();
-      const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
-      const lines = list.map((m, i) => {
-        const som = n(m.Sotuv_som), usd = n(m.Sotuv_dollar);
-        const parts: string[] = [];
-        if (som) parts.push(`${som.toLocaleString("ru-RU")} so'm`);
-        if (usd) parts.push(`$${usd.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-        const qold = (balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU");
-        return `${i+1}. ${m.Nomi || "—"}\n   ${parts.join(" · ") || "—"} · ${qold} dona`;
-      });
-      const text = `📋 MUSAFFOTEA MAHSULOTLARI\n📅 ${sana} · ${list.length} ta\n\n${lines.join("\n")}`;
-      const res = await fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
-      if (!res.ok) throw new Error("tg");
-      alert("Telegramga yuborildi ✅");
-    } catch {
-      alert("Telegramga yuborishda xatolik. Qayta urinib ko'ring.");
-    } finally { setTgSending(false); }
+  // ── Chekni Telegramga ulashish — Telegram ochiladi, user kimga yuborishni o'zi tanlaydi ──
+  function shareChekTelegram() {
+    if (!selected.size) return;
+    const list = sorted.filter(m => selected.has(m.Mahsulot_ID));
+    const d = new Date();
+    const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+    const lines = list.map((m, i) => {
+      const som = n(m.Sotuv_som), usd = n(m.Sotuv_dollar);
+      const parts: string[] = [];
+      if (som) parts.push(`${som.toLocaleString("ru-RU")} so'm`);
+      if (usd) parts.push(`$${usd.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      const qold = (balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU");
+      return `${i+1}. ${m.Nomi || "—"}\n   ${parts.join(" · ") || "—"} · ${qold} dona`;
+    });
+    const text = `📋 MUSAFFOTEA MAHSULOTLARI\n📅 ${sana} · ${list.length} ta\n\n${lines.join("\n")}`;
+    // Telegram "Kimga yuborish" oynasini ochadi — user chatni o'zi tanlaydi
+    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, "_blank");
   }
 
   function openAdd() {
@@ -326,11 +320,14 @@ export default function MahsulotPage() {
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
                 Chek ({selected.size})
               </button>
-              <button className="btn btn--outline" onClick={sendChekTelegram} disabled={tgSending} title="Chekni Telegram orqali yuborish" style={{ color: "#229ED9" }}>
+              <button className="btn btn--outline" onClick={shareChekTelegram} title="Telegramga ulashish — kimga yuborishni o'zingiz tanlaysiz" style={{ color: "#229ED9" }}>
                 <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
-                {tgSending ? "Yuborilmoqda…" : "Telegram"}
+                Telegram
               </button>
-              <button className="btn btn--outline" onClick={clearSel} title="Belgilashni tozalash" style={{ padding: "7px 11px" }}>✕</button>
+              <button className="btn btn--outline" onClick={clearSel} title="Tanlanganlarni tashlab yuborish (sbros)" style={{ color: "#ef4444", borderColor: "#fecaca" }}>
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                Tozalash
+              </button>
             </>)}
           </>)}
           {!isMobile && (
@@ -362,8 +359,11 @@ export default function MahsulotPage() {
                   <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
                   {selected.size}
                 </button>
-                <button className="btn btn--outline" onClick={sendChekTelegram} disabled={tgSending} title="Telegram" style={{ padding: "7px 11px", color: "#229ED9" }}>
+                <button className="btn btn--outline" onClick={shareChekTelegram} title="Telegramga ulashish" style={{ padding: "7px 11px", color: "#229ED9" }}>
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
+                </button>
+                <button className="btn btn--outline" onClick={clearSel} title="Tozalash (sbros)" style={{ padding: "7px 11px", color: "#ef4444" }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
               </>)}
             </div>
