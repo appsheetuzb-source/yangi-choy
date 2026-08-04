@@ -28,6 +28,7 @@ export interface ExportOpts {
   subtitle?: string;           // sana/oraliq
   filename: string;            // kengaytmasiz
   sections: ExportSection[];
+  center?: boolean;            // sarlavha/subtitle markazda (chek uslubi)
 }
 
 // ── Excel (.xls) ──────────────────────────────────────────
@@ -61,11 +62,11 @@ export function exportPDF(o: ExportOpts) {
   doc.text("MUSAFFO TEA", W / 2, 12, { align: "center" });
 
   doc.setTextColor(26, 39, 68); doc.setFont("helvetica", "bold"); doc.setFontSize(13);
-  doc.text(o.title, 14, 28);
+  doc.text(o.title, o.center ? W / 2 : 14, 28, o.center ? { align: "center" } : undefined);
   let y = 32;
   if (o.subtitle) {
     doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(90, 96, 128);
-    doc.text(o.subtitle, 14, 34); y = 40;
+    doc.text(o.subtitle, o.center ? W / 2 : 14, 34, o.center ? { align: "center" } : undefined); y = 40;
   }
 
   for (const sec of o.sections) {

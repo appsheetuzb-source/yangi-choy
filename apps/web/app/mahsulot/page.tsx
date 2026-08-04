@@ -61,6 +61,10 @@ export default function MahsulotPage() {
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
+  // Chek uchun tanlangan mahsulotlar
+  const [selected, setSelected]       = useState<Set<string>>(new Set());
+  const toggleSel = (id: string) => setSelected(prev => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const clearSel = () => setSelected(new Set());
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useScrollLock(!!deleteTarget);
 
@@ -193,6 +197,24 @@ export default function MahsulotPage() {
     };
   }
 
+  // ── Chek: tanlangan mahsulotlar — nomi, narxi, ombordagi soni ──
+  function buildChek(): ExportOpts {
+    const d = new Date();
+    const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
+    const list = sorted.filter(m => selected.has(m.Mahsulot_ID));
+    const narx = (m: Mahsulot) => currency === "dollar"
+      ? "$" + n(m.Sotuv_dollar).toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : n(m.Sotuv_som).toLocaleString("ru-RU") + " so'm";
+    const rows = list.map((m, i) => [i+1, m.Nomi || "—", narx(m), `${(balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU")} dona`]);
+    return {
+      title: "Musaffotea mahsulotlari",
+      subtitle: `${sana}  ·  ${list.length} ta mahsulot`,
+      filename: `musaffotea-mahsulotlar-${sana.replace(/\./g,"-")}`,
+      center: true,
+      sections: [{ headers: ["№", "Mahsulot nomi", "Narxi", "Ombordagi soni"], rows }],
+    };
+  }
+
   function openAdd() {
     setEditTarget(null);
     setDrawerOpen(true);
@@ -274,6 +296,13 @@ export default function MahsulotPage() {
               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#e23b34"/><text x="12" y="15.7" fontSize="6.6" fontWeight="800" fill="#fff" textAnchor="middle" fontFamily="Arial, sans-serif">PDF</text></svg>
               PDF
             </button>
+            {selected.size > 0 && (<>
+              <button className="btn btn--primary" onClick={() => exportPDF(buildChek())} title="Tanlangan mahsulotlar chekini chop etish (PDF)">
+                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
+                Chek ({selected.size})
+              </button>
+              <button className="btn btn--outline" onClick={clearSel} title="Belgilashni tozalash" style={{ padding: "7px 11px" }}>✕</button>
+            </>)}
           </>)}
           {!isMobile && (
             <button className="btn btn--primary" onClick={openAdd}>
@@ -299,6 +328,12 @@ export default function MahsulotPage() {
               <button className="btn btn--outline" onClick={() => exportPDF(buildMahsulotExport())} title="PDF" style={{ padding: "7px 11px" }}>
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#e23b34"/><text x="12" y="15.7" fontSize="6.6" fontWeight="800" fill="#fff" textAnchor="middle" fontFamily="Arial, sans-serif">PDF</text></svg>
               </button>
+              {selected.size > 0 && (
+                <button className="btn btn--primary" onClick={() => exportPDF(buildChek())} title="Tanlangan chek (PDF)" style={{ padding: "7px 11px", display: "flex", alignItems: "center", gap: 5 }}>
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
+                  {selected.size}
+                </button>
+              )}
             </div>
           )}
           <div className="toolbar__divider toolbar__divider--auto" />
@@ -430,6 +465,7 @@ export default function MahsulotPage() {
                 jami={effOmbor === "all"}
                 breakdown={effOmbor === "all" ? omborBreakdown(m.Mahsulot_ID) : undefined}
                 balans={balansMap[m.Mahsulot_ID]}
+                sel={selected.has(m.Mahsulot_ID)} onSel={() => toggleSel(m.Mahsulot_ID)}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
@@ -466,6 +502,7 @@ export default function MahsulotPage() {
               <ListCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
                 balans={balansMap[m.Mahsulot_ID]}
+                sel={selected.has(m.Mahsulot_ID)} onSel={() => toggleSel(m.Mahsulot_ID)}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
@@ -526,8 +563,8 @@ function PriceLine({ label, value, blue, dim }: { label: string; value: string; 
 }
 
 /* ── List Card ──────────────────────────────── */
-function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
-  mahsulot: Mahsulot; currency: string; balans?: number; onEdit: () => void; onDelete: () => void;
+function ListCard({ mahsulot: m, currency, balans, sel, onSel, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; balans?: number; sel?: boolean; onSel?: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
@@ -535,7 +572,10 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
   const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
 
   return (
-    <div className="list-card" style={{ cursor: "pointer" }} onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
+    <div className="list-card" style={{ cursor: "pointer", position: "relative" }} onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
+      <input type="checkbox" checked={!!sel} onClick={e => e.stopPropagation()} onChange={() => onSel?.()}
+        title="Chek uchun belgilash"
+        style={{ position: "absolute", top: 6, left: 6, width: 16, height: 16, zIndex: 3, cursor: "pointer", accentColor: "#2563eb" }} />
       <div className="list-card__img">
         {!imgError && m.Rasm
           ? <img src={`/api/image?path=${encodeURIComponent(m.Rasm)}`} alt={m.Nomi} onError={() => setImgError(true)} />
@@ -595,8 +635,8 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
 }
 
 /* ── Grid Card ──────────────────────────────── */
-function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, onEdit, onDelete }: {
-  mahsulot: Mahsulot; currency: string; omborNomi: string; jami?: boolean; breakdown?: { nomi: string; qty: number }[]; balans?: number; onEdit: () => void; onDelete: () => void;
+function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, sel, onSel, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; omborNomi: string; jami?: boolean; breakdown?: { nomi: string; qty: number }[]; balans?: number; sel?: boolean; onSel?: () => void; onEdit: () => void; onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
@@ -607,8 +647,11 @@ function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, o
   const showDollar = currency !== "som";
 
   return (
-    <div className="card" style={{ cursor: "pointer" }}
+    <div className="card" style={{ cursor: "pointer", position: "relative" }}
       onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
+      <input type="checkbox" checked={!!sel} onClick={e => e.stopPropagation()} onChange={() => onSel?.()}
+        title="Chek uchun belgilash"
+        style={{ position: "absolute", top: 8, left: 8, width: 18, height: 18, zIndex: 3, cursor: "pointer", accentColor: "#2563eb" }} />
       {/* Kichikroq rasm */}
       <div className="card__img" style={{ aspectRatio: "unset", height: 120 }}>
         {!imgError && m.Rasm
