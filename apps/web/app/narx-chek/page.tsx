@@ -117,8 +117,7 @@ export default function NarxChekPage() {
       const parts: string[] = [];
       if (som) parts.push(`${som.toLocaleString("ru-RU")} so'm`);
       if (usd) parts.push(`$${usd.toLocaleString("ru-RU", { maximumFractionDigits: 3 })}`);
-      const soni = (balans[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU");
-      return `${i + 1}. ${m.Nomi || "—"}\n   ${parts.join(" · ") || "—"} · ${soni} dona`;
+      return `${i + 1}. ${m.Nomi || "—"} — ${parts.join(" · ") || "—"}`;
     });
     const text = `📋 MUSAFFOTEA MAHSULOTLARI\n📅 ${sanaStr()} · ${list.length} ta\n\n${lines.join("\n")}`;
     window.open(`https://t.me/share/url?url=${encodeURIComponent("https://musaffotea.uz")}&text=${encodeURIComponent(text)}`, "_blank");
