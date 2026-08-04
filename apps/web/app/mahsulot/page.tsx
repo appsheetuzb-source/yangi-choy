@@ -32,6 +32,7 @@ interface Ombor {
 
 export default function MahsulotPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const isAdmin = user?.lavozim === "Admin";
   // Non-admin (Sotuvchi/Omborchi) faqat o'ziga biriktirilgan ombor mahsulotlarini ko'radi
   const myOmbor = (user?.omborId || "").trim();
@@ -61,11 +62,6 @@ export default function MahsulotPage() {
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
   const [deleting, setDeleting]       = useState(false);
   const [isMobile, setIsMobile]       = useState(false);
-  // Chek uchun tanlangan mahsulotlar — localStorage'da saqlanadi (navigatsiyada yo'qolmaydi)
-  const [selArr, setSelArr]           = usePersistedState<string[]>("flt:mahsulot:chekSel", []);
-  const selected = useMemo(() => new Set(selArr), [selArr]);
-  const toggleSel = (id: string) => setSelArr(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  const clearSel = () => setSelArr([]);
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useScrollLock(!!deleteTarget);
 
@@ -198,42 +194,6 @@ export default function MahsulotPage() {
     };
   }
 
-  // ── Chek: tanlangan mahsulotlar — nomi, narxi, ombordagi soni ──
-  function buildChek(): ExportOpts {
-    const d = new Date();
-    const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
-    const list = sorted.filter(m => selected.has(m.Mahsulot_ID));
-    const somNarx = (m: Mahsulot) => { const v = n(m.Sotuv_som); return v ? v.toLocaleString("ru-RU") + " so'm" : "—"; };
-    const usdNarx = (m: Mahsulot) => { const v = n(m.Sotuv_dollar); return v ? "$" + v.toLocaleString("ru-RU", { maximumFractionDigits: 3 }) : "—"; };
-    const rows = list.map((m, i) => [i+1, m.Nomi || "—", somNarx(m), usdNarx(m), `${(balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU")} dona`]);
-    return {
-      title: "Musaffotea mahsulotlari",
-      subtitle: `${sana}  ·  ${list.length} ta mahsulot`,
-      filename: `musaffotea-mahsulotlar-${sana.replace(/\./g,"-")}`,
-      center: true,
-      sections: [{ headers: ["№", "Mahsulot nomi", "Narx (so'm)", "Narx ($)", "Ombordagi soni"], rows }],
-    };
-  }
-
-  // ── Chekni Telegramga ulashish — Telegram ochiladi, user kimga yuborishni o'zi tanlaydi ──
-  function shareChekTelegram() {
-    if (!selected.size) return;
-    const list = sorted.filter(m => selected.has(m.Mahsulot_ID));
-    const d = new Date();
-    const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
-    const lines = list.map((m, i) => {
-      const som = n(m.Sotuv_som), usd = n(m.Sotuv_dollar);
-      const parts: string[] = [];
-      if (som) parts.push(`${som.toLocaleString("ru-RU")} so'm`);
-      if (usd) parts.push(`$${usd.toLocaleString("ru-RU", { maximumFractionDigits: 3 })}`);
-      const qold = (balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU");
-      return `${i+1}. ${m.Nomi || "—"}\n   ${parts.join(" · ") || "—"} · ${qold} dona`;
-    });
-    const text = `📋 MUSAFFOTEA MAHSULOTLARI\n📅 ${sana} · ${list.length} ta\n\n${lines.join("\n")}`;
-    // Telegram "Kimga yuborish" oynasini ochadi — user chatni o'zi tanlaydi
-    window.open(`https://t.me/share/url?url=${encodeURIComponent(text)}`, "_blank");
-  }
-
   function openAdd() {
     setEditTarget(null);
     setDrawerOpen(true);
@@ -315,21 +275,11 @@ export default function MahsulotPage() {
               <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#e23b34"/><text x="12" y="15.7" fontSize="6.6" fontWeight="800" fill="#fff" textAnchor="middle" fontFamily="Arial, sans-serif">PDF</text></svg>
               PDF
             </button>
-            {selected.size > 0 && (<>
-              <button className="btn btn--primary" onClick={() => exportPDF(buildChek())} title="Tanlangan mahsulotlar chekini chop etish (PDF)">
-                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-                Chek ({selected.size})
-              </button>
-              <button className="btn btn--outline" onClick={shareChekTelegram} title="Telegramga ulashish — kimga yuborishni o'zingiz tanlaysiz" style={{ color: "#229ED9" }}>
-                <svg width="15" height="15" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
-                Telegram
-              </button>
-              <button className="btn btn--outline" onClick={clearSel} title="Tanlanganlarni tashlab yuborish (sbros)" style={{ color: "#ef4444", borderColor: "#fecaca" }}>
-                <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                Tozalash
-              </button>
-            </>)}
           </>)}
+          <button className="btn btn--outline" onClick={() => router.push("/narx-chek")} title="Mijozga narx cheki chiqarish" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
+            {!isMobile && "Mijoz cheki"}
+          </button>
           {!isMobile && (
             <button className="btn btn--primary" onClick={openAdd}>
               <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -354,18 +304,6 @@ export default function MahsulotPage() {
               <button className="btn btn--outline" onClick={() => exportPDF(buildMahsulotExport())} title="PDF" style={{ padding: "7px 11px" }}>
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3.5" fill="#e23b34"/><text x="12" y="15.7" fontSize="6.6" fontWeight="800" fill="#fff" textAnchor="middle" fontFamily="Arial, sans-serif">PDF</text></svg>
               </button>
-              {selected.size > 0 && (<>
-                <button className="btn btn--primary" onClick={() => exportPDF(buildChek())} title="Tanlangan chek (PDF)" style={{ padding: "7px 11px", display: "flex", alignItems: "center", gap: 5 }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12"/></svg>
-                  {selected.size}
-                </button>
-                <button className="btn btn--outline" onClick={shareChekTelegram} title="Telegramga ulashish" style={{ padding: "7px 11px", color: "#229ED9" }}>
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z"/></svg>
-                </button>
-                <button className="btn btn--outline" onClick={clearSel} title="Tozalash (sbros)" style={{ padding: "7px 11px", color: "#ef4444" }}>
-                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
-              </>)}
             </div>
           )}
           <div className="toolbar__divider toolbar__divider--auto" />
@@ -497,7 +435,6 @@ export default function MahsulotPage() {
                 jami={effOmbor === "all"}
                 breakdown={effOmbor === "all" ? omborBreakdown(m.Mahsulot_ID) : undefined}
                 balans={balansMap[m.Mahsulot_ID]}
-                sel={selected.has(m.Mahsulot_ID)} onSel={() => toggleSel(m.Mahsulot_ID)}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
@@ -534,7 +471,6 @@ export default function MahsulotPage() {
               <ListCard key={m.Mahsulot_ID || `${m.Nomi}-${i}`} mahsulot={m}
                 currency={currency}
                 balans={balansMap[m.Mahsulot_ID]}
-                sel={selected.has(m.Mahsulot_ID)} onSel={() => toggleSel(m.Mahsulot_ID)}
                 onEdit={() => openEdit(m)} onDelete={() => setDeleteTarget(m)} />
             ))}
           </div>
@@ -595,8 +531,8 @@ function PriceLine({ label, value, blue, dim }: { label: string; value: string; 
 }
 
 /* ── List Card ──────────────────────────────── */
-function ListCard({ mahsulot: m, currency, balans, sel, onSel, onEdit, onDelete }: {
-  mahsulot: Mahsulot; currency: string; balans?: number; sel?: boolean; onSel?: () => void; onEdit: () => void; onDelete: () => void;
+function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; balans?: number; onEdit: () => void; onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
@@ -604,12 +540,7 @@ function ListCard({ mahsulot: m, currency, balans, sel, onSel, onEdit, onDelete 
   const hasDollar = m.Sotuv_dollar && String(m.Sotuv_dollar).trim() !== "" && String(m.Sotuv_dollar).trim() !== "0";
 
   return (
-    <div className="list-card" style={{ cursor: "pointer", position: "relative" }} onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
-      <div onClick={e => { e.stopPropagation(); onSel?.(); }} title="Chek uchun belgilash"
-        style={{ position: "absolute", top: 4, left: 4, zIndex: 3, padding: 6, borderRadius: 8, background: sel ? "#2563eb" : "rgba(255,255,255,.92)", boxShadow: "0 1px 4px rgba(0,0,0,.2)", cursor: "pointer", display: "flex", lineHeight: 0 }}>
-        <input type="checkbox" checked={!!sel} readOnly tabIndex={-1}
-          style={{ width: 16, height: 16, margin: 0, cursor: "pointer", accentColor: "#2563eb", pointerEvents: "none" }} />
-      </div>
+    <div className="list-card" style={{ cursor: "pointer" }} onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
       <div className="list-card__img">
         {!imgError && m.Rasm
           ? <img src={`/api/image?path=${encodeURIComponent(m.Rasm)}`} alt={m.Nomi} onError={() => setImgError(true)} />
@@ -669,8 +600,8 @@ function ListCard({ mahsulot: m, currency, balans, sel, onSel, onEdit, onDelete 
 }
 
 /* ── Grid Card ──────────────────────────────── */
-function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, sel, onSel, onEdit, onDelete }: {
-  mahsulot: Mahsulot; currency: string; omborNomi: string; jami?: boolean; breakdown?: { nomi: string; qty: number }[]; balans?: number; sel?: boolean; onSel?: () => void; onEdit: () => void; onDelete: () => void;
+function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, onEdit, onDelete }: {
+  mahsulot: Mahsulot; currency: string; omborNomi: string; jami?: boolean; breakdown?: { nomi: string; qty: number }[]; balans?: number; onEdit: () => void; onDelete: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const router = useRouter();
@@ -681,13 +612,8 @@ function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, s
   const showDollar = currency !== "som";
 
   return (
-    <div className="card" style={{ cursor: "pointer", position: "relative" }}
+    <div className="card" style={{ cursor: "pointer" }}
       onClick={() => router.push(`/mahsulot/${m.Mahsulot_ID}`)}>
-      <div onClick={e => { e.stopPropagation(); onSel?.(); }} title="Chek uchun belgilash"
-        style={{ position: "absolute", top: 6, left: 6, zIndex: 3, padding: 7, borderRadius: 9, background: sel ? "#2563eb" : "rgba(255,255,255,.9)", boxShadow: "0 1px 4px rgba(0,0,0,.2)", cursor: "pointer", display: "flex", lineHeight: 0 }}>
-        <input type="checkbox" checked={!!sel} readOnly tabIndex={-1}
-          style={{ width: 18, height: 18, margin: 0, cursor: "pointer", accentColor: "#2563eb", pointerEvents: "none" }} />
-      </div>
       {/* Kichikroq rasm */}
       <div className="card__img" style={{ aspectRatio: "unset", height: 120 }}>
         {!imgError && m.Rasm

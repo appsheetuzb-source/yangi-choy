@@ -47,7 +47,7 @@ export function gaznaForUser<T extends { Gazna_ID: string }>(user: AuthUser | nu
 }
 
 // Sotuvchi ko'ra oladigan sahifalar
-export const SOTUVCHI_ROUTES = ["/", "/sotuv", "/sotuv/tolov", "/mijozlar", "/akt-sverka", "/mahsulot", "/gazna", "/xarajat"];
+export const SOTUVCHI_ROUTES = ["/", "/sotuv", "/sotuv/tolov", "/mijozlar", "/akt-sverka", "/mahsulot", "/narx-chek", "/gazna", "/xarajat"];
 
 export function canAccess(user: AuthUser | null, path: string): boolean {
   if (!user) return false;
