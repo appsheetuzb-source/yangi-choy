@@ -36,8 +36,9 @@ export default function NarxChekPage() {
   const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const c = () => setIsMobile(window.innerWidth < 900);
-    c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c);
+    const mq = window.matchMedia("(max-width: 899px)");
+    const c = () => setIsMobile(mq.matches);
+    c(); mq.addEventListener("change", c); return () => mq.removeEventListener("change", c);
   }, []);
 
   useEffect(() => {
@@ -165,7 +166,7 @@ export default function NarxChekPage() {
             <h1 className="header__title">Mijoz cheki</h1>
             <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>Mahsulot va narxni tanlab chek chiqarish</p>
           </div>
-          {selCount > 0 && (
+          {!isMobile && selCount > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button className="btn btn--primary" onClick={() => exportPDF(buildChek())} title="Chek (PDF)">
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12" /></svg>
@@ -184,7 +185,7 @@ export default function NarxChekPage() {
         </div>
       </header>
 
-      <div className="page-content" style={{ maxWidth: isMobile ? 820 : 1140 }}>
+      <div className="page-content" style={{ maxWidth: isMobile ? 820 : 1140, paddingBottom: isMobile && selCount > 0 ? 80 : undefined }}>
         <div style={isMobile ? undefined : { display: "grid", gridTemplateColumns: "1fr 300px", gap: 16, alignItems: "start" }}>
           <div>
         {isMobile && selCount > 0 && <div style={{ marginBottom: 12 }}>{summaryPanel}</div>}
@@ -242,6 +243,22 @@ export default function NarxChekPage() {
           {!isMobile && summaryPanel}
         </div>
       </div>
+
+      {/* Mobil — pastki amal paneli */}
+      {isMobile && selCount > 0 && (
+        <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 60, background: "var(--white)", borderTop: "1px solid var(--border)", boxShadow: "0 -4px 20px rgba(30,64,124,.14)", padding: "10px 14px", paddingBottom: "max(10px, env(safe-area-inset-bottom))", display: "flex", gap: 8 }}>
+          <button className="btn btn--primary" style={{ flex: 2, justifyContent: "center" }} onClick={() => exportPDF(buildChek())}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2zm-1-12v-2a1 1 0 00-1-1H9a1 1 0 00-1 1v2m-3 5h12" /></svg>
+            Chek ({selCount})
+          </button>
+          <button className="btn btn--outline" style={{ flex: 1, justifyContent: "center", color: "#229ED9" }} onClick={shareTelegram} title="Telegram">
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 24 24"><path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71l-4.14-3.05-1.99 1.93c-.23.23-.42.42-.83.42z" /></svg>
+          </button>
+          <button className="btn btn--outline" style={{ flex: 1, justifyContent: "center", color: "#ef4444", borderColor: "#fecaca" }} onClick={clearAll} title="Tozalash">
+            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
     </>
   );
 }
