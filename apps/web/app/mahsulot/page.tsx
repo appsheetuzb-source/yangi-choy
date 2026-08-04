@@ -204,7 +204,7 @@ export default function MahsulotPage() {
     const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
     const list = sorted.filter(m => selected.has(m.Mahsulot_ID));
     const somNarx = (m: Mahsulot) => { const v = n(m.Sotuv_som); return v ? v.toLocaleString("ru-RU") + " so'm" : "—"; };
-    const usdNarx = (m: Mahsulot) => { const v = n(m.Sotuv_dollar); return v ? "$" + v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"; };
+    const usdNarx = (m: Mahsulot) => { const v = n(m.Sotuv_dollar); return v ? "$" + v.toLocaleString("ru-RU", { maximumFractionDigits: 3 }) : "—"; };
     const rows = list.map((m, i) => [i+1, m.Nomi || "—", somNarx(m), usdNarx(m), `${(balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU")} dona`]);
     return {
       title: "Musaffotea mahsulotlari",
@@ -225,7 +225,7 @@ export default function MahsulotPage() {
       const som = n(m.Sotuv_som), usd = n(m.Sotuv_dollar);
       const parts: string[] = [];
       if (som) parts.push(`${som.toLocaleString("ru-RU")} so'm`);
-      if (usd) parts.push(`$${usd.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+      if (usd) parts.push(`$${usd.toLocaleString("ru-RU", { maximumFractionDigits: 3 })}`);
       const qold = (balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU");
       return `${i+1}. ${m.Nomi || "—"}\n   ${parts.join(" · ") || "—"} · ${qold} dona`;
     });
