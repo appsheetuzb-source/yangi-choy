@@ -110,7 +110,7 @@ export default function NarxChekPage() {
     };
   }
 
-  function shareTelegram() {
+  async function shareTelegram() {
     const list = selectedList();
     if (!list.length) return;
     const lines = list.map(({ m, it }, i) => {
@@ -121,7 +121,18 @@ export default function NarxChekPage() {
       return `${i + 1}. ${m.Nomi || "—"} — ${parts.join(" · ") || "—"}`;
     });
     const text = `📋 MUSAFFOTEA MAHSULOTLARI\n📅 ${sanaStr()} · ${list.length} ta\n\n${lines.join("\n")}`;
-    window.open(`https://t.me/share/url?url=${encodeURIComponent("https://musaffotea.uz")}&text=${encodeURIComponent(text)}`, "_blank");
+    // Mobil: tizim ulashish oynasi (Telegram to'g'ridan-to'g'ri matnni oladi)
+    if (isMobile && typeof navigator !== "undefined" && navigator.share) {
+      try { await navigator.share({ text }); } catch { /* foydalanuvchi bekor qildi */ }
+      return;
+    }
+    // Desktop (yoki share yo'q): avval Telegram web ochiladi (gesture saqlanadi), so'ng nusxalanadi — kerakli chatga paste
+    window.open("https://web.telegram.org/", "_blank");
+    let copied = false;
+    try { await navigator.clipboard.writeText(text); copied = true; } catch { /* clipboard bloklangan */ }
+    alert(copied
+      ? "Chek matni nusxalandi ✅\nOchilgan Telegram'da kerakli chatga joylashtiring (Ctrl+V)."
+      : "Telegram ochildi. Matnni qo'lda ko'chiring.");
   }
 
   const inputStyle: React.CSSProperties = {
