@@ -1042,10 +1042,9 @@ export default function SotuvDetailPage() {
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
             <p style={{fontSize:10,fontWeight:700,color:"#16a34a",letterSpacing:".06em",marginBottom:12}}>SO&apos;M</p>
             {[
-              {label:"Mijoz balansi", val:mijozQarzSom, color:mijozQarzSom>0?"#ef4444":"#16a34a", bold:false, neg:false},
+              // Mijoz balansi = shu sotuvsiz joriy qoldiq (snapshot − shu sotuvdan keyingi to'lov); To'lov qatori alohida ko'rsatilmaydi
+              {label:"Mijoz balansi", val:mijozQarzSom-winTolovSom, color:(mijozQarzSom-winTolovSom)>0?"#ef4444":"#16a34a", bold:false, neg:false},
               {label:"Sotuv summasi", val:jamiSom, color:"var(--text)", bold:false, neg:false},
-              ...(winTolovSom>0?[{label:"To'lov", val:winTolovSom, color:"#16a34a", bold:false, neg:true}]:[]),
-              // Yakuniy qoldiq = eski qoldiq + shu sotuv tovari − shu sotuvga qilingan to'lov
               {label:"Yakuniy qoldiq", val:mijozQarzSom+jamiSom-winTolovSom, color:"var(--text)", bold:true, neg:false},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
@@ -1061,10 +1060,9 @@ export default function SotuvDetailPage() {
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
             <p style={{fontSize:10,fontWeight:700,color:"#2563eb",letterSpacing:".06em",marginBottom:12}}>DOLLAR</p>
             {[
-              {label:"Mijoz balansi", val:mijozQarzDollar, color:mijozQarzDollar>0?"#ef4444":"#16a34a", bold:false, neg:false},
+              // Mijoz balansi = shu sotuvsiz joriy qoldiq (snapshot − shu sotuvdan keyingi to'lov); To'lov qatori alohida ko'rsatilmaydi
+              {label:"Mijoz balansi", val:mijozQarzDollar-winTolovDollar, color:(mijozQarzDollar-winTolovDollar)>0?"#ef4444":"#16a34a", bold:false, neg:false},
               {label:"Sotuv summasi", val:jamiDollar, color:"var(--text)", bold:false, neg:false},
-              ...(winTolovDollar>0?[{label:"To'lov", val:winTolovDollar, color:"#16a34a", bold:false, neg:true}]:[]),
-              // Yakuniy qoldiq = eski qoldiq + shu sotuv tovari − shu sotuvga qilingan to'lov
               {label:"Yakuniy qoldiq", val:mijozQarzDollar+jamiDollar-winTolovDollar, color:"var(--text)", bold:true, neg:false},
             ].map((r,i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>

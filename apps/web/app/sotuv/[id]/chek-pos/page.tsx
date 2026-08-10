@@ -120,7 +120,7 @@ function PosContent() {
           summa: fmtSom(num(r.Summa_som)),
         })),
         jami: fmtSom(thisSom),
-        bal: showSom ? { eski: fmtSom(totalSom), olingan: fmtSom(thisSom), tolov: tolovSom > 0 ? fmtSom(tolovSom) : null, yakuniy: fmtSom(yakuniySom) } : null,
+        bal: showSom ? { eski: fmtSom(totalSom - tolovSom), olingan: fmtSom(thisSom), tolov: null, yakuniy: fmtSom(yakuniySom) } : null,
       };
       const res = await fetch("/api/chek-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error("server");
@@ -176,7 +176,7 @@ function PosContent() {
           <>
             {hasSom && <ProdTable jami={fmtSom(thisSom)}
               rows={savatSom.map(r=>[mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID, fmtSoni(num(r.Soni)), fmtSom(num(r.Som_Narx)), fmtSom(num(r.Summa_som))])} />}
-            {showSom && <BalTable eski={fmtSom(totalSom)} olingan={fmtSom(thisSom)} tolov={tolovSom>0?fmtSom(tolovSom):null} yakuniy={fmtSom(yakuniySom)} />}
+            {showSom && <BalTable eski={fmtSom(totalSom - tolovSom)} olingan={fmtSom(thisSom)} tolov={null} yakuniy={fmtSom(yakuniySom)} />}
           </>
         )}
       </div>
