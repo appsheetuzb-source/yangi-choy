@@ -5,8 +5,8 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Agent: string; }
-interface SavatRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; Kurs: string; }
-interface SavatDollarRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; Kurs: string; }
+interface SavatRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; Kurs: string; Som_tan_narx?: string; Foyda?: string; }
+interface SavatDollarRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; Kurs: string; Tan_narx?: string; Foyda?: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; }
 interface KursRow { Kurs: string; }
@@ -115,8 +115,15 @@ export default function FoydaPage() {
       if (!s || !inFilter(s)) return;
       const mah = mahMap[r.Mahsulot_ID];
       const rk = num(r.Kurs) || kurs;
-      // Tan_som bo'sh bo'lsa — mahsulot dollarda olingan → tannarx = Tan_dollar × kurs
-      const tanS = num(mah?.Tan_som) > 0 ? num(mah?.Tan_som) : num(mah?.Tan_dollar) * rk;
+      // Sotuv paytida yozilgan tan narxni ishlatamiz — mahsulot tan narxi keyin
+      // o'zgarsa ham eski sotuvning foydasi o'zgarmaydi (avval har safar bugungi
+      // tan narx bilan qayta hisoblanardi va eski sotuvlar zararga chiqib qolardi).
+      // Ishonch belgisi: Foyda ustuni to'ldirilgan (eski qatorlarda u bo'sh).
+      const snapOk = String(r.Foyda ?? "").trim() !== "" && num(r.Som_tan_narx) > 0;
+      // Snapshot yo'q eski qatorlar uchun — avvalgidek joriy tan narx
+      // (Tan_som bo'sh bo'lsa mahsulot dollarda olingan → tannarx = Tan_dollar × kurs)
+      const tanS = snapOk ? num(r.Som_tan_narx)
+        : (num(mah?.Tan_som) > 0 ? num(mah?.Tan_som) : num(mah?.Tan_dollar) * rk);
       const foyda = num(r.Summa_som) - tanS * num(r.Soni);
       const mid = s.Mijoz_ID || "—", pid = r.Mahsulot_ID || "—";
       (cp[mid] ||= { som: 0, usd: 0 }).som += foyda;
@@ -129,8 +136,12 @@ export default function FoydaPage() {
       if (!s || !inFilter(s)) return;
       const mah = mahMap[r.Mahsulot_ID];
       const rk = num(r.Kurs) || kurs;
-      // Tan_dollar bo'sh bo'lsa — mahsulot so'mda olingan → tannarx = Tan_som / kurs
-      const tanD = num(mah?.Tan_dollar) > 0 ? num(mah?.Tan_dollar) : (rk > 0 ? num(mah?.Tan_som) / rk : 0);
+      // So'mdagi kabi — sotuv paytidagi tan narx ustuvor
+      const snapOk = String(r.Foyda ?? "").trim() !== "" && num(r.Tan_narx) > 0;
+      // Snapshot yo'q eski qatorlar uchun — avvalgidek joriy tan narx
+      // (Tan_dollar bo'sh bo'lsa mahsulot so'mda olingan → tannarx = Tan_som / kurs)
+      const tanD = snapOk ? num(r.Tan_narx)
+        : (num(mah?.Tan_dollar) > 0 ? num(mah?.Tan_dollar) : (rk > 0 ? num(mah?.Tan_som) / rk : 0));
       const foyda = num(r.Summa) - tanD * num(r.Soni);
       const mid = s.Mijoz_ID || "—", pid = r.Mahsulot_ID || "—";
       (cp[mid] ||= { som: 0, usd: 0 }).usd += foyda;
@@ -184,9 +195,10 @@ export default function FoydaPage() {
   const selName = effMijoz ? (mijozMap[effMijoz] || effMijoz) : null;
   // JAMI kartalari: klient tanlangan bo'lsa o'sha klient foydasi, aks holda umumiy jami
   const displayJami = effMijoz ? (clientProfit[effMijoz] || { som: 0, usd: 0 }) : jami;
-  // Sof foyda = ko'rsatilayotgan foyda (jami YOKI tanlangan klient) − shu davr xarajati
-  const netSom = displayJami.som - xarajatJami.som;
-  const netUsd = displayJami.usd - xarajatJami.usd;
+  // Xarajat — davrning UMUMIY xarajati: faqat umumiy sof foydadan ayriladi.
+  // Klient tanlanganda uning foydasidan ayrilmaydi (xarajat bitta klientga tegishli emas), faqat ma'lumot uchun ko'rsatiladi.
+  const netSom = effMijoz ? displayJami.som : displayJami.som - xarajatJami.som;
+  const netUsd = effMijoz ? displayJami.usd : displayJami.usd - xarajatJami.usd;
 
   // ── UI qismlari ──
   const ProfitCell = ({ som, usd }: { som: number; usd: number }) => (
@@ -249,16 +261,16 @@ export default function FoydaPage() {
             {/* KPI — jami foyda */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · SOF FOYDA · SO'M" : "SOF FOYDA · SO'M"}</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · FOYDA · SO'M" : "SOF FOYDA · SO'M"}</p>
                 <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: netSom >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(netSom) : "Yuklanmoqda…"}</p>
                 {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
-                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtSom(displayJami.som)} · Xarajat: −{fmtSom(xarajatJami.som)}</p>}
+                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtSom(displayJami.som)} · Umumiy xarajat: −{fmtSom(xarajatJami.som)}{selName ? " (klient foydasidan ayrilmaydi)" : ""}</p>}
               </div>
               <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · SOF FOYDA · DOLLAR" : "SOF FOYDA · DOLLAR"}</p>
+                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · FOYDA · DOLLAR" : "SOF FOYDA · DOLLAR"}</p>
                 <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: netUsd >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(netUsd) : "Yuklanmoqda…"}</p>
                 {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
-                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtUsd(displayJami.usd)} · Xarajat: −{fmtUsd(xarajatJami.usd)}</p>}
+                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtUsd(displayJami.usd)} · Umumiy xarajat: −{fmtUsd(xarajatJami.usd)}{selName ? " (klient foydasidan ayrilmaydi)" : ""}</p>}
               </div>
             </div>
 

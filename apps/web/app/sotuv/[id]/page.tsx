@@ -106,20 +106,40 @@ function SearchSelect({ items, value, onChange, placeholder, compact }: {
   );
 }
 
+// Sotuv paytidagi tan narx (snapshot). Foyda shu qiymat bilan hisoblanadi -
+// mahsulot tan narxi keyinchalik o'zgarsa ham eski sotuvlarning foydasi o'zgarmaydi.
+function tanSnapSom(m:Mahsulot|undefined,kursStr:string):number {
+  const tanSom=num(m?.Tan_som||"0"),tanDollar=num(m?.Tan_dollar||"0");
+  return tanSom!==0?tanSom:tanDollar*num(kursStr);
+}
+function tanSnapUsd(m:Mahsulot|undefined,kursStr:string):number {
+  const tanDollar=num(m?.Tan_dollar||"0"),tanSom=num(m?.Tan_som||"0"),k=num(kursStr);
+  return tanDollar!==0?tanDollar:(k>0?tanSom/k:0);
+}
+
+// Soni 0 yoki manfiy - Summa 0/manfiy bo'lib foyda minusga tushadi
+function isBadSoni(s:SavatItem):boolean {
+  return !!s.Mahsulot_ID && (num(s.Som_Narx)>0||num(s.Narx)>0) && num(s.Soni)<=0;
+}
+
 function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boolean {
   if(!s.Mahsulot_ID) return false;
   const m=mMap[s.Mahsulot_ID]; if(!m) return false;
+  const tanSom=num(m.Tan_som||"0"), tanDollar=num(m.Tan_dollar||"0"), k=num(kurs);
   if(s.valyuta==="som"){
     const narx=num(s.Som_Narx);
-    const tanSom=num(m.Tan_som||"0"); const tanDollar=num(m.Tan_dollar||"0");
-    const minNarx=tanSom!==0?tanSom:tanDollar*num(kurs);
+    // Tan faqat dollarda va kurs kiritilmagan - tekshirib bo'lmaydi, saqlashni bloklaymiz
+    if(tanSom===0&&tanDollar>0&&k<=0) return true;
+    const minNarx=tanSom!==0?tanSom:tanDollar*k;
     if(narx<=0) return minNarx>0;
     return minNarx>0&&narx<minNarx;
   } else {
     const narx=num(s.Narx);
-    const tanDollar=num(m.Tan_dollar||"0");
-    if(narx<=0) return tanDollar>0;
-    return tanDollar>0&&narx<tanDollar;
+    // Tan faqat so'mda va kurs kiritilmagan - tekshirib bo'lmaydi, saqlashni bloklaymiz
+    if(tanDollar===0&&tanSom>0&&k<=0) return true;
+    const minNarx=tanDollar!==0?tanDollar:(k>0?tanSom/k:0);
+    if(narx<=0) return minNarx>0;
+    return minNarx>0&&narx<minNarx;
   }
 }
 
@@ -551,7 +571,8 @@ export default function SotuvDetailPage() {
     // Tan narxidan past narx bo'lsa saqlashga ruxsat berilmaydi
     { const bad=editItems.filter(s=>isBelowCost(s,editKurs||"0",mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||s.Mahsulot_ID).filter(Boolean); if(bad.length){ alert("Tan narxidan past — saqlab bo'lmaydi:\n• "+bad.join("\n• ")+"\n\nNarxni to'g'rilang."); return; } }
     setEditSaving(true);
-    const valid=editItems.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx)));
+    { const bad=editItems.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||s.Mahsulot_ID).filter(Boolean); if(bad.length){ alert("Soni 0 dan katta bo'lishi kerak:\n"+bad.join("\n")); return; } }
+    const valid=editItems.filter(s=>s.Mahsulot_ID&&num(s.Soni)>0&&(num(s.Som_Narx)||num(s.Narx)));
     const kurs=editKurs||"0";
     const {sana:snStr,yil,oy,vaqt}=(() => {
       const d=new Date(); const dd=String(d.getDate()).padStart(2,"0"),mm=String(d.getMonth()+1).padStart(2,"0");
@@ -568,14 +589,16 @@ export default function SotuvDetailPage() {
           const m=mMap[r.Mahsulot_ID];
           if(num(r.Som_Narx)>0){
             const sid=uid(); const summa=String(num(r.Soni)*num(r.Som_Narx));
-            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
+            const tanS=tanSnapSom(m,kurs); const fS=num(r.Som_Narx)-tanS;
+            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:String(Math.round(tanS)),Foyda:String(Math.round(fS)),Foyda_summasi_som:String(Math.round(num(r.Soni)*fS)),Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",row})});
             somSheet.push(row);
             newSom.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||""});
           }
           if(num(r.Narx)>0){
             const sid=uid(); const summa=String(num(r.Soni)*num(r.Narx));
-            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narx:r.Narx,Kurs:kurs,Summa:summa,Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
+            const tanD=tanSnapUsd(m,kurs); const fD=num(r.Narx)-tanD;
+            const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narx:r.Narx,Kurs:kurs,Summa:summa,Tan_narx:tanD.toFixed(2),Foyda:fD.toFixed(2),Foyda_summasi_som:(fD*num(r.Soni)).toFixed(2),Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",row})});
             dollarSheet.push(row);
             newDollar.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narx:r.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||""});
@@ -604,23 +627,25 @@ export default function SotuvDetailPage() {
         for(const r of valid){
           const m=mMap[r.Mahsulot_ID];
           if(num(r.Som_Narx)>0){
+            const tanS=tanSnapSom(m,kurs); const fS=num(r.Som_Narx)-tanS;
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
               body:JSON.stringify({sheet:"Sotuv_Savat",row:{
                 Savat_ID:uid(),Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,
                 Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,
                 Soni:r.Soni,Som_Narx:r.Som_Narx,Kurs:kurs,
                 Summa_som:String(num(r.Soni)*num(r.Som_Narx)),
-                Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",
+                Som_tan_narx:String(Math.round(tanS)),Foyda:String(Math.round(fS)),Foyda_summasi_som:String(Math.round(num(r.Soni)*fS)),
                 Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
               }})});
           }
           if(num(r.Narx)>0){
+            const tanD=tanSnapUsd(m,kurs); const fD=num(r.Narx)-tanD;
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
               body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:{
                 Savat_ID:uid(),Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,
                 Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,
                 Soni:r.Soni,Narx:r.Narx,Kurs:kurs,Summa:String(num(r.Soni)*num(r.Narx)),
-                Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",
+                Tan_narx:tanD.toFixed(2),Foyda:fD.toFixed(2),Foyda_summasi_som:(fD*num(r.Soni)).toFixed(2),
                 Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
               }})});
           }
@@ -636,17 +661,23 @@ export default function SotuvDetailPage() {
 
   async function handleEditSomSave() {
     if(!editSomRow||!sotuv) return;
+    // Cheklov (avval bu yerda umuman yo'q edi - tan narxdan past saqlash mumkin edi)
+    const somMid=editSomMahsulot||editSomRow.Mahsulot_ID;
+    if(num(editSomSoni)<=0){ showToast("Soni 0 dan katta bo'lishi kerak", false); return; }
+    if(priceBelowCost(somMid,editSomNarx,"som")){ showToast((mMap[somMid]?.Nomi||"Mahsulot")+" - tan narxidan past, saqlanmadi", false); return; }
     setEditSomSaving(true);
     const newSumma=num(editSomSoni)*num(editSomNarx);
     const newId=uid();
+    const somKurs=rowKurs(editSomRow.Kurs);
+    const somTan=tanSnapSom(mMap[somMid],somKurs); const somFoyda=num(editSomNarx)-somTan;
     try {
       const [,moRow,yRow]=sotuv.Sana.split(".");
       const newRow={
         Savat_ID:newId,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,
         Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:editSomMahsulot||editSomRow.Mahsulot_ID,
-        Soni:editSomSoni,Som_Narx:editSomNarx,Kurs:editSomRow.Kurs||"0",
+        Soni:editSomSoni,Som_Narx:editSomNarx,Kurs:somKurs,
         Summa_som:String(newSumma),
-        Som_tan_narx:mMap[editSomMahsulot||editSomRow.Mahsulot_ID]?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",
+        Som_tan_narx:String(Math.round(somTan)),Foyda:String(Math.round(somFoyda)),Foyda_summasi_som:String(Math.round(num(editSomSoni)*somFoyda)),
         Ombor_ID:ombSrc(sotuv.Agent,mMap[editSomMahsulot||editSomRow.Mahsulot_ID]?.Ombor_ID||editSomRow.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:sotuv.Sana,Check:editSomRow.Check||"",Izoh:editSomIzoh,Mijoz_ID:sotuv.Mijoz_ID,
       };
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
@@ -662,17 +693,23 @@ export default function SotuvDetailPage() {
 
   async function handleEditDollarSave() {
     if(!editDollarRow||!sotuv) return;
+    // Cheklov (avval bu yerda umuman yo'q edi - tan narxdan past saqlash mumkin edi)
+    const usdMid=editDollarMahsulot||editDollarRow.Mahsulot_ID;
+    if(num(editDollarSoni)<=0){ showToast("Soni 0 dan katta bo'lishi kerak", false); return; }
+    if(priceBelowCost(usdMid,editDollarNarx,"dollar")){ showToast((mMap[usdMid]?.Nomi||"Mahsulot")+" - tan narxidan past, saqlanmadi", false); return; }
     setEditDollarSaving(true);
     const newSumma=num(editDollarSoni)*num(editDollarNarx);
     const newId=uid();
+    const usdKurs=rowKurs(editDollarRow.Kurs);
+    const usdTan=tanSnapUsd(mMap[usdMid],usdKurs); const usdFoyda=num(editDollarNarx)-usdTan;
     try {
       const [,moRow,yRow]=sotuv.Sana.split(".");
       const newRow={
         Savat_ID:newId,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,
         Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:editDollarMahsulot||editDollarRow.Mahsulot_ID,
-        Soni:editDollarSoni,Narx:editDollarNarx,Kurs:editDollarRow.Kurs||"0",
+        Soni:editDollarSoni,Narx:editDollarNarx,Kurs:usdKurs,
         Summa:String(newSumma),
-        Tan_narx:mMap[editDollarMahsulot||editDollarRow.Mahsulot_ID]?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",
+        Tan_narx:usdTan.toFixed(2),Foyda:usdFoyda.toFixed(2),Foyda_summasi_som:(usdFoyda*num(editDollarSoni)).toFixed(2),
         Ombor_ID:ombSrc(sotuv.Agent,mMap[editDollarMahsulot||editDollarRow.Mahsulot_ID]?.Ombor_ID||editDollarRow.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:sotuv.Sana,Check:editDollarRow.Check||"",Izoh:editDollarIzoh,Mijoz_ID:sotuv.Mijoz_ID,
       };
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
@@ -687,17 +724,24 @@ export default function SotuvDetailPage() {
   }
 
   // Tan narxidan past narx (narx kiritilgan va tan narxdan kam) — sotuvga ruxsat berilmaydi
+  // Qatordagi Kurs 0 yoki bo'sh bo'lsa markaziy kursga tushamiz.
+  // ("0" satri truthy bo'lgani uchun oddiy || ishlamaydi - tan narx 0 ga aylanib ketardi)
+  const rowKurs=(k?:string|number)=>num(k)>0?String(k):(centralKurs||"0");
+
   function priceBelowCost(mahsulotId:string, narxStr:string, valyuta:"som"|"dollar"):boolean {
     const m=mMap[mahsulotId]; if(!m) return false;
-    const narx=num(narxStr); if(narx<=0) return false;
-    if(valyuta==="som"){
-      const tanSom=num(m.Tan_som||"0"), tanDollar=num(m.Tan_dollar||"0");
-      const kurs=num(savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"0");
-      const minNarx=tanSom!==0?tanSom:tanDollar*kurs;
-      return minNarx>0 && narx<minNarx;
-    }
-    const tanDollar=num(m.Tan_dollar||"0");
-    return tanDollar>0 && narx<tanDollar;
+    const narx=num(narxStr);
+    const tanSom=num(m.Tan_som||"0"), tanDollar=num(m.Tan_dollar||"0");
+    const k=num(rowKurs(savatSom[0]?.Kurs||savatDollar[0]?.Kurs));
+    // Kurs yo'q va tan boshqa valyutada - tekshirib bo'lmaydi, bloklaymiz
+    if(valyuta==="som"&&tanSom===0&&tanDollar>0&&k<=0) return true;
+    if(valyuta==="dollar"&&tanDollar===0&&tanSom>0&&k<=0) return true;
+    const minNarx=valyuta==="som"
+      ? (tanSom!==0?tanSom:tanDollar*k)
+      : (tanDollar!==0?tanDollar:(k>0?tanSom/k:0));
+    // Bo'sh/0 narx ham saqlanmaydi: Summa=0 bo'lib foyda minusga tushardi
+    if(narx<=0) return minNarx>0;
+    return minNarx>0 && narx<minNarx;
   }
 
   // ── Ommaviy (bulk) tahrirlash ───────────────────────────
@@ -725,19 +769,26 @@ export default function SotuvDetailPage() {
       for(const r of savatSom){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; const mid=e?.Mahsulot||r.Mahsulot_ID; if(e&&priceBelowCost(mid,e.Narx,"som")) bad.push(mMap[mid]?.Nomi||mid); } }
       for(const r of savatDollar){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; const mid=e?.Mahsulot||r.Mahsulot_ID; if(e&&priceBelowCost(mid,e.Narx,"dollar")) bad.push(mMap[mid]?.Nomi||mid); } }
       if(bad.length){ alert("Tan narxidan past — saqlab bo'lmaydi:\n• "+bad.join("\n• ")+"\n\nNarxni to'g'rilang."); return; } }
+    { const bad:string[]=[];
+      for(const r of [...savatSom,...savatDollar]){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; if(e&&num(e.Soni)<=0) bad.push(mMap[e.Mahsulot||r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID); } }
+      if(bad.length){ alert("Soni 0 dan katta bo'lishi kerak:\n"+bad.join("\n")); return; } }
     setBulkSaving(true);
     try {
       for(const r of savatSom){
         if(!bulkSel.has(r.Savat_ID)) continue;
         const e=bulkEdits[r.Savat_ID]; if(!e) continue;
         await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx))}})});
+          body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx)),
+            ...(()=>{ const t=tanSnapSom(mMap[e.Mahsulot||r.Mahsulot_ID],rowKurs(r.Kurs)); const f=num(e.Narx)-t;
+              return {Som_tan_narx:String(Math.round(t)),Foyda:String(Math.round(f)),Foyda_summasi_som:String(Math.round(num(e.Soni)*f))}; })()}})});
       }
       for(const r of savatDollar){
         if(!bulkSel.has(r.Savat_ID)) continue;
         const e=bulkEdits[r.Savat_ID]; if(!e) continue;
         await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Narx:e.Narx,Summa:String(num(e.Soni)*num(e.Narx))}})});
+          body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Narx:e.Narx,Summa:String(num(e.Soni)*num(e.Narx)),
+            ...(()=>{ const t=tanSnapUsd(mMap[e.Mahsulot||r.Mahsulot_ID],rowKurs(r.Kurs)); const f=num(e.Narx)-t;
+              return {Tan_narx:t.toFixed(2),Foyda:f.toFixed(2),Foyda_summasi_som:(f*num(e.Soni)).toFixed(2)}; })()}})});
       }
       afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
       setSavatSom(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx))}:r; }));
@@ -751,6 +802,7 @@ export default function SotuvDetailPage() {
     if(!sotuv) return;
     if(savingRowIds.current.has(row.id)) return;
     // Tan narxidan past narxga sotishga ruxsat berilmaydi
+    if(num(row.Soni)<=0){ showToast("Soni 0 dan katta bo'lishi kerak", false); return; }
     if(priceBelowCost(row.Mahsulot_ID,row.Narx,valyuta)){ showToast((mMap[row.Mahsulot_ID]?.Nomi||"Mahsulot")+" — tan narxidan past, saqlanmadi", false); return; }
     savingRowIds.current.add(row.id);
     setSavingIds(s=>new Set(s).add(row.id));
@@ -758,18 +810,20 @@ export default function SotuvDetailPage() {
     const [,moRow,yRow]=sotuv.Sana.split(".");
     const {vaqt}=nowStr();
     const sid=uid();
-    const kurs=savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"0";
+    const kurs=rowKurs(savatSom[0]?.Kurs||savatDollar[0]?.Kurs);
     try {
       if(valyuta==="som"){
         const summa=String(num(row.Soni)*num(row.Narx));
-        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Som_Narx:row.Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:m?.Sotuv_som||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
+        const tanS=tanSnapSom(m,kurs); const fS=num(row.Narx)-tanS;
+        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Som_Narx:row.Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:String(Math.round(tanS)),Foyda:String(Math.round(fS)),Foyda_summasi_som:String(Math.round(num(row.Soni)*fS)),Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",row:newRow})});
         setSavatSom(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Som_Narx:row.Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||""}]);
         appendSheetRows("Sotuv_Savat",[newRow]);
         setAddSomRows(p=>p.filter(x=>x.id!==row.id));
       } else {
         const summa=String(num(row.Soni)*num(row.Narx));
-        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Narx:row.Narx,Kurs:kurs,Summa:summa,Tan_narx:m?.Sotuv_dollar||"",Foyda:"",Foyda_summasi_som:"",Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
+        const tanD=tanSnapUsd(m,kurs); const fD=num(row.Narx)-tanD;
+        const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Narx:row.Narx,Kurs:kurs,Summa:summa,Tan_narx:tanD.toFixed(2),Foyda:fD.toFixed(2),Foyda_summasi_som:(fD*num(row.Soni)).toFixed(2),Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:newRow})});
         setSavatDollar(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Narx:row.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||""}]);
         appendSheetRows("Sotuv_savat_dollar",[newRow]);
@@ -1568,10 +1622,11 @@ export default function SotuvDetailPage() {
               <SavatEditor items={editItems} onUpdate={updateItem} onRemove={removeItem} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} isMobile={isMobile} somItems={mhItems} dollarItems={mhItems} mMap={mMap} simple={isAddMode} showDollar={isAdmin}/>
             </div>
             {(() => { const bad=editItems.filter(s=>isBelowCost(s,editKurs||"0",mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
+            {(() => { const bad=editItems.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 yoki manfiy — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini to&apos;g&apos;rilang.</div>):null; })()}
             <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:isMobile?"14px 16px":"16px 24px",borderTop:"1px solid var(--border)"}}>
               <button className="btn btn--outline" onClick={()=>setEditOpen(false)}>Bekor</button>
               <button className="btn btn--primary" onClick={handleUpdate}
-                disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&s.Soni&&(num(s.Som_Narx)||num(s.Narx))).length===0||editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))}>
+                disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&num(s.Soni)>0&&(num(s.Som_Narx)||num(s.Narx))).length===0||editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))||editItems.some(isBadSoni)}>
                 {editSaving&&<span className="spinner"/>} Saqlash
               </button>
             </div>
