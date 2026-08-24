@@ -186,30 +186,39 @@ function MultiSelect({ items, value, onChange, placeholder, fullWidth }: {
   );
 }
 
-function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boolean {
-  if(!s.Mahsulot_ID) return false;
-  const m=mMap[s.Mahsulot_ID]; if(!m) return false;
-  const tanSom=num(m.Tan_som||"0"), tanDollar=num(m.Tan_dollar||"0"), k=num(kurs);
+// Minimal sotuv narxi (tan narx) va u QAYERDAN olinganini tushuntiruvchi matn.
+// Ogohlantirishda ko'rsatiladi - shunda "nega past deyapti" darrov ko'rinadi:
+// tan so'mdami, yoki dollardagi tan bugungi kursga ko'paytirilganmi.
+function minNarxInfo(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):{min:number;izoh:string;kursYoq:boolean} {
+  const m=mMap[s.Mahsulot_ID];
+  const tanSom=num(m?.Tan_som||"0"), tanDollar=num(m?.Tan_dollar||"0"), k=num(kurs);
+  const som=(v:number)=>Math.round(v).toLocaleString("ru-RU")+" so'm";
   if(s.valyuta==="som"){
-    const narx=num(s.Som_Narx);
-    // Tan faqat dollarda va kurs kiritilmagan - tekshirib bo'lmaydi, saqlashni bloklaymiz
-    if(tanSom===0&&tanDollar>0&&k<=0) return true;
-    const minNarx=tanSom!==0?tanSom:tanDollar*k;
-    if(narx<=0) return minNarx>0;
-    return minNarx>0&&narx<minNarx;
-  } else {
-    const narx=num(s.Narx);
-    // Tan faqat so'mda va kurs kiritilmagan - tekshirib bo'lmaydi, saqlashni bloklaymiz
-    if(tanDollar===0&&tanSom>0&&k<=0) return true;
-    const minNarx=tanDollar!==0?tanDollar:(k>0?tanSom/k:0);
-    if(narx<=0) return minNarx>0;
-    return minNarx>0&&narx<minNarx;
+    if(tanSom!==0) return {min:tanSom,izoh:som(tanSom),kursYoq:false};
+    if(tanDollar>0&&k<=0) return {min:0,izoh:"kurs kiritilmagan",kursYoq:true};
+    return {min:tanDollar*k,izoh:tanDollar>0?fmtUsd(tanDollar)+" x "+k.toLocaleString("ru-RU")+" = "+som(tanDollar*k):"belgilanmagan",kursYoq:false};
   }
+  if(tanDollar!==0) return {min:tanDollar,izoh:fmtUsd(tanDollar),kursYoq:false};
+  if(tanSom>0&&k<=0) return {min:0,izoh:"kurs kiritilmagan",kursYoq:true};
+  return {min:k>0?tanSom/k:0,izoh:tanSom>0?som(tanSom)+" / "+k.toLocaleString("ru-RU")+" = "+fmtUsd(tanSom/k):"belgilanmagan",kursYoq:false};
 }
 
-// Soni 0 yoki manfiy - Summa 0/manfiy bo'lib foyda minusga tushadi (qaytarish shu tarzda kiritilgan)
+function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boolean {
+  if(!s.Mahsulot_ID) return false;
+  if(!mMap[s.Mahsulot_ID]) return false;
+  const {min,kursYoq}=minNarxInfo(s,kurs,mMap);
+  if(kursYoq) return true;               // kurssiz tan narxni hisoblab bo'lmaydi
+  const narx=s.valyuta==="som"?num(s.Som_Narx):num(s.Narx);
+  if(narx<=0) return min>0;
+  return min>0&&narx<min;
+}
+
+// Soni 0 (yoki bo'sh) - qator ma'nosiz, bloklanadi.
+// MANFIY soniga RUXSAT BERILADI: mijoz tovarni QAYTARGANDA minus bilan kiritiladi.
+// Shunda: Summa manfiy -> mijoz qarzidan ayriladi; ombor hisobida -Soni -> tovar omborga qaytadi
+// (lib/ombor-transfer.ts: bump(Ombor_ID, -Soni)); foyda ham teskari yozilib, asl sotuv foydasini bekor qiladi.
 function isBadSoni(s:SavatItem):boolean {
-  return !!s.Mahsulot_ID && (num(s.Som_Narx)>0||num(s.Narx)>0) && num(s.Soni)<=0;
+  return !!s.Mahsulot_ID && (num(s.Som_Narx)>0||num(s.Narx)>0) && num(s.Soni)===0;
 }
 
 function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,kursVal,onKursChange,isMobile,somItems,dollarItems,mMap,onAddNewProduct,showDollar=true}:{
@@ -246,7 +255,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
                 style={{minWidth:0,width:"100%",padding:"9px 2px",border:`1.5px solid ${bc?"#ef4444":"var(--primary)"}`,borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
               {jS
-                ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bc?"past!":jS.toLocaleString("ru-RU")}</span>
+                ? <span title={bc?("Tan narx: "+minNarxInfo(s,kursVal,mMap).izoh):undefined} style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:bc?"#ef4444":"#16a34a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bc?"past!":jS.toLocaleString("ru-RU")}</span>
                 : <button onClick={()=>onRemove(s.id)} title="O'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
             </div>
           );
@@ -258,8 +267,8 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
-              <div style={{padding:"10px",background:bc?"#fef2f2":"#f0fdf4",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#16a34a"}}>
-                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jS?jS.toLocaleString("ru-RU")+" so'm":"—"):"—")}
+              <div title={bc?("Tan narx: "+minNarxInfo(s,kursVal,mMap).izoh):(num(s.Soni)<0?"Qaytarish — summa mijoz qarzidan ayriladi, tovar omborga qaytadi":undefined)} style={{padding:"10px",background:bc?"#fef2f2":(num(s.Soni)<0?"#fff7ed":"#f0fdf4"),borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":(num(s.Soni)<0?"#ea580c":"#16a34a")}}>
+                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jS?(num(s.Soni)<0?"↩ ":"")+jS.toLocaleString("ru-RU")+" so'm":"—"):"—")}
               </div>
               <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
             </div>
@@ -304,8 +313,8 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
-              <div style={{padding:"10px",background:bc?"#fef2f2":"#eff6ff",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":"#2563eb"}}>
-                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jU?fmtUsd(jU):"—"):"—")}
+              <div title={bc?("Tan narx: "+minNarxInfo(s,kursVal,mMap).izoh):(num(s.Soni)<0?"Qaytarish — summa mijoz qarzidan ayriladi, tovar omborga qaytadi":undefined)} style={{padding:"10px",background:bc?"#fef2f2":(num(s.Soni)<0?"#fff7ed":"#eff6ff"),borderRadius:"var(--radius)",fontSize:13,fontWeight:700,textAlign:"right",color:bc?"#ef4444":(num(s.Soni)<0?"#ea580c":"#2563eb")}}>
+                {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jU?(num(s.Soni)<0?"↩ ":"")+fmtUsd(jU):"—"):"—")}
               </div>
               <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
             </div>
@@ -555,7 +564,7 @@ export default function SotuvPage() {
     if(!addMijoz||!addAgent) return;
     // Snapshot to'g'ri bo'lishi uchun — balans ma'lumoti to'liq yuklanmasdan saqlamaymiz
     if(!balansReady){ alert("Mijoz balansi hali yuklanmoqda — bir lahza kuting (1-2 soniya) va qayta saqlang."); return; }
-    const valid=savat.filter(s=>s.Mahsulot_ID&&num(s.Soni)>0&&(num(s.Som_Narx)||num(s.Narx)));
+    const valid=savat.filter(s=>s.Mahsulot_ID&&num(s.Soni)!==0&&(num(s.Som_Narx)||num(s.Narx)));
     // Bo'sh savat bilan ham saqlashga ruxsat beriladi — keyin mahsulot qo'shilsa avtomat saqlanadi
     setSaving(true);
     const {sana:snStr,oy,yil,vaqt}=nowStr();
@@ -725,7 +734,7 @@ export default function SotuvPage() {
 
   async function handleUpdate() {
     if(!detailSotuv||!editMijoz||!editAgent) return;
-    const valid=editSavat.filter(s=>s.Mahsulot_ID&&num(s.Soni)>0&&(num(s.Som_Narx)||num(s.Narx)));
+    const valid=editSavat.filter(s=>s.Mahsulot_ID&&num(s.Soni)!==0&&(num(s.Som_Narx)||num(s.Narx)));
     if(valid.length===0) return;
     setEditSaving(true);
     const kurs=editKurs||"0";
@@ -1421,8 +1430,8 @@ export default function SotuvPage() {
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>
-            {(() => { const bad=savat.filter(s=>isBelowCost(s,addKurs,mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
-            {(() => { const bad=savat.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 yoki manfiy — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini to&apos;g&apos;rilang.</div>):null; })()}
+            {(() => { const bad=savat.filter(s=>isBelowCost(s,addKurs,mMap)).map(s=>{const n=mMap[s.Mahsulot_ID]?.Nomi||"";return n?n+" (tan: "+minNarxInfo(s,addKurs,mMap).izoh+")":"";}).filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
+            {(() => { const bad=savat.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini kiriting (qaytarish uchun minus bilan).</div>):null; })()}
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setAddOpen(false)}>Bekor</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleSave}
@@ -1561,8 +1570,8 @@ export default function SotuvPage() {
                   style={{width:"100%",padding:"10px 12px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,outline:"none",boxSizing:"border-box"}}/>
               </div>
             </div>
-            {(() => { const bad=editSavat.filter(s=>isBelowCost(s,editKurs,mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
-            {(() => { const bad=editSavat.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 yoki manfiy — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini to&apos;g&apos;rilang.</div>):null; })()}
+            {(() => { const bad=editSavat.filter(s=>isBelowCost(s,editKurs,mMap)).map(s=>{const n=mMap[s.Mahsulot_ID]?.Nomi||"";return n?n+" (tan: "+minNarxInfo(s,editKurs,mMap).izoh+")":"";}).filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
+            {(() => { const bad=editSavat.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini kiriting (qaytarish uchun minus bilan).</div>):null; })()}
             <div style={{display:"flex",gap:10,padding:"16px 20px",borderTop:"1px solid var(--border)",paddingBottom:isMobile?"max(16px, env(safe-area-inset-bottom))":16}}>
               <button className="btn btn--outline" style={{flex:1}} onClick={()=>setDetailSotuv(null)}>Bekor</button>
               <button className="btn btn--primary" style={{flex:2}} onClick={handleUpdate}

@@ -117,9 +117,12 @@ function tanSnapUsd(m:Mahsulot|undefined,kursStr:string):number {
   return tanDollar!==0?tanDollar:(k>0?tanSom/k:0);
 }
 
-// Soni 0 yoki manfiy - Summa 0/manfiy bo'lib foyda minusga tushadi
+// Soni 0 (yoki bo'sh) - qator ma'nosiz, bloklanadi.
+// MANFIY soniga RUXSAT BERILADI: mijoz tovarni QAYTARGANDA minus bilan kiritiladi.
+// Shunda: Summa manfiy -> mijoz qarzidan ayriladi; ombor hisobida -Soni -> tovar omborga qaytadi
+// (lib/ombor-transfer.ts: bump(Ombor_ID, -Soni)); foyda ham teskari yozilib, asl sotuv foydasini bekor qiladi.
 function isBadSoni(s:SavatItem):boolean {
-  return !!s.Mahsulot_ID && (num(s.Som_Narx)>0||num(s.Narx)>0) && num(s.Soni)<=0;
+  return !!s.Mahsulot_ID && (num(s.Som_Narx)>0||num(s.Narx)>0) && num(s.Soni)===0;
 }
 
 function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boolean {
@@ -410,7 +413,7 @@ export default function SotuvDetailPage() {
   // To'liq qator (mahsulot+soni+narx) topilsa — debounce bilan avtomat saqlanadi (✓ bosish shart emas)
   useEffect(() => {
     if (bulkMode) return;
-    const r = addSomRows.find(x => x.Mahsulot_ID && num(x.Soni)>0 && num(x.Narx)>0 && !savingRowIds.current.has(x.id));
+    const r = addSomRows.find(x => x.Mahsulot_ID && num(x.Soni)!==0 && num(x.Narx)>0 && !savingRowIds.current.has(x.id));
     if (!r) return;
     const t = setTimeout(() => { saveAddRow(r, "som"); }, 500);
     return () => clearTimeout(t);
@@ -418,7 +421,7 @@ export default function SotuvDetailPage() {
   }, [addSomRows, bulkMode]);
   useEffect(() => {
     if (bulkMode) return;
-    const r = addDollarRows.find(x => x.Mahsulot_ID && num(x.Soni)>0 && num(x.Narx)>0 && !savingRowIds.current.has(x.id));
+    const r = addDollarRows.find(x => x.Mahsulot_ID && num(x.Soni)!==0 && num(x.Narx)>0 && !savingRowIds.current.has(x.id));
     if (!r) return;
     const t = setTimeout(() => { saveAddRow(r, "dollar"); }, 500);
     return () => clearTimeout(t);
@@ -571,8 +574,8 @@ export default function SotuvDetailPage() {
     // Tan narxidan past narx bo'lsa saqlashga ruxsat berilmaydi
     { const bad=editItems.filter(s=>isBelowCost(s,editKurs||"0",mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||s.Mahsulot_ID).filter(Boolean); if(bad.length){ alert("Tan narxidan past — saqlab bo'lmaydi:\n• "+bad.join("\n• ")+"\n\nNarxni to'g'rilang."); return; } }
     setEditSaving(true);
-    { const bad=editItems.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||s.Mahsulot_ID).filter(Boolean); if(bad.length){ alert("Soni 0 dan katta bo'lishi kerak:\n"+bad.join("\n")); return; } }
-    const valid=editItems.filter(s=>s.Mahsulot_ID&&num(s.Soni)>0&&(num(s.Som_Narx)||num(s.Narx)));
+    { const bad=editItems.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||s.Mahsulot_ID).filter(Boolean); if(bad.length){ alert("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan kiriting):\n"+bad.join("\n")); return; } }
+    const valid=editItems.filter(s=>s.Mahsulot_ID&&num(s.Soni)!==0&&(num(s.Som_Narx)||num(s.Narx)));
     const kurs=editKurs||"0";
     const {sana:snStr,yil,oy,vaqt}=(() => {
       const d=new Date(); const dd=String(d.getDate()).padStart(2,"0"),mm=String(d.getMonth()+1).padStart(2,"0");
@@ -663,7 +666,7 @@ export default function SotuvDetailPage() {
     if(!editSomRow||!sotuv) return;
     // Cheklov (avval bu yerda umuman yo'q edi - tan narxdan past saqlash mumkin edi)
     const somMid=editSomMahsulot||editSomRow.Mahsulot_ID;
-    if(num(editSomSoni)<=0){ showToast("Soni 0 dan katta bo'lishi kerak", false); return; }
+    if(num(editSomSoni)===0){ showToast("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan)", false); return; }
     if(priceBelowCost(somMid,editSomNarx,"som")){ showToast((mMap[somMid]?.Nomi||"Mahsulot")+" - tan narxidan past, saqlanmadi", false); return; }
     setEditSomSaving(true);
     const newSumma=num(editSomSoni)*num(editSomNarx);
@@ -695,7 +698,7 @@ export default function SotuvDetailPage() {
     if(!editDollarRow||!sotuv) return;
     // Cheklov (avval bu yerda umuman yo'q edi - tan narxdan past saqlash mumkin edi)
     const usdMid=editDollarMahsulot||editDollarRow.Mahsulot_ID;
-    if(num(editDollarSoni)<=0){ showToast("Soni 0 dan katta bo'lishi kerak", false); return; }
+    if(num(editDollarSoni)===0){ showToast("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan)", false); return; }
     if(priceBelowCost(usdMid,editDollarNarx,"dollar")){ showToast((mMap[usdMid]?.Nomi||"Mahsulot")+" - tan narxidan past, saqlanmadi", false); return; }
     setEditDollarSaving(true);
     const newSumma=num(editDollarSoni)*num(editDollarNarx);
@@ -770,8 +773,8 @@ export default function SotuvDetailPage() {
       for(const r of savatDollar){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; const mid=e?.Mahsulot||r.Mahsulot_ID; if(e&&priceBelowCost(mid,e.Narx,"dollar")) bad.push(mMap[mid]?.Nomi||mid); } }
       if(bad.length){ alert("Tan narxidan past — saqlab bo'lmaydi:\n• "+bad.join("\n• ")+"\n\nNarxni to'g'rilang."); return; } }
     { const bad:string[]=[];
-      for(const r of [...savatSom,...savatDollar]){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; if(e&&num(e.Soni)<=0) bad.push(mMap[e.Mahsulot||r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID); } }
-      if(bad.length){ alert("Soni 0 dan katta bo'lishi kerak:\n"+bad.join("\n")); return; } }
+      for(const r of [...savatSom,...savatDollar]){ if(bulkSel.has(r.Savat_ID)){ const e=bulkEdits[r.Savat_ID]; if(e&&num(e.Soni)===0) bad.push(mMap[e.Mahsulot||r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID); } }
+      if(bad.length){ alert("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan kiriting):\n"+bad.join("\n")); return; } }
     setBulkSaving(true);
     try {
       for(const r of savatSom){
@@ -802,7 +805,7 @@ export default function SotuvDetailPage() {
     if(!sotuv) return;
     if(savingRowIds.current.has(row.id)) return;
     // Tan narxidan past narxga sotishga ruxsat berilmaydi
-    if(num(row.Soni)<=0){ showToast("Soni 0 dan katta bo'lishi kerak", false); return; }
+    if(num(row.Soni)===0){ showToast("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan)", false); return; }
     if(priceBelowCost(row.Mahsulot_ID,row.Narx,valyuta)){ showToast((mMap[row.Mahsulot_ID]?.Nomi||"Mahsulot")+" — tan narxidan past, saqlanmadi", false); return; }
     savingRowIds.current.add(row.id);
     setSavingIds(s=>new Set(s).add(row.id));
@@ -1622,11 +1625,11 @@ export default function SotuvDetailPage() {
               <SavatEditor items={editItems} onUpdate={updateItem} onRemove={removeItem} onAddSom={addSomItem} onAddDollar={addDollarItem} jamiS={editJamiSom} jamiD={editJamiDollar} kursVal={editKurs} isMobile={isMobile} somItems={mhItems} dollarItems={mhItems} mMap={mMap} simple={isAddMode} showDollar={isAdmin}/>
             </div>
             {(() => { const bad=editItems.filter(s=>isBelowCost(s,editKurs||"0",mMap)).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Tan narxidan past — saqlab bo&apos;lmaydi: {bad.join(", ")}. Narxni to&apos;g&apos;rilang.</div>):null; })()}
-            {(() => { const bad=editItems.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 yoki manfiy — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini to&apos;g&apos;rilang.</div>):null; })()}
+            {(() => { const bad=editItems.filter(isBadSoni).map(s=>mMap[s.Mahsulot_ID]?.Nomi||"").filter(Boolean); return bad.length?(<div style={{padding:"9px 20px",background:"#fef2f2",borderTop:"1px solid #fecaca",fontSize:12.5,fontWeight:700,color:"#dc2626"}}>⚠️ Soni 0 — saqlab bo&apos;lmaydi: {bad.join(", ")}. Sonini kiriting (qaytarish uchun minus bilan).</div>):null; })()}
             <div style={{display:"flex",justifyContent:"flex-end",gap:10,padding:isMobile?"14px 16px":"16px 24px",borderTop:"1px solid var(--border)"}}>
               <button className="btn btn--outline" onClick={()=>setEditOpen(false)}>Bekor</button>
               <button className="btn btn--primary" onClick={handleUpdate}
-                disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&num(s.Soni)>0&&(num(s.Som_Narx)||num(s.Narx))).length===0||editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))||editItems.some(isBadSoni)}>
+                disabled={editSaving||editItems.filter(s=>s.Mahsulot_ID&&num(s.Soni)!==0&&(num(s.Som_Narx)||num(s.Narx))).length===0||editItems.some(s=>isBelowCost(s,editKurs||"0",mMap))||editItems.some(isBadSoni)}>
                 {editSaving&&<span className="spinner"/>} Saqlash
               </button>
             </div>

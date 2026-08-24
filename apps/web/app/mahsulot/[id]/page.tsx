@@ -113,7 +113,6 @@ export default function MahsulotDetailPage() {
   const [saving, setSaving] = useState<PriceField | null>(null);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo]     = useState(todayISO());
-  const [activeTur, setActiveTur] = useState("Barchasi");
   const [q, setQ] = useState("");
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
@@ -328,12 +327,7 @@ export default function MahsulotDetailPage() {
     </div>
   );
 
-  const turTabs = ["Barchasi", "Kirim", "Chiqim"];
-
   const inRangeTx = viewTxAll.filter(t => inRange(t.sana, dateFrom, dateTo));
-  const filtered = activeTur === "Barchasi" ? inRangeTx
-    : activeTur === "Kirim"  ? inRangeTx.filter(t => t.kirim > 0)
-    : inRangeTx.filter(t => t.chiqim > 0);
 
   const davrKirim  = inRangeTx.reduce((s, t) => s + t.kirim, 0);
   const davrChiqim = inRangeTx.reduce((s, t) => s + t.chiqim, 0);
@@ -353,8 +347,6 @@ export default function MahsulotDetailPage() {
   const qLower = q.trim().toLowerCase();
   const filteredWithBalance = withBalance.filter(t => {
     if (!inRange(t.sana, dateFrom, dateTo)) return false;
-    if (activeTur === "Kirim"  && t.kirim  === 0) return false;
-    if (activeTur === "Chiqim" && t.chiqim === 0) return false;
     if (qLower) {
       // Matn (mijoz nomi, izoh, sana) yoki raqam (summa, narx — bo'shliqlarsiz) bo'yicha
       const textHay = `${t.manba} ${t.izoh} ${t.sana}`.toLowerCase();
@@ -388,21 +380,6 @@ export default function MahsulotDetailPage() {
           <h1 style={{ fontSize: 16, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", flexShrink: 0 }}>
             {mahsulot.Nomi}
           </h1>
-
-          <div style={{ display: "flex", alignItems: "center", background: "var(--bg)", borderRadius: "var(--radius)", padding: 3, gap: 2, flexShrink: 0 }}>
-            {turTabs.map(t => (
-              <button key={t} onClick={() => setActiveTur(t)} style={{
-                padding: "5px 12px", borderRadius: "calc(var(--radius) - 2px)",
-                border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600,
-                background: activeTur === t ? "var(--white)" : "transparent",
-                color: activeTur === t ? "var(--primary)" : "var(--text-3)",
-                boxShadow: activeTur === t ? "var(--shadow-sm)" : "none",
-                transition: "all .15s", whiteSpace: "nowrap",
-              }}>
-                {t}
-              </button>
-            ))}
-          </div>
 
           <div style={{ flex: 1 }}/>
 
@@ -525,74 +502,94 @@ export default function MahsulotDetailPage() {
                 <Card label="HOZIRDA BOR" value={`${fmtNum(joriyBalans)} kg`} color={joriyBalans >= 0 ? "var(--primary)" : "#ef4444"} bg={joriyBalans >= 0 ? "#dcfce7" : "#fee2e2"} border={`2px solid ${joriyBalans >= 0 ? "var(--primary)" : "#ef4444"}`} />
               </div>
 
-              {/* Narx jadvali */}
-              <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", overflow: "hidden", marginBottom: 24 }}>
-                <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)" }}>
-                  <p style={{ fontSize: 14, fontWeight: 700 }}>Narxlar tarixi</p>
-                </div>
-                {isMobile ? (
-                  <div>
-                    {filteredWithBalance.map((tx, i) => {
-                      const isDollar = tx.narxDollar > 0 && tx.narxSom === 0;
-                      const narx = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
-                      return (
-                        <div key={tx.id + i} onClick={() => router.push(`/${tx.linkType}/${tx.linkId}`)}
-                          style={{ padding: "12px 16px", borderBottom: i < withBalance.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                            <span style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: tx.linkType === "xarid" ? "#dcfce7" : "#fee2e2", color: tx.linkType === "xarid" ? "#16a34a" : "#ef4444" }}>{tx.linkType === "xarid" ? "Kirim" : "Chiqim"}</span>
-                          </div>
-                          <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", marginBottom: 8 }}>{tx.manba}</div>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 13, fontWeight: 700, color: tx.linkType === "xarid" ? "#16a34a" : "#ef4444" }}>{tx.linkType === "xarid" ? "+" : "-"}{fmtNum(tx.kirim || tx.chiqim)} kg</span>
-                            <span style={{ fontSize: 12.5, fontWeight: 600, color: isDollar ? "#2563eb" : "var(--text)" }}>{narx}</span>
-                            <span style={{ fontSize: 12.5, fontWeight: 800, color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>Qoldiq: {fmtNum(tx.balans)} kg</span>
-                          </div>
+              {/* Kirim / Chiqim — yonma-yon alohida panellar */}
+              {(() => {
+                const kirimRows  = filteredWithBalance.filter(t => t.kirim  > 0);
+                const chiqimRows = filteredWithBalance.filter(t => t.chiqim > 0);
+
+                const Panel = ({ tur, rows }: { tur: "Kirim" | "Chiqim"; rows: typeof filteredWithBalance }) => {
+                  const green = tur === "Kirim";
+                  const acc   = green ? "#16a34a" : "#ef4444";
+                  const accBg = green ? "#dcfce7" : "#fee2e2";
+                  const jami  = rows.reduce((s, t) => s + (green ? t.kirim : t.chiqim), 0);
+                  return (
+                    <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", overflow: "hidden", minWidth: 0 }}>
+                      <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: accBg, color: acc, whiteSpace: "nowrap" }}>{tur}</span>
+                          <p style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-3)", whiteSpace: "nowrap" }}>{rows.length} ta operatsiya</p>
                         </div>
-                      );
-                    })}
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: acc, whiteSpace: "nowrap" }}>{green ? "+" : "−"}{fmtNum(jami)} kg</span>
+                      </div>
+                      {rows.length === 0 ? (
+                        <p style={{ padding: "22px 18px", fontSize: 13, color: "var(--text-3)", textAlign: "center" }}>Ma&apos;lumot yo&apos;q</p>
+                      ) : isMobile ? (
+                        <div>
+                          {rows.map((tx, i) => {
+                            const isDollar = tx.narxDollar > 0 && tx.narxSom === 0;
+                            const narx = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
+                            return (
+                              <div key={tx.id + i} onClick={() => router.push(`/${tx.linkType}/${tx.linkId}`)}
+                                style={{ padding: "12px 16px", borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: acc }}>{green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} kg</span>
+                                </div>
+                                <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", marginBottom: 8 }}>{tx.manba}</div>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isDollar ? "#2563eb" : "var(--text)" }}>{narx}</span>
+                                  <span style={{ fontSize: 12.5, fontWeight: 800, color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>Qoldiq: {fmtNum(tx.balans)} kg</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                            <thead>
+                              <tr style={{ background: "var(--bg)" }}>
+                                {["SANA","MIJOZ","MIQDOR","NARXI","QOLDIQ"].map(h => (
+                                  <th key={h} style={{ padding: "9px 14px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", textAlign: "left", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {rows.map((tx, i) => {
+                                const isDollar  = tx.narxDollar > 0 && tx.narxSom === 0;
+                                const narx      = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
+                                const narxColor = isDollar ? "#2563eb" : "var(--text)";
+                                const balColor  = tx.balans >= 0 ? "var(--text)" : "#ef4444";
+                                return (
+                                  <tr key={tx.id + i} style={{ borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}
+                                    onClick={() => router.push(`/${tx.linkType}/${tx.linkId}`)}
+                                    onMouseEnter={e => (e.currentTarget.style.background = "var(--bg)")}
+                                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{tx.sana}</td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.manba}</td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: acc, whiteSpace: "nowrap" }}>
+                                      {green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} kg
+                                    </td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: narxColor, whiteSpace: "nowrap" }}>{narx}</td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 800, color: balColor, whiteSpace: "nowrap" }}>{fmtNum(tx.balans)} kg</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                };
+
+                return (
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, alignItems: "start", marginBottom: 24 }}>
+                    <Panel tur="Kirim"  rows={kirimRows} />
+                    <Panel tur="Chiqim" rows={chiqimRows} />
                   </div>
-                ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ background: "var(--bg)" }}>
-                        {["SANA","MIJOZ","TURI","MIQDOR","NARXI","HOZIRDA BOR"].map(h => (
-                          <th key={h} style={{ padding: "9px 14px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", textAlign: "left", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredWithBalance.map((tx, i) => {
-                        const isDollar  = tx.narxDollar > 0 && tx.narxSom === 0;
-                        const narx      = isDollar ? `$${tx.narxDollar.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}` : tx.narxSom > 0 ? tx.narxSom.toLocaleString("ru-RU") + " so'm" : "—";
-                        const narxColor = isDollar ? "#2563eb" : "var(--text)";
-                        const balColor  = tx.balans >= 0 ? "var(--text)" : "#ef4444";
-                        return (
-                          <tr key={tx.id + i} style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}
-                            onClick={() => router.push(`/${tx.linkType}/${tx.linkId}`)}
-                            onMouseEnter={e => (e.currentTarget.style.background = "var(--bg)")}
-                            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
-                            <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{tx.sana}</td>
-                            <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed" }}>{tx.manba}</td>
-                            <td style={{ padding: "10px 14px" }}>
-                              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: tx.linkType === "xarid" ? "#dcfce7" : "#fee2e2", color: tx.linkType === "xarid" ? "#16a34a" : "#ef4444" }}>
-                                {tx.linkType === "xarid" ? "Kirim" : "Chiqim"}
-                              </span>
-                            </td>
-                            <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: tx.linkType === "xarid" ? "#16a34a" : "#ef4444" }}>
-                              {tx.linkType === "xarid" ? "+" : "-"}{fmtNum(tx.kirim || tx.chiqim)} kg
-                            </td>
-                            <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: narxColor }}>{narx}</td>
-                            <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 800, color: balColor }}>{fmtNum(tx.balans)} kg</td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                )}
-              </div>
+                );
+              })()}
             </>
           );
         })()}
