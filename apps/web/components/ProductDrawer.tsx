@@ -14,14 +14,19 @@ export interface ProductRow {
   Sotuv_dollar: string;
   Qoshilgan_sana: string;
   Kg: string;
+  Birlik: string;
   Check: string;
 }
 export interface OmborRow { Ombor_ID: string; Nomi: string; }
 
+// O'lchov birligi: mahsulot dona bilan sanaladimi yoki kg bilan o'lchanadimi.
+// Bo'sh qiymat "Dona" deb o'qiladi (lib/birlik.ts) — eski mahsulotlar shu sabab o'zgarmaydi.
+const BIRLIKLAR = ["Dona", "Kg"] as const;
+
 const EMPTY: ProductRow = {
   Mahsulot_ID: "", Ombor_ID: "", Nomi: "", Rasm: "",
   Tan_som: "", Sotuv_som: "", Tan_dollar: "", Sotuv_dollar: "",
-  Qoshilgan_sana: "", Kg: "", Check: "TRUE",
+  Qoshilgan_sana: "", Kg: "", Birlik: "Dona", Check: "TRUE",
 };
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function num(v: string) { return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0; }
@@ -62,7 +67,8 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
   useEffect(() => {
     if (!open) return;
     if (editTarget) {
-      setFormData({ ...editTarget });
+      // Eski mahsulotlarda Birlik bo'sh — "Dona" deb ochiladi va saqlanganda aniq yoziladi
+      setFormData({ ...editTarget, Birlik: editTarget.Birlik || "Dona" });
     } else {
       setFormData({ ...EMPTY, Mahsulot_ID: uid(), Ombor_ID: defaultOmborId || omborlar[0]?.Ombor_ID || "", Nomi: initialNomi || "" });
     }
@@ -173,6 +179,25 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
             <div className="field">
               <label>Og&apos;irligi (kg)</label>
               <input value={formData.Kg} onChange={e => setFormData(p => ({ ...p, Kg: e.target.value }))} placeholder="1" />
+            </div>
+
+            {/* O'lchov birligi — mahsulot dona bilan sanaladimi yoki kg bilan o'lchanadimi */}
+            <div className="field">
+              <label>O&apos;lchov birligi</label>
+              <div className="pill-group">
+                {BIRLIKLAR.map(b => (
+                  <button key={b} type="button"
+                    className={`pill ${(formData.Birlik || "Dona") === b ? "pill--active" : ""}`}
+                    onClick={() => setFormData(p => ({ ...p, Birlik: b }))}>
+                    {b}
+                  </button>
+                ))}
+              </div>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 6 }}>
+                {(formData.Birlik || "Dona") === "Kg"
+                  ? "Miqdor kg bilan sanaladi (masalan 5,5 kg)"
+                  : "Miqdor dona bilan sanaladi (masalan 12 dona)"}
+              </p>
             </div>
 
           </div>

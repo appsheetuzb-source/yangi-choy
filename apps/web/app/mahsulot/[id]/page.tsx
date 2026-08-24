@@ -3,6 +3,7 @@
 import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { birlikOf } from "@/lib/birlik";
 import { useAuth } from "@/lib/AuthContext";
 import { readOmbor2, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
@@ -10,7 +11,7 @@ interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Rasm: string;
   Sotuv_som: string; Sotuv_dollar: string;
   Tan_som: string; Tan_dollar: string;
-  Kg: string; Ombor_ID: string;
+  Kg: string; Birlik?: string; Ombor_ID: string;
 }
 interface XaridSavat {
   X_Savat: string; Sana: string; Mahsulot_ID: string; Xarid_ID: string;
@@ -327,6 +328,10 @@ export default function MahsulotDetailPage() {
     </div>
   );
 
+  // Bu sahifa BITTA mahsulot haqida - barcha miqdorlar o'sha mahsulotning birligida ko'rsatiladi.
+  // (Ilgari hamma joyda "kg" deb yozilgan edi, aslida Soni yig'indisi - ya'ni dona - ko'rsatilardi.)
+  const bir = birlikOf(mahsulot);
+
   const inRangeTx = viewTxAll.filter(t => inRange(t.sana, dateFrom, dateTo));
 
   const davrKirim  = inRangeTx.reduce((s, t) => s + t.kirim, 0);
@@ -497,9 +502,9 @@ export default function MahsulotDetailPage() {
               )}
               {/* KG cards — 3 ustunli */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 16 : 24 }}>
-                <Card label="KIRIM"       value={`+${fmtNum(davrKirim)} kg`}  sub={`${kirimCount} ta operatsiya`}  color="#16a34a" bg="#dcfce7" />
-                <Card label="CHIQIM"      value={`-${fmtNum(davrChiqim)} kg`} sub={`${chiqimCount} ta operatsiya`} color="#ef4444" bg="#fee2e2" />
-                <Card label="HOZIRDA BOR" value={`${fmtNum(joriyBalans)} kg`} color={joriyBalans >= 0 ? "var(--primary)" : "#ef4444"} bg={joriyBalans >= 0 ? "#dcfce7" : "#fee2e2"} border={`2px solid ${joriyBalans >= 0 ? "var(--primary)" : "#ef4444"}`} />
+                <Card label="KIRIM"       value={`+${fmtNum(davrKirim)} ${bir}`}  sub={`${kirimCount} ta operatsiya`}  color="#16a34a" bg="#dcfce7" />
+                <Card label="CHIQIM"      value={`-${fmtNum(davrChiqim)} ${bir}`} sub={`${chiqimCount} ta operatsiya`} color="#ef4444" bg="#fee2e2" />
+                <Card label="HOZIRDA BOR" value={`${fmtNum(joriyBalans)} ${bir}`} color={joriyBalans >= 0 ? "var(--primary)" : "#ef4444"} bg={joriyBalans >= 0 ? "#dcfce7" : "#fee2e2"} border={`2px solid ${joriyBalans >= 0 ? "var(--primary)" : "#ef4444"}`} />
               </div>
 
               {/* Kirim / Chiqim — yonma-yon alohida panellar */}
@@ -519,7 +524,7 @@ export default function MahsulotDetailPage() {
                           <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 20, background: accBg, color: acc, whiteSpace: "nowrap" }}>{tur}</span>
                           <p style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-3)", whiteSpace: "nowrap" }}>{rows.length} ta operatsiya</p>
                         </div>
-                        <span style={{ fontSize: 13.5, fontWeight: 800, color: acc, whiteSpace: "nowrap" }}>{green ? "+" : "−"}{fmtNum(jami)} kg</span>
+                        <span style={{ fontSize: 13.5, fontWeight: 800, color: acc, whiteSpace: "nowrap" }}>{green ? "+" : "−"}{fmtNum(jami)} {bir}</span>
                       </div>
                       {rows.length === 0 ? (
                         <p style={{ padding: "22px 18px", fontSize: 13, color: "var(--text-3)", textAlign: "center" }}>Ma&apos;lumot yo&apos;q</p>
@@ -533,12 +538,12 @@ export default function MahsulotDetailPage() {
                                 style={{ padding: "12px 16px", borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                   <span style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</span>
-                                  <span style={{ fontSize: 13, fontWeight: 700, color: acc }}>{green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} kg</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: acc }}>{green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} {bir}</span>
                                 </div>
                                 <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", marginBottom: 8 }}>{tx.manba}</div>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                                   <span style={{ fontSize: 12.5, fontWeight: 600, color: isDollar ? "#2563eb" : "var(--text)" }}>{narx}</span>
-                                  <span style={{ fontSize: 12.5, fontWeight: 800, color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>Qoldiq: {fmtNum(tx.balans)} kg</span>
+                                  <span style={{ fontSize: 12.5, fontWeight: 800, color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>Qoldiq: {fmtNum(tx.balans)} {bir}</span>
                                 </div>
                               </div>
                             );
@@ -568,10 +573,10 @@ export default function MahsulotDetailPage() {
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{tx.sana}</td>
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.manba}</td>
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: acc, whiteSpace: "nowrap" }}>
-                                      {green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} kg
+                                      {green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} {bir}
                                     </td>
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: narxColor, whiteSpace: "nowrap" }}>{narx}</td>
-                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 800, color: balColor, whiteSpace: "nowrap" }}>{fmtNum(tx.balans)} kg</td>
+                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 800, color: balColor, whiteSpace: "nowrap" }}>{fmtNum(tx.balans)} {bir}</td>
                                   </tr>
                                 );
                               })}
@@ -619,11 +624,11 @@ export default function MahsulotDetailPage() {
                       <p style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</p>
                       {tx.vaqt && <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 1 }}>{tx.vaqt}</p>}
                     </div>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: tx.kirim > 0 ? "#16a34a" : "#ef4444", whiteSpace: "nowrap" }}>{tx.kirim > 0 ? `+${fmtNum(tx.kirim)}` : `-${fmtNum(tx.chiqim)}`} kg</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: tx.kirim > 0 ? "#16a34a" : "#ef4444", whiteSpace: "nowrap" }}>{tx.kirim > 0 ? `+${fmtNum(tx.kirim)}` : `-${fmtNum(tx.chiqim)}`} {bir}</span>
                   </div>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed" }}>{tx.manba}</div>
                   {tx.izoh && <div style={{ fontSize: 12, color: "var(--text-2)", marginTop: 3 }}>{tx.izoh}</div>}
-                  <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 5 }}>Balans: <b style={{ color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>{fmtNum(tx.balans)} kg</b></div>
+                  <div style={{ fontSize: 12, color: "var(--text-3)", marginTop: 5 }}>Balans: <b style={{ color: tx.balans >= 0 ? "var(--text)" : "#ef4444" }}>{fmtNum(tx.balans)} {bir}</b></div>
                 </div>
               ))}
             </div>
@@ -681,15 +686,15 @@ export default function MahsulotDetailPage() {
                       </td>
                       <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 700,
                         color: "#16a34a", textAlign: "right", whiteSpace: "nowrap" }}>
-                        {tx.kirim > 0 ? `+${fmtNum(tx.kirim)} kg` : "—"}
+                        {tx.kirim > 0 ? `+${fmtNum(tx.kirim)} ${bir}` : "—"}
                       </td>
                       <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 700,
                         color: "#ef4444", textAlign: "right", whiteSpace: "nowrap" }}>
-                        {tx.chiqim > 0 ? `-${fmtNum(tx.chiqim)} kg` : "—"}
+                        {tx.chiqim > 0 ? `-${fmtNum(tx.chiqim)} ${bir}` : "—"}
                       </td>
                       <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 800,
                         color: tx.balans >= 0 ? "var(--text)" : "#ef4444", textAlign: "right", whiteSpace: "nowrap" }}>
-                        {fmtNum(tx.balans)} kg
+                        {fmtNum(tx.balans)} {bir}
                       </td>
                     </tr>
                   ))}

@@ -19,6 +19,9 @@ const REQUIRED: { table: string; column: string }[] = [
   // Agent bo'yicha Telegram yo'naltirish: har agentning o'z bot tokeni + guruh chat_id si
   { table: "foydalanuvchi", column: "Telegram_Token" },
   { table: "foydalanuvchi", column: "Telegram_Chat" },
+  // Mahsulotning o'lchov birligi ("Dona" / "Kg"). Eski AppSheet bazasida bunday ustun
+  // bo'lmagan — bo'sh qiymat "Dona" deb o'qiladi (lib/birlik.ts), ya'ni avvalgi holat saqlanadi.
+  { table: "mahsulot", column: "Birlik" },
 ];
 
 function q(name: string) { return '"' + String(name).replace(/"/g, '""') + '"'; }

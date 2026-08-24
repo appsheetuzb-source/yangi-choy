@@ -2,10 +2,11 @@
 import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { birlikOf, boshJami, qoshJami, fmtJami } from "@/lib/birlik";
 
 interface Ombor { Ombor_ID: string; Nomi: string; Masul: string; Status: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
-interface OmborStat { dona: number; som: number; dollar: number; }
+interface OmborStat { dona: number; kg: number; som: number; dollar: number; }
 
 const STATUSLAR = ["Faol", "Nofaol"];
 const EMPTY: Ombor = { Ombor_ID: "", Nomi: "", Masul: "", Status: "Faol" };
@@ -71,16 +72,17 @@ export default function OmborlarPage() {
         ssdR.data as Record<string, string>[],
         shopWH,
       );
-      const price: Record<string, { som: number; dollar: number }> = {};
-      (mR.data as Record<string, string>[]).forEach(m => { if (m.Mahsulot_ID) price[m.Mahsulot_ID] = { som: num(m.Sotuv_som), dollar: num(m.Sotuv_dollar) }; });
+      const price: Record<string, { som: number; dollar: number; birlik: ReturnType<typeof birlikOf> }> = {};
+      (mR.data as Record<string, string>[]).forEach(m => { if (m.Mahsulot_ID) price[m.Mahsulot_ID] = { som: num(m.Sotuv_som), dollar: num(m.Sotuv_dollar), birlik: birlikOf(m) }; });
       const stats: Record<string, OmborStat> = {};
       for (const o of Object.keys(inv)) {
-        let dona = 0, som = 0, dollar = 0;
+        const miqdor = boshJami();
+        let som = 0, dollar = 0;
         for (const mid of Object.keys(inv[o])) {
-          const q = inv[o][mid]; const p = price[mid] || { som: 0, dollar: 0 };
-          dona += q; som += q * p.som; dollar += q * p.dollar;
+          const q = inv[o][mid]; const p = price[mid] || { som: 0, dollar: 0, birlik: "dona" as const };
+          qoshJami(miqdor, q, p.birlik); som += q * p.som; dollar += q * p.dollar;
         }
-        stats[o] = { dona, som, dollar };
+        stats[o] = { dona: miqdor.dona, kg: miqdor.kg, som, dollar };
       }
       setOmborStats(stats);
     }).catch(() => {});
@@ -198,7 +200,7 @@ export default function OmborlarPage() {
                         const st = omborStats[o.Ombor_ID];
                         return (
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12, padding: "10px 12px", background: "var(--bg)", borderRadius: 10, border: "1px solid var(--border)" }}>
-                            <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>QOLDIQ</p><p style={{ fontSize: 14, fontWeight: 800, color: "var(--primary)" }}>{st ? fmt0(st.dona) : "…"}<span style={{ fontSize: 10, fontWeight: 600, color: "var(--text-3)" }}> dona</span></p></div>
+                            <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>QOLDIQ</p><p style={{ fontSize: 14, fontWeight: 800, color: "var(--primary)" }}>{st ? fmtJami({ dona: st.dona, kg: st.kg }) : "…"}</p></div>
                             <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>SO&apos;M</p><p style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{st ? fmt0(st.som) : "…"}</p></div>
                             <div><p style={{ fontSize: 9, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", marginBottom: 2 }}>DOLLAR</p><p style={{ fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{st ? "$" + fmt2(st.dollar) : "…"}</p></div>
                           </div>

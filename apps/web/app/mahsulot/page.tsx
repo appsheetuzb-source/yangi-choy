@@ -10,6 +10,7 @@ import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/l
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { birlikOf, fmtMiqdor, boshJami, qoshJami, fmtJami } from "@/lib/birlik";
 
 interface Mahsulot {
   Mahsulot_ID: string;
@@ -22,6 +23,7 @@ interface Mahsulot {
   Sotuv_dollar: string;
   Qoshilgan_sana: string;
   Kg: string;
+  Birlik: string;
   Check: string;
 }
 
@@ -184,20 +186,22 @@ export default function MahsulotPage() {
     io.observe(el); return () => io.disconnect();
   }, [filtered.length, view]);
 
-  // ── Yuklash: mahsulot nomi + qoldiq (dona) + chiqarilgan sana ──
+  // ── Yuklash: mahsulot nomi + qoldiq (o'z birligida) + chiqarilgan sana ──
   function buildMahsulotExport(): ExportOpts {
     const d = new Date();
     const sana = `${String(d.getDate()).padStart(2,"0")}.${String(d.getMonth()+1).padStart(2,"0")}.${d.getFullYear()}`;
-    const rows = sorted.map((m, i) => [i+1, m.Nomi || "—", `${(balansMap[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU")} dona`]);
-    const jami = sorted.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0), 0);
+    const rows = sorted.map((m, i) => [i+1, m.Nomi || "—", fmtMiqdor(balansMap[m.Mahsulot_ID] ?? 0, birlikOf(m))]);
+    // Dona va kg ni qo'shib bo'lmaydi - JAMI ikkalasini alohida ko'rsatadi
+    const jami = boshJami();
+    sorted.forEach(m => qoshJami(jami, balansMap[m.Mahsulot_ID] ?? 0, birlikOf(m)));
     return {
       title: "Mahsulotlar — qoldiq",
       subtitle: `Chiqarilgan sana: ${sana}  ·  Jami: ${sorted.length} ta mahsulot`,
       filename: `mahsulotlar-qoldiq-${sana.replace(/\./g,"-")}`,
       sections: [{
-        headers: ["№", "Mahsulot nomi", "Qoldiq (dona)"],
+        headers: ["№", "Mahsulot nomi", "Qoldiq"],
         rows,
-        foot: ["", "JAMI", `${jami.toLocaleString("ru-RU")} dona`],
+        foot: ["", "JAMI", fmtJami(jami)],
       }],
     };
   }
@@ -366,14 +370,15 @@ export default function MahsulotPage() {
           const n = (v: string | number | undefined) => parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
           const fmt    = (v: number) => v.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
           const fmtUsd = (v: number) => v.toLocaleString("ru-RU", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-          // Hozirda bor — DONA da (balansMap: xarid Soni - sotuv Soni)
-          const hozirdaBorDona   = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0), 0);
+          // Hozirda bor — har mahsulot o'z birligida; dona va kg qo'shilmaydi, alohida sanaladi
+          const hozirdaBorMiqdor = boshJami();
+          omborMahsulotlar.forEach(m => qoshJami(hozirdaBorMiqdor, balansMap[m.Mahsulot_ID] ?? 0, birlikOf(m)));
           const hozirdaBorSom    = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_som),    0);
           const hozirdaBorDollar = omborMahsulotlar.reduce((s, m) => s + (balansMap[m.Mahsulot_ID] ?? 0) * n(m.Sotuv_dollar), 0);
           return (
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(150px, 1fr))", gap: isMobile ? 8 : 12, marginBottom: isMobile ? 14 : 20 }}>
               {[
-                { label: "HOZIRDA BOR (DONA)", value: `${fmt(hozirdaBorDona)} dona`, color: "var(--primary)", bg: "#dcfce7",
+                { label: "HOZIRDA BOR (MIQDOR)", value: fmtJami(hozirdaBorMiqdor), color: "var(--primary)", bg: "#dcfce7",
                   icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
                 { label: "HOZIRDA BOR", value: `${fmt(hozirdaBorSom)} so'm`, color: "#16a34a", bg: "#dcfce7",
                   icon: <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M20 7H4a2 2 0 00-2 2v6a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M16 3H8v4h8V3z"/></svg> },
@@ -590,7 +595,7 @@ function ListCard({ mahsulot: m, currency, balans, onEdit, onDelete }: {
       )}
       <div className="list-card__col">
         <p className="list-card__col-val" style={{ color: balans !== undefined && balans > 0 ? "var(--primary)" : balans !== undefined && balans < 0 ? "#ef4444" : "var(--text-3)", fontWeight: 700 }}>
-          {balans !== undefined ? `${balans.toLocaleString("ru-RU")} dona` : "—"}
+          {balans !== undefined ? fmtMiqdor(balans, birlikOf(m)) : "—"}
         </p>
       </div>
       <div className="list-card__actions">
@@ -653,7 +658,7 @@ function GridCard({ mahsulot: m, currency, omborNomi, jami, breakdown, balans, o
           )}
           {balans !== undefined && (
             <span style={{ fontSize: 10.5, fontWeight: 800, color: balans < 0 ? "#dc2626" : balans === 0 ? "var(--text-3)" : "#15803d", background: balans < 0 ? "#fef2f2" : balans === 0 ? "var(--bg)" : "#f0fdf4", padding: "2px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
-              {jami ? "Jami: " : ""}{balans.toLocaleString("ru-RU")} dona
+              {jami ? "Jami: " : ""}{fmtMiqdor(balans, birlikOf(m))}
             </span>
           )}
         </div>

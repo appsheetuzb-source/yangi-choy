@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useRef, useMemo } from "react";
+import { birlikOf } from "@/lib/birlik";
 import { useParams, useRouter } from "next/navigation";
 import LiveClock from "@/components/LiveClock";
 import IzohSelect from "@/components/IzohSelect";
@@ -25,7 +26,7 @@ interface SotuvSavatDollarRow {
 }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; Lavozim?: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; Dokon_Ombor_ID?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
-interface Mahsulot { Mahsulot_ID: string; Nomi: string; Ombor_ID: string; Sotuv_dollar: string; Sotuv_som: string; Tan_som?: string; Tan_dollar?: string; }
+interface Mahsulot { Mahsulot_ID: string; Nomi: string; Ombor_ID: string; Sotuv_dollar: string; Sotuv_som: string; Tan_som?: string; Tan_dollar?: string; Birlik?: string; }
 interface SavatItem { id: string; Mahsulot_ID: string; Soni: string; Som_Narx: string; Narx: string; valyuta: "som"|"dollar"; Izoh?: string; }
 interface AddRow { id: string; Mahsulot_ID: string; Soni: string; Narx: string; Izoh: string; }
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; }
@@ -177,7 +178,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:simple?"1fr":"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
                   style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                   style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -192,7 +193,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 1fr 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -233,7 +234,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
               </div>
               <div style={{display:"grid",gridTemplateColumns:simple?"1fr":"1fr 1fr",gap:6}}>
-                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+                <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
                   style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                 <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                   style={{width:"100%",minWidth:0,boxSizing:"border-box",padding:"8px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
@@ -248,7 +249,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 1fr 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>

@@ -5,11 +5,13 @@ import { exportPDF, type ExportOpts } from "@/lib/export";
 import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useMemo, useRef } from "react";
+import { birlikOf, fmtMiqdor } from "@/lib/birlik";
 import { useRouter } from "next/navigation";
 
 interface Mahsulot {
   Mahsulot_ID: string; Ombor_ID: string; Nomi: string;
   Sotuv_som: string; Sotuv_dollar: string;
+  Birlik?: string;
 }
 interface SelItem { som: string; usd: string; }
 
@@ -99,7 +101,7 @@ export default function NarxChekPage() {
       m.Nomi || "—",
       fmtSom(n(it.som)),
       fmtUsd(n(it.usd)),
-      `${(balans[m.Mahsulot_ID] ?? 0).toLocaleString("ru-RU")} dona`,
+      fmtMiqdor(balans[m.Mahsulot_ID] ?? 0, birlikOf(m)),
     ]);
     return {
       title: "Musaffotea mahsulotlari",
@@ -226,7 +228,7 @@ export default function NarxChekPage() {
                       <p style={{ fontSize: 14, fontWeight: 700, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.Nomi || "—"}</p>
                       {!sel && <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{fmtSom(n(m.Sotuv_som))} · {fmtUsd(n(m.Sotuv_dollar))}</p>}
                     </div>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: soni > 0 ? "var(--primary)" : "var(--text-3)", flexShrink: 0, whiteSpace: "nowrap" }}>{soni.toLocaleString("ru-RU")} dona</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: soni > 0 ? "var(--primary)" : "var(--text-3)", flexShrink: 0, whiteSpace: "nowrap" }}>{fmtMiqdor(soni, birlikOf(m))}</span>
                   </div>
                   {sel && (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>

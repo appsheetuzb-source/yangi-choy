@@ -8,6 +8,7 @@ import ProductDrawer, { type ProductRow } from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { birlikOf } from "@/lib/birlik";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
 
@@ -30,6 +31,7 @@ interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Ombor_ID: string;
   Sotuv_dollar: string; Sotuv_som: string;
   Tan_som: string; Tan_dollar: string;
+  Birlik?: string;
 }
 interface KursRow { Sana: string; Kurs: string; Vaqt?: string; }
 interface SavatItem {
@@ -263,7 +265,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
                 style={{padding:"10px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Som_Narx} onChange={e=>onUpdate(s.id,"Som_Narx",e.target.value)} placeholder="Narx (so'm)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bbf7d0"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -309,7 +311,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
             <div key={s.id} style={{display:"grid",gridTemplateColumns:"28px 3fr 90px 130px 110px 36px",gap:8,alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
               <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
-              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="Miqdor" type="number"
+              <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
                 style={{padding:"10px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
               <input value={s.Narx} onChange={e=>onUpdate(s.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                 style={{padding:"10px",border:`1px solid ${bc?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center",color:bc?"#ef4444":"#2563eb"}}/>
