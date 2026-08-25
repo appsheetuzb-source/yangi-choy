@@ -5,7 +5,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Agent: string; }
-interface SavatRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; Kurs: string; Som_tan_narx?: string; Foyda?: string; }
+interface SavatRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; Kurs: string; Som_tan_narx?: string; Foyda?: string; Foyda_summasi_som?: string; }
 interface SavatDollarRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; Kurs: string; Tan_narx?: string; Foyda?: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; }
@@ -115,16 +115,20 @@ export default function FoydaPage() {
       if (!s || !inFilter(s)) return;
       const mah = mahMap[r.Mahsulot_ID];
       const rk = num(r.Kurs) || kurs;
-      // Sotuv paytida yozilgan tan narxni ishlatamiz — mahsulot tan narxi keyin
-      // o'zgarsa ham eski sotuvning foydasi o'zgarmaydi (avval har safar bugungi
-      // tan narx bilan qayta hisoblanardi va eski sotuvlar zararga chiqib qolardi).
-      // Ishonch belgisi: Foyda ustuni to'ldirilgan (eski qatorlarda u bo'sh).
-      const snapOk = String(r.Foyda ?? "").trim() !== "" && num(r.Som_tan_narx) > 0;
-      // Snapshot yo'q eski qatorlar uchun — avvalgidek joriy tan narx
+      // ⚠️ Som_tan_narx ustunini TO'G'RIDAN-TO'G'RI ISHLATIB BO'LMAYDI — u ARALASH birlikda:
+      // 23 004 qatordan 10 320 tasida qiymat so'mda, 10 740 tasida DOLLARDA saqlangan
+      // (eski AppSheet mahsulotning Tan_dollar qiymatini shu ustunga xom holda yozgan).
+      // Uni so'm deb o'qish foydani ~5,47 mlrd so'mga oshirib yuboradi.
+      // Shuning uchun sotuv paytida hisoblanib SAQLANGAN foydani o'qiymiz — u yozilish
+      // paytida to'g'ri birlik bilan hisoblangan (eski AppSheet Foyda oynasi ham aynan shundan
+      // foydalangan va skrinshotdagi raqamlar shu bilan aynan qayta tiklandi).
+      const snapFoyda = String(r.Foyda_summasi_som ?? "").trim();
+      // Saqlangan foyda yo'q eski qatorlar uchun — joriy tan narx bilan hisoblanadi
       // (Tan_som bo'sh bo'lsa mahsulot dollarda olingan → tannarx = Tan_dollar × kurs)
-      const tanS = snapOk ? num(r.Som_tan_narx)
-        : (num(mah?.Tan_som) > 0 ? num(mah?.Tan_som) : num(mah?.Tan_dollar) * rk);
-      const foyda = num(r.Summa_som) - tanS * num(r.Soni);
+      const tanS = num(mah?.Tan_som) > 0 ? num(mah?.Tan_som) : num(mah?.Tan_dollar) * rk;
+      const foyda = snapFoyda !== ""
+        ? num(snapFoyda)
+        : num(r.Summa_som) - tanS * num(r.Soni);
       const mid = s.Mijoz_ID || "—", pid = r.Mahsulot_ID || "—";
       (cp[mid] ||= { som: 0, usd: 0 }).som += foyda;
       (pp[pid] ||= { som: 0, usd: 0 }).som += foyda;
@@ -136,7 +140,8 @@ export default function FoydaPage() {
       if (!s || !inFilter(s)) return;
       const mah = mahMap[r.Mahsulot_ID];
       const rk = num(r.Kurs) || kurs;
-      // So'mdagi kabi — sotuv paytidagi tan narx ustuvor
+      // Dollar savatida Tan_narx izchil DOLLARDA saqlangan (9 263/9 295 qator tekshirildi),
+      // shuning uchun bu yerda snapshot'dan tan narxni o'qish xavfsiz.
       const snapOk = String(r.Foyda ?? "").trim() !== "" && num(r.Tan_narx) > 0;
       // Snapshot yo'q eski qatorlar uchun — avvalgidek joriy tan narx
       // (Tan_dollar bo'sh bo'lsa mahsulot so'mda olingan → tannarx = Tan_som / kurs)

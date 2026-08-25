@@ -498,6 +498,18 @@ export default function XaridPage() {
     display:"flex", flexDirection:"column",
     maxHeight: isMobile ? "95dvh" : "94vh",
   };
+  // "Yangi xarid" formasi TO'LIQ OYNADA ochiladi va chetdagi bo'sh joyni bosganda
+  // YOPILMAYDI — faqat X, "Bekor" va "Saqlash" tugmalari yopadi (tasodifan yopilib,
+  // kiritilgan savat yo'qolib qolmasligi uchun).
+  const fullOverlay: React.CSSProperties = {
+    position:"fixed", inset:0, zIndex:50, background:"rgba(15,42,76,.42)", backdropFilter:"blur(4px)",
+    display:"flex", alignItems:"stretch", justifyContent:"center", padding:0,
+  };
+  const fullBox: React.CSSProperties = {
+    background:"var(--white)", width:"100%", maxWidth:"100%",
+    borderRadius:0, display:"flex", flexDirection:"column",
+    height:"100dvh", maxHeight:"100dvh",
+  };
 
   // Mobile product row for add/edit
   function MobileProductRow({ s, onUpdate, onRemove, mItems, chegirmaHa, narxError, onAddNew }: {
@@ -935,9 +947,8 @@ export default function XaridPage() {
 
       {/* ── Add Modal ── */}
       {addOpen&&(
-        <div style={modalOverlay} onClick={()=>setAddOpen(false)}>
-          <div style={modalBox} onClick={e=>e.stopPropagation()}>
-            {isMobile&&<div style={{width:40,height:4,borderRadius:2,background:"var(--border)",margin:"12px auto 0"}}/>}
+        <div style={fullOverlay}>
+          <div style={fullBox}>
             <div style={{display:"flex",flexDirection:isMobile?"column":"row",alignItems:isMobile?"stretch":"center",gap:isMobile?12:16,padding:"16px 20px",borderBottom:"1px solid var(--border)"}}>
               <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
                 <div style={{width:40,height:40,borderRadius:12,background:"#fff7ed",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
