@@ -6,6 +6,7 @@ import { gaznaForUser } from "@/lib/auth";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useRef, useMemo } from "react";
 import { birlikOf } from "@/lib/birlik";
+import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { useParams, useRouter } from "next/navigation";
 import LiveClock from "@/components/LiveClock";
 import IzohSelect from "@/components/IzohSelect";
@@ -616,9 +617,40 @@ export default function SotuvDetailPage() {
         setEditSaving(false);
         return;
       } else {
+        // Mijoz ALMASHTIRILGAN bo'lsa Balans snapshot eski mijozniki bo'lib qoladi —
+        // yangi mijozning shu sotuvdan OLDINGI qarzini hisoblab yozamiz.
+        let balPatch: Record<string,string> = {};
+        if(String(sotuv.Mijoz_ID||"").trim()!==String(editMijoz||"").trim()){
+          const yangiMid=String(editMijoz||"").trim();
+          const mj=mijozlar.find(m=>String(m.Mijoz_ID||"").trim()===yangiMid);
+          const [salesR, tolovR] = await Promise.all([
+            fetchSheetWhere("Sotuv","Mijoz_ID",yangiMid),
+            fetchSheetWhere("S_tolov","Mijoz_ID",yangiMid),
+          ]);
+          const mSotuv=(salesR.data||[]) as Sotuv[];
+          const sIds=mSotuv.map(s=>String(s.Sotuv_ID||"").trim()).filter(Boolean);
+          const [ssR, sdR] = sIds.length
+            ? await Promise.all([
+                fetchSheetWhere("Sotuv_Savat","Sotuv_ID",sIds),
+                fetchSheetWhere("Sotuv_savat_dollar","Sotuv_ID",sIds),
+              ])
+            : [{data:[]},{data:[]}];
+          let tSom=0,tDol=0;
+          ((tolovR.data||[]) as STolov[]).forEach(t=>{
+            if(String(t.Valyuta||"")==="Dollar") tDol+=num(t.Summa_dollar); else tSom+=num(t.Summa);
+          });
+          balPatch=balansSnapshot(mijozEskiQarz({
+            boshSom:num(mj?.Boshlangich_Balans_som), boshDollar:num(mj?.Boshlangich_Balans_dollar),
+            sotuvlar:mSotuv,
+            savatSom:(ssR.data||[]) as SotuvSavatRow[],
+            savatDollar:(sdR.data||[]) as SotuvSavatDollarRow[],
+            tolovSom:tSom, tolovDollar:tDol,
+            excludeSotuvId:sotuv.Sotuv_ID,
+          }));
+        }
         await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sotuv.Sotuv_ID,
-            row:{...sotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh}})});
+            row:{...sotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,...balPatch}})});
         for(const r of savatSom){
           await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
             body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID})});

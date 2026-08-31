@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { birlikOf } from "@/lib/birlik";
+import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
 
@@ -738,14 +739,36 @@ export default function SotuvPage() {
     if(!detailSotuv||!editMijoz||!editAgent) return;
     const valid=editSavat.filter(s=>s.Mahsulot_ID&&num(s.Soni)!==0&&(num(s.Som_Narx)||num(s.Narx)));
     if(valid.length===0) return;
+    // Mijoz ALMASHTIRILGAN bo'lsa Balans snapshot qayta hisoblanadi — buning uchun
+    // barcha savat/to'lov ma'lumoti to'liq yuklangan bo'lishi shart.
+    const eskiMid=String(detailSotuv.Mijoz_ID||"").trim(), yangiMid=String(editMijoz||"").trim();
+    const mijozOzgardi = eskiMid!==yangiMid;
+    if(mijozOzgardi&&!balansReady){ alert("Mijoz balansi hali yuklanmoqda — bir lahza kuting (1-2 soniya) va qayta saqlang."); return; }
     setEditSaving(true);
     const kurs=editKurs||"0";
     const {sana:snStr,yil,oy,vaqt}=nowStr();
     try {
+      // Mijoz o'zgarmagan bo'lsa Balans snapshot tegilmaydi (...detailSotuv bilan eski qiymat qoladi).
+      // Mijoz ALMASHTIRILGAN bo'lsa — eski snapshot ESKI mijozning qarzi edi, uni yangi mijozning
+      // shu sotuvdan OLDINGI qarzi bilan almashtiramiz (aks holda chekda begona qarz ko'rinadi).
+      let balPatch: Record<string,string> = {};
+      if(mijozOzgardi){
+        const mj=mjMap[yangiMid];
+        const mSotuv=sotuvlar.filter(s=>String(s.Mijoz_ID||"").trim()===yangiMid);
+        const sIds=mSotuv.map(s=>String(s.Sotuv_ID||"").trim()).filter(Boolean);
+        const tl=stolovByMijoz[yangiMid];
+        balPatch=balansSnapshot(mijozEskiQarz({
+          boshSom:num(mj?.Boshlangich_Balans_som), boshDollar:num(mj?.Boshlangich_Balans_dollar),
+          sotuvlar:mSotuv,
+          savatSom:sIds.flatMap(id=>savatSomMap[id]||[]),
+          savatDollar:sIds.flatMap(id=>savatDollarMap[id]||[]),
+          tolovSom:tl?.som||0, tolovDollar:tl?.dollar||0,
+          excludeSotuvId:detailSotuv.Sotuv_ID,
+        }));
+      }
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:detailSotuv.Sotuv_ID,
-          // Balans snapshotni o'zgartirmaymiz — eski qiymat saqlanadi (...detailSotuv)
-          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh}})});
+          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,...balPatch}})});
       // Delete old savat rows
       for(const r of (savatSomMap[detailSotuv.Sotuv_ID]||[])){
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},

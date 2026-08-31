@@ -509,14 +509,17 @@ export default function MahsulotDetailPage() {
 
               {/* Kirim / Chiqim — yonma-yon alohida panellar */}
               {(() => {
-                const kirimRows  = filteredWithBalance.filter(t => t.kirim  > 0);
-                const chiqimRows = filteredWithBalance.filter(t => t.chiqim > 0);
+                // Har qatorning SOF harakati: musbat = omborga kirdi, manfiy = ombordan chiqdi.
+                // Oddiy xarid +, oddiy sotuv −; qaytarish (manfiy soni) esa avtomat teskari tomonga tushadi.
+                const sof = (t: TxRow) => (t.kirim || 0) - (t.chiqim || 0);
+                const kirimRows  = filteredWithBalance.filter(t => sof(t) > 0);
+                const chiqimRows = filteredWithBalance.filter(t => sof(t) < 0);
 
                 const Panel = ({ tur, rows }: { tur: "Kirim" | "Chiqim"; rows: typeof filteredWithBalance }) => {
                   const green = tur === "Kirim";
                   const acc   = green ? "#16a34a" : "#ef4444";
                   const accBg = green ? "#dcfce7" : "#fee2e2";
-                  const jami  = rows.reduce((s, t) => s + (green ? t.kirim : t.chiqim), 0);
+                  const jami  = rows.reduce((s, t) => s + Math.abs(sof(t)), 0);
                   return (
                     <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", boxShadow: "var(--shadow-sm)", overflow: "hidden", minWidth: 0 }}>
                       <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -538,7 +541,7 @@ export default function MahsulotDetailPage() {
                                 style={{ padding: "12px 16px", borderBottom: i < rows.length - 1 ? "1px solid var(--border)" : "none", cursor: "pointer" }}>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 6 }}>
                                   <span style={{ fontSize: 13, fontWeight: 700 }}>{tx.sana}</span>
-                                  <span style={{ fontSize: 13, fontWeight: 700, color: acc }}>{green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} {bir}</span>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: acc }}>{green ? "+" : "−"}{fmtNum(Math.abs(sof(tx)))} {bir}</span>
                                 </div>
                                 <div style={{ fontSize: 12.5, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", marginBottom: 8 }}>{tx.manba}</div>
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -554,7 +557,7 @@ export default function MahsulotDetailPage() {
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead>
                               <tr style={{ background: "var(--bg)" }}>
-                                {["SANA","MIJOZ","MIQDOR","NARXI","QOLDIQ"].map(h => (
+                                {["SANA", green ? "KIMDAN" : "KIMGA", "MIQDOR", "NARXI", "QOLDIQ (UMUMIY)"].map(h => (
                                   <th key={h} style={{ padding: "9px 14px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", textAlign: "left", borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>{h}</th>
                                 ))}
                               </tr>
@@ -573,10 +576,11 @@ export default function MahsulotDetailPage() {
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}>{tx.sana}</td>
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: tx.manbaType === "taminotchi" ? "#2563eb" : "#7c3aed", maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.manba}</td>
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 700, color: acc, whiteSpace: "nowrap" }}>
-                                      {green ? "+" : "-"}{fmtNum(green ? tx.kirim : tx.chiqim)} {bir}
+                                      {green ? "+" : "−"}{fmtNum(Math.abs(sof(tx)))} {bir}
                                     </td>
                                     <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 600, color: narxColor, whiteSpace: "nowrap" }}>{narx}</td>
-                                    <td style={{ padding: "10px 14px", fontSize: 12, fontWeight: 800, color: balColor, whiteSpace: "nowrap" }}>{fmtNum(tx.balans)} {bir}</td>
+                                    <td title="Shu amaldan keyingi UMUMIY ombor qoldig'i — kirim va chiqim birgalikda hisoblanadi, shuning uchun bitta panel ichida sakrab ko'rinishi mumkin"
+                                      style={{ padding: "10px 14px", fontSize: 12, fontWeight: 800, color: balColor, whiteSpace: "nowrap" }}>{fmtNum(tx.balans)} {bir}</td>
                                   </tr>
                                 );
                               })}
