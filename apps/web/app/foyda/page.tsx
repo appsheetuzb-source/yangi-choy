@@ -6,11 +6,12 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Agent: string; }
 interface SavatRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; Kurs: string; Som_tan_narx?: string; Foyda?: string; Foyda_summasi_som?: string; }
-interface SavatDollarRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; Kurs: string; Tan_narx?: string; Foyda?: string; }
+interface SavatDollarRow { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; Kurs: string; Tan_narx?: string; Foyda?: string; Foyda_summasi_som?: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; }
 interface KursRow { Kurs: string; }
 interface Xarajat { Xarajat_ID: string; Agent: string; Sana: string; Yil: string; Oy: string; Som: string; Dollar: string; }
+interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Lavozim: string; }
 
 function num(v: string | number | undefined) {
   return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
@@ -28,13 +29,15 @@ function sanaISO(sana: string): string {
 
 export default function FoydaPage() {
   const { user } = useAuth();
-  const uid = user?.id || "";  // har foydalanuvchi (Admin ham) faqat O'Z sotuvlaridan foydani ko'radi
+  const uid = user?.id || "";
+  const isAdmin = user?.lavozim === "Admin";
   const [sotuvlar, setSotuvlar]       = useState<Sotuv[]>([]);
   const [savatSom, setSavatSom]       = useState<SavatRow[]>([]);
   const [savatDollar, setSavatDollar] = useState<SavatDollarRow[]>([]);
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [mijozlar, setMijozlar]       = useState<Mijoz[]>([]);
   const [xarajatlar, setXarajatlar]   = useState<Xarajat[]>([]);
+  const [agentlar, setAgentlar]       = useState<Foydalanuvchi[]>([]);
   const [kurs, setKurs]               = useState(12800);
   const [loading, setLoading]         = useState(true);
   const [heavyReady, setHeavyReady]   = useState(false);
@@ -44,6 +47,10 @@ export default function FoydaPage() {
   const [oy, setOy]   = usePersistedState("flt:foyda:oy", "");    // "" = placeholder "Oy", "0" = Barcha oylar
   const [dateFrom, setDateFrom] = usePersistedState("flt:foyda:dateFrom", ""); // YYYY-MM-DD; qo'yilsa Oy/Yil o'rniga sana oralig'i
   const [dateTo, setDateTo]     = usePersistedState("flt:foyda:dateTo", "");
+  // Agent tanlagich: Admin istalgan agentni yoki "all" (barcha agentlar) ni tanlaydi,
+  // Sotuvchi esa doim faqat o'zini ko'radi.
+  const [selAgent, setSelAgent] = usePersistedState("flt:foyda:agent", "");
+  const effAgent = isAdmin ? (selAgent || uid) : uid;
   const [selMijoz, setSelMijoz]   = useState<string | null>(null);
   const [qMijoz, setQMijoz]       = usePersistedState("flt:foyda:qMijoz", "");
   const [qMahsulot, setQMahsulot] = usePersistedState("flt:foyda:qMahsulot", "");
@@ -56,11 +63,12 @@ export default function FoydaPage() {
   const loadData = useCallback(() => {
     setLoading(true);
     // Faza 1 — yengil
-    fetchSheets(["Sotuv", "Mahsulot", "Mijozlar", "Kurs", "Xarajat"]).then(r => {
+    fetchSheets(["Sotuv", "Mahsulot", "Mijozlar", "Kurs", "Xarajat", "Foydalanuvchi"]).then(r => {
       setSotuvlar(((r["Sotuv"]?.data) || []) as Sotuv[]);
       setMahsulotlar((((r["Mahsulot"]?.data) || []) as Mahsulot[]).filter(m => m.Nomi));
       setMijozlar(((r["Mijozlar"]?.data) || []) as Mijoz[]);
       setXarajatlar(((r["Xarajat"]?.data) || []) as Xarajat[]);
+      setAgentlar((((r["Foydalanuvchi"]?.data) || []) as Foydalanuvchi[]).filter(f => String(f.Foydalanuvchi_ID || "").trim() && String(f.Nomi || "").trim()));
       const kA = (((r["Kurs"]?.data) || []) as KursRow[]).filter(k => num(k.Kurs) > 0);
       if (kA.length) setKurs(num(kA[kA.length - 1].Kurs));
     }).catch(() => {}).finally(() => setLoading(false));
@@ -93,11 +101,15 @@ export default function FoydaPage() {
     const cp: Record<string, { som: number; usd: number }> = {};
     const pp: Record<string, { som: number; usd: number }> = {};
     const cpp: Record<string, Record<string, { som: number; usd: number }>> = {};
-    const jami = { som: 0, usd: 0 };
+    const jami = { som: 0, usd: 0, usdSom: 0 };
     const useRange = !!(dateFrom || dateTo);
+    const agentOk = (a: string) => {
+      const v = String(a || "").trim();
+      if (effAgent === "all") return !!v;      // barcha agentlar (agentsiz qatorlar hisobga olinmaydi)
+      return !!effAgent && v === effAgent;
+    };
     const inFilter = (s: Sotuv) => {
-      // Faqat joriy foydalanuvchining o'z sotuvlari (Agent = user.id)
-      if (!uid || String(s.Agent || "").trim() !== uid) return false;
+      if (!agentOk(s.Agent)) return false;
       if (useRange) {
         const d = sanaISO(s.Sana);
         if (!d) return false;
@@ -148,6 +160,10 @@ export default function FoydaPage() {
       const tanD = snapOk ? num(r.Tan_narx)
         : (num(mah?.Tan_dollar) > 0 ? num(mah?.Tan_dollar) : (rk > 0 ? num(mah?.Tan_som) / rk : 0));
       const foyda = num(r.Summa) - tanD * num(r.Soni);
+      // Eski AppSheet "Jami mahsulot foydasi" dollar savatini SO'MDA qo'shgan.
+      // Sotuv paytida saqlangan Foyda_summasi_som allaqachon so'mda; yo'q bo'lsa qator kursi bilan.
+      const fSomRaw = String(r.Foyda_summasi_som ?? "").trim();
+      jami.usdSom += fSomRaw !== "" ? num(fSomRaw) : foyda * rk;
       const mid = s.Mijoz_ID || "—", pid = r.Mahsulot_ID || "—";
       (cp[mid] ||= { som: 0, usd: 0 }).usd += foyda;
       (pp[pid] ||= { som: 0, usd: 0 }).usd += foyda;
@@ -155,14 +171,16 @@ export default function FoydaPage() {
       jami.usd += foyda;
     });
     return { clientProfit: cp, productAll: pp, clientProduct: cpp, jami };
-  }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, dateFrom, dateTo, kurs, uid]);
+  }, [savatSom, savatDollar, sotuvMap, mahMap, yil, oy, dateFrom, dateTo, kurs, effAgent]);
 
-  // ── Joriy foydalanuvchining shu davrdagi xarajatlari (Agent = uid) ──
+  // ── Tanlangan agentning shu davrdagi xarajatlari ──
   const xarajatJami = useMemo(() => {
     const res = { som: 0, usd: 0 };
     const useRange = !!(dateFrom || dateTo);
     xarajatlar.forEach(x => {
-      if (!x.Xarajat_ID || !uid || String(x.Agent || "").trim() !== uid) return;
+      const a = String(x.Agent || "").trim();
+      const ok = effAgent === "all" ? !!a : (!!effAgent && a === effAgent);
+      if (!x.Xarajat_ID || !ok) return;
       if (useRange) {
         const d = sanaISO(x.Sana);
         if (!d || (dateFrom && d < dateFrom) || (dateTo && d > dateTo)) return;
@@ -175,7 +193,7 @@ export default function FoydaPage() {
       res.usd += num(x.Dollar);
     });
     return res;
-  }, [xarajatlar, uid, yil, oy, dateFrom, dateTo]);
+  }, [xarajatlar, effAgent, yil, oy, dateFrom, dateTo]);
 
   const combined = (v: { som: number; usd: number }) => v.som + v.usd * kurs;
 
@@ -198,12 +216,18 @@ export default function FoydaPage() {
   }, [effMijoz, clientProduct, productAll, mahMap, qMahsulot, kurs]);
 
   const selName = effMijoz ? (mijozMap[effMijoz] || effMijoz) : null;
-  // JAMI kartalari: klient tanlangan bo'lsa o'sha klient foydasi, aks holda umumiy jami
+  // Klient tanlangan bo'lsa o'sha klient foydasi, aks holda tanlangan agentning jamisi
   const displayJami = effMijoz ? (clientProfit[effMijoz] || { som: 0, usd: 0 }) : jami;
-  // Xarajat — davrning UMUMIY xarajati: faqat umumiy sof foydadan ayriladi.
-  // Klient tanlanganda uning foydasidan ayrilmaydi (xarajat bitta klientga tegishli emas), faqat ma'lumot uchun ko'rsatiladi.
-  const netSom = effMijoz ? displayJami.som : displayJami.som - xarajatJami.som;
-  const netUsd = effMijoz ? displayJami.usd : displayJami.usd - xarajatJami.usd;
+  // Dollar foydasi SO'MDA (eski AppSheet "Mahsulot foydasi ($)" ustuni aslida so'm edi).
+  // Klient tanlanganda uning dollar foydasi joriy kurs bilan aylantiriladi.
+  const displayUsdSom = effMijoz ? displayJami.usd * kurs : jami.usdSom;
+  // Jami mahsulot foydasi = so'm savati + dollar savati (ikkalasi ham so'mda)
+  const yalpiJami = displayJami.som + displayUsdSom;
+  // Xarajat so'mda (dollar xarajat joriy kurs bilan)
+  const xarajatJamiSom = xarajatJami.som + xarajatJami.usd * kurs;
+  // Sof foyda = jami foyda − xarajat. Klient tanlanganda xarajat ayrilmaydi
+  // (xarajat bitta klientga emas, agentga tegishli) — faqat ma'lumot uchun ko'rsatiladi.
+  const sofFoyda = effMijoz ? yalpiJami : yalpiJami - xarajatJamiSom;
 
   // ── UI qismlari ──
   const ProfitCell = ({ som, usd }: { som: number; usd: number }) => (
@@ -231,6 +255,15 @@ export default function FoydaPage() {
             <p style={{ fontSize: 12.5, color: "var(--text-3)", paddingLeft: 4, marginTop: 2 }}>Klient va mahsulot bo&apos;yicha foyda</p>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: isMobile ? "wrap" : "nowrap", rowGap: 8, marginLeft: isMobile ? 0 : 16, width: isMobile ? "100%" : undefined }}>
+            {/* Agent tanlagich — Admin istalgan agentni ko'radi, Sotuvchi faqat o'zini */}
+            {isAdmin && (
+              <select value={selAgent || uid} onChange={e => { setSelAgent(e.target.value); setSelMijoz(null); }}
+                title="Agent bo'yicha foyda"
+                style={{ width: "auto", maxWidth: 190, fontSize: 12, fontWeight: 700, border: "1px solid var(--primary)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", outline: "none", color: "var(--primary)", cursor: "pointer" }}>
+                <option value="all">Barcha agentlar</option>
+                {agentlar.map(a => <option key={a.Foydalanuvchi_ID} value={a.Foydalanuvchi_ID}>{a.Nomi}</option>)}
+              </select>
+            )}
             {/* Yil — bo'sh bo'lsa kulrang "Yil" placeholder */}
             <select value={yil} onChange={e => setYil(e.target.value)} disabled={!!(dateFrom || dateTo)}
               style={{ width: "auto", fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px", background: "var(--white)", outline: "none", color: yil ? "var(--text)" : "var(--text-3)", opacity: (dateFrom || dateTo) ? .5 : 1, cursor: (dateFrom || dateTo) ? "not-allowed" : "pointer" }}>
@@ -263,21 +296,45 @@ export default function FoydaPage() {
 
         {!loading && (
           <>
-            {/* KPI — jami foyda */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-              <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · FOYDA · SO'M" : "SOF FOYDA · SO'M"}</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: netSom >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtSom(netSom) : "Yuklanmoqda…"}</p>
-                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
-                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtSom(displayJami.som)} · Umumiy xarajat: −{fmtSom(xarajatJami.som)}{selName ? " (klient foydasidan ayrilmaydi)" : ""}</p>}
+            {/* KPI — eski AppSheet "Foyda" oynasidagi 5 ta ko'rsatkich */}
+            {(() => {
+              const K = ({ label, value, color, sub }: { label: string; value: string; color?: string; sub?: string }) => (
+                <div style={{ flex: "1 1 190px", minWidth: 0, background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "13px 15px" : "16px 20px" }}>
+                  <p style={{ fontSize: 10.5, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{label}</p>
+                  <p style={{ fontSize: isMobile ? 18 : 22, fontWeight: 800, color: color || "var(--text)", overflowWrap: "anywhere" }}>
+                    {heavyReady ? value : "Yuklanmoqda…"}
+                  </p>
+                  {sub && heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>{sub}</p>}
+                </div>
+              );
+              return (
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+                  <K label={selName ? "TANLANGAN KLIENT · JAMI FOYDA" : "JAMI MAHSULOT FOYDASI"}
+                     value={fmtSom(yalpiJami)} color={yalpiJami >= 0 ? "#16a34a" : "#ef4444"}
+                     sub={selName || undefined}/>
+                  <K label="JAMI XARAJATLAR"
+                     value={fmtSom(xarajatJamiSom)} color={xarajatJamiSom > 0 ? "#ef4444" : "var(--text)"}
+                     sub={selName ? "klient foydasidan ayrilmaydi" : undefined}/>
+                  <K label={selName ? "TANLANGAN KLIENT · FOYDA" : "SOF FOYDA"}
+                     value={fmtSom(sofFoyda)} color={sofFoyda >= 0 ? "#16a34a" : "#ef4444"}
+                     sub={selName ? undefined : "jami foyda − xarajat"}/>
+                  <K label="MAHSULOT FOYDASI (SO'M)"
+                     value={fmtSom(displayJami.som)} color={displayJami.som >= 0 ? "#16a34a" : "#ef4444"}
+                     sub="so'mlik sotuvlardan"/>
+                  <K label="MAHSULOT FOYDASI ($)"
+                     value={fmtSom(displayUsdSom)} color={displayUsdSom >= 0 ? "#16a34a" : "#ef4444"}
+                     sub={`dollarlik sotuvlardan · ${fmtUsd(displayJami.usd)}`}/>
+                </div>
+              );
+            })()}
+
+            {/* Xarajat ma'lumoti to'liq emasligi haqida ogohlantirish */}
+            {heavyReady && xarajatJamiSom === 0 && yalpiJami !== 0 && (
+              <div style={{ marginBottom: 16, padding: "10px 16px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "var(--radius)", fontSize: 12.5, fontWeight: 600, color: "#b45309" }}>
+                ⚠️ Tanlangan davr/agent bo&apos;yicha xarajat yozilmagan — «Sof foyda» yalpi foydaga teng chiqmoqda.
+                Bazada xarajat faqat 2 ta agentda va 2026-yildan boshlab mavjud.
               </div>
-              <div style={{ flex: "1 1 240px", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "16px 20px" }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", marginBottom: 6 }}>{selName ? "TANLANGAN KLIENT · FOYDA · DOLLAR" : "SOF FOYDA · DOLLAR"}</p>
-                <p style={{ fontSize: isMobile ? 20 : 24, fontWeight: 800, color: netUsd >= 0 ? "#16a34a" : "#ef4444" }}>{heavyReady ? fmtUsd(netUsd) : "Yuklanmoqda…"}</p>
-                {selName && <p style={{ fontSize: 12, fontWeight: 700, color: "var(--primary)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selName}</p>}
-                {heavyReady && <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 4 }}>Yalpi: {fmtUsd(displayJami.usd)} · Umumiy xarajat: −{fmtUsd(xarajatJami.usd)}{selName ? " (klient foydasidan ayrilmaydi)" : ""}</p>}
-              </div>
-            </div>
+            )}
 
             {!heavyReady && <p style={{ fontSize: 13, color: "var(--text-3)", marginBottom: 12 }}>Foyda ma&apos;lumoti yuklanmoqda…</p>}
 
