@@ -103,6 +103,7 @@ export default function MahsulotDetailPage() {
   const [mahsulot, setMahsulot]       = useState<Mahsulot | null>(null);
   const [txAll, setTxAll]             = useState<TxRow[]>([]);
   const [shopWH, setShopWH]           = useState<Set<string>>(new Set()); // do'kon omborlari (Foydalanuvchi'dan)
+  const [omborNomi, setOmborNomi]     = useState<Record<string, string>>({});
   const [avgSotuvSom, setAvgSotuvSom] = useState(0);
   const [avgSotuvUsd, setAvgSotuvUsd] = useState(0);
   const [loading, setLoading]         = useState(true);
@@ -127,9 +128,18 @@ export default function MahsulotDetailPage() {
       fetchSheetWhere("Sotuv_Savat", "Mahsulot_ID", id),
       fetchSheetWhere("Sotuv_savat_dollar", "Mahsulot_ID", id),
       fetchSheet("Foydalanuvchi"),
-    ]).then(async ([mRes, xsRes, ssRes, ssdRes, fRes]) => {
+      fetchSheet("Ombor"),
+    ]).then(async ([mRes, xsRes, ssRes, ssdRes, fRes, oRes]) => {
       const shopWHlocal = shopWarehouseSet((fRes.data as FoydalanuvchiLike[]) || []);
       setShopWH(shopWHlocal);
+      {
+        const nm: Record<string, string> = {};
+        ((oRes.data || []) as Record<string, string>[]).forEach(o => {
+          const oid = String(o.Ombor_ID || "").trim();
+          if (oid) nm[oid] = String(o.Nomi || "").trim() || oid;
+        });
+        setOmborNomi(nm);
+      }
       // Transfer = Ombor_2 do'kon ombori bo'lsa (legacy " Ombor_2"=Asosiy — transfer EMAS, oddiy sotuv)
       const isTransfer = (r: Record<string, unknown>) => { const d = readOmbor2(r); return !!d && shopWHlocal.has(d); };
       const m = (mRes.data as Mahsulot[])[0] || null;
@@ -293,25 +303,38 @@ export default function MahsulotDetailPage() {
   // do'kon (non-admin) → O'Z OMBORI (unga o'tkazma = kirim, undan sotuv = chiqim).
   const viewOmbor = isAdmin ? "" : myOmbor;
   const viewTxAll = useMemo<TxRow[]>(() => {
-    return txAll.map(t => {
+    return txAll.flatMap(t => {
       const src = t.srcOmbor, qty = t.qty || 0;
       // Ombor_2 ni FAQAT do'kon ombori bo'lsa transfer deb hisoblaymiz (legacy " Ombor_2"=Asosiy e'tiborsiz)
       const dest = (t.destOmbor && shopWH.has(t.destOmbor)) ? t.destOmbor : "";
       if (t.linkType === "xarid") {
-        if (viewOmbor && src !== viewOmbor) return null;                 // do'kon: faqat o'z ombori xaridi
-        return { ...t, kirim: qty, chiqim: 0 };
+        if (viewOmbor && src !== viewOmbor) return [];                   // do'kon: faqat o'z ombori xaridi
+        return [{ ...t, kirim: qty, chiqim: 0 }];
       }
       // sotuv
       if (viewOmbor === "") {                                            // GLOBAL (admin)
-        if (dest) return null;                                          // transfer → net-zero, global balansdan chiqariladi
-        return { ...t, kirim: 0, chiqim: qty };
+        if (dest) {
+          // Do'kon omboriga sotuv = ICHKI KO'CHIRISH. Avval bu qator BUTUNLAY yashirilardi
+          // (return null) — shuning uchun haqiqiy sotuv mahsulot tarixida ko'rinmasdi.
+          // Endi ikkita qator chiqariladi: manbadan CHIQIM va qabul qiluvchi omborga KIRIM.
+          // Ikkalasi global qoldiqda bir-birini yo'q qiladi, ya'ni "HOZIRDA BOR" o'zgarmaydi,
+          // lekin sotuv Chiqim ro'yxatida ko'rinadi.
+          const dNom = omborNomi[dest] || "Do'kon ombori";
+          return [
+            { ...t, kirim: 0, chiqim: qty, izoh: (t.izoh ? t.izoh + " · " : "") + "→ " + dNom },
+            { ...t, id: t.id + ":qabul", kirim: qty, chiqim: 0,
+              manba: dNom, manbaType: "taminotchi" as const,
+              izoh: (t.izoh ? t.izoh + " · " : "") + "qabul (ko'chirish)" },
+          ];
+        }
+        return [{ ...t, kirim: 0, chiqim: qty }];
       }
       // DO'KON view
-      if (src === viewOmbor) return { ...t, kirim: 0, chiqim: qty };                                 // do'kon sotdi
-      if (dest === viewOmbor) return { ...t, kirim: qty, chiqim: 0, izoh: t.izoh + " · qabul" };      // do'konga o'tkazma
-      return null;                                                       // bu omborga aloqasiz
-    }).filter(Boolean) as TxRow[];
-  }, [txAll, viewOmbor, shopWH]);
+      if (src === viewOmbor) return [{ ...t, kirim: 0, chiqim: qty }];                                 // do'kon sotdi
+      if (dest === viewOmbor) return [{ ...t, kirim: qty, chiqim: 0, izoh: t.izoh + " · qabul" }];      // do'konga o'tkazma
+      return [];                                                         // bu omborga aloqasiz
+    });
+  }, [txAll, viewOmbor, shopWH, omborNomi]);
 
   if (loading) return (
     <div className="page-content" style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>

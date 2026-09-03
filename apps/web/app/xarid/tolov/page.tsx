@@ -246,6 +246,8 @@ export default function XaridTolovPage() {
   const [editTuri, setEditTuri]         = useState("Naqd");
   const [editValyuta, setEditValyuta]   = useState<"Som"|"Dollar">("Som");
   const [editIzohV, setEditIzohV]       = useState("");
+  // Tahrirlashda ta'minotchi ALMASHTIRILISHI mumkin (avval bu maydon umuman yo'q edi)
+  const [editT, setEditT]               = useState("");
 
   // Add modal
   const [addOpen, setAddOpen]       = useState(false);
@@ -459,6 +461,7 @@ export default function XaridTolovPage() {
 
   function openEdit(t: XTolov) {
     setEditTarget(t);
+    setEditT(t.Taminotchi_ID || "");
     setEditSana(sanaToIso(t.Sana));
     setEditVaqt(t.Vaqt || "");
     setEditValyuta(t.Valyuta === "Dollar" ? "Dollar" : "Som");
@@ -481,6 +484,7 @@ export default function XaridTolovPage() {
   async function handleEditSave() {
     if (!editTarget) return;
     if (num(editKurs) < 11000) return;
+    if (!String(editT || "").trim()) { alert("Ta'minotchi tanlanmagan."); return; }
     setEditSaving(true);
     const somVal = num(editSumma);
     const usdVal = num(editDollar);
@@ -493,7 +497,7 @@ export default function XaridTolovPage() {
     try {
       await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "X_Tolov", idColumn: "X_Tolov_ID", idValue: editTarget.X_Tolov_ID,
-          row: { ...editTarget, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Valyuta: valyuta, Turi: editTuri,
+          row: { ...editTarget, Taminotchi_ID: editT, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Valyuta: valyuta, Turi: editTuri,
             Som: String(somVal), Dollar: String(usdVal),
             Summa: summa, Summa_dollar: summaDollar,
             Dollar_Kursi: editKurs, Izoh: editIzohV,
@@ -501,7 +505,10 @@ export default function XaridTolovPage() {
             Vaqt: editVaqt || editTarget.Vaqt,
           } }) });
       localStorage.setItem("dollar_kurs", editKurs);
-      const taminotchiE = taminotchilar.find(t => t.Taminotchi_ID === editTarget.Taminotchi_ID);
+      const eskiTid  = String(editTarget.Taminotchi_ID || "").trim();
+      const yangiTid = String(editT || "").trim();
+      const taminotchiEski  = taminotchilar.find(t => t.Taminotchi_ID === eskiTid);
+      const taminotchiE     = taminotchilar.find(t => t.Taminotchi_ID === yangiTid) || taminotchiEski;
 
       // Telegram bot xabari — firmaga to'lov TAHRIRLANDI (o'zgargan summa)
       {
@@ -539,13 +546,30 @@ export default function XaridTolovPage() {
         fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
       }
 
-      if (taminotchiE) {
-        try {
-          await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: editTarget.Taminotchi_ID,
-              row: { Qoldi_som: String(num(taminotchiE.Qoldi_som) + num(editTarget.Som) - somVal), Qoldi_dollar: String(num(taminotchiE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal) } }) });
-        } catch {}
-      }
+      // Qoldiq tuzatish. Ta'minotchi O'ZGARMAGAN bo'lsa — faqat farq qo'llanadi.
+      // ALMASHTIRILGAN bo'lsa — eski ta'minotchidan to'lov QAYTARILADI (qarzi ortadi),
+      // yangi ta'minotchiga esa qo'llanadi (qarzi kamayadi). Aks holda pul ikki joyda qolib ketardi.
+      try {
+        if (eskiTid === yangiTid) {
+          if (taminotchiE) {
+            await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: yangiTid,
+                row: { Qoldi_som: String(num(taminotchiE.Qoldi_som) + num(editTarget.Som) - somVal), Qoldi_dollar: String(num(taminotchiE.Qoldi_dollar) + num(editTarget.Dollar) - usdVal) } }) });
+          }
+        } else {
+          if (taminotchiEski) {
+            await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: eskiTid,
+                row: { Qoldi_som: String(num(taminotchiEski.Qoldi_som) + num(editTarget.Som)), Qoldi_dollar: String(num(taminotchiEski.Qoldi_dollar) + num(editTarget.Dollar)) } }) });
+          }
+          const tYangi = taminotchilar.find(t => t.Taminotchi_ID === yangiTid);
+          if (tYangi) {
+            await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: yangiTid,
+                row: { Qoldi_som: String(num(tYangi.Qoldi_som) - somVal), Qoldi_dollar: String(num(tYangi.Qoldi_dollar) - usdVal) } }) });
+          }
+        }
+      } catch {}
       afterWrite("X_Tolov");
       afterWrite("Taminotchi");
       setEditTarget(null);
@@ -961,6 +985,11 @@ export default function XaridTolovPage() {
               </button>
             </div>
             <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", flex: isMobile ? undefined : 1, ...modalCenter }}>
+              {/* Ta'minotchi — tahrirlashda ham almashtirish mumkin */}
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Ta&apos;minotchi *</label>
+                <SearchSelect items={tItems} value={editT} onChange={setEditT} placeholder="Ta'minotchi tanlang..."/>
+              </div>
               {/* Valyuta */}
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Valyuta</label>
@@ -1043,7 +1072,7 @@ export default function XaridTolovPage() {
             </div>
             <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16, ...modalCenter, boxSizing: "border-box" }}>
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setEditTarget(null)}>Bekor</button>
-              <button className="btn btn--primary" style={{ flex: 2 }} onClick={handleEditSave} disabled={editSaving || num(editKurs) < 11000}>
+              <button className="btn btn--primary" style={{ flex: 2 }} onClick={handleEditSave} disabled={editSaving || num(editKurs) < 11000 || !String(editT || "").trim()}>
                 {editSaving && <span className="spinner"/>} Saqlash
               </button>
             </div>
