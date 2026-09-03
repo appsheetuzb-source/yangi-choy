@@ -5,6 +5,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
+import { xaridFoizi, foizMatn, qatorFoizi } from "@/lib/chegirma";
 
 interface Xarid {
   Xarid_ID: string; Sana: string; Sotuv_Raqami: string;
@@ -15,6 +16,7 @@ interface XaridSavat {
   X_Savat: string; Xarid_ID: string; Mahsulot_ID: string; Ombor_ID: string;
   Soni: string; Narxi: string; Narx_som: string;
   Summa_Som: string; Jami_Summa: string;
+  Foiz?: string; Foizli_narx?: string; Foizli_narx_dollar?: string;
 }
 interface Taminotchi { Taminotchi_ID: string; Ism: string; }
 interface Mahsulot {
@@ -23,6 +25,9 @@ interface Mahsulot {
 }
 interface SavatItem {
   id: string; Mahsulot_ID: string; Soni: string; Narxi: string; Narx_som: string;
+  // Chegirma FOIZI (13 = 13%). Tahrirlashda saqlanib qolishi uchun qator bilan birga olib yuriladi —
+  // avval bu maydon yo'q edi va har tahrirda Foiz:"" yozilib chegirma o'chib ketardi.
+  Foiz?: string;
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -150,7 +155,7 @@ export default function XaridDetailPage() {
     setIsAddMode(false);
     setEditTaminotchi(xarid.Taminotchi_ID);
     setEditIzoh(xarid.Izoh || "");
-    setEditSavat(savat.map(s => ({ id: uid(), Mahsulot_ID: s.Mahsulot_ID, Soni: s.Soni, Narxi: s.Narxi, Narx_som: s.Narx_som })));
+    setEditSavat(savat.map(s => ({ id: uid(), Mahsulot_ID: s.Mahsulot_ID, Soni: s.Soni, Narxi: s.Narxi, Narx_som: s.Narx_som, Foiz: qatorFoizi(s) > 0 ? String(qatorFoizi(s)) : "" })));
     setEditOpen(true);
   }
 
@@ -178,9 +183,16 @@ export default function XaridDetailPage() {
               X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: xarid.Sana,
               Raqam: String(savat.length + i + 1), Xarid_ID: xarid.Xarid_ID, Ombor_ID: m?.Ombor_ID || "",
               Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
-              Foiz: "", Foizli_narx: "0", Foizli_narx_dollar: r.Narxi,
-              Jami_Summa: String(num(r.Soni) * num(r.Narxi)),
-              Summa_Som: String(num(r.Soni) * num(r.Narx_som)), Vaqt: xarid.Sana,
+              // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
+              // summalar esa chegirmasiz hisoblanib xaridni oshirib ko'rsatardi)
+              ...(() => { const f = num(r.Foiz), k = f > 0 ? 1 - f / 100 : 1; return {
+                Foiz: f > 0 ? String(f) : "",
+                Foizli_narx: f > 0 ? String(num(r.Narx_som) * k) : "0",
+                Foizli_narx_dollar: f > 0 ? String(num(r.Narxi) * k) : r.Narxi,
+                Jami_Summa: String(num(r.Soni) * num(r.Narxi) * k),
+                Summa_Som: String(num(r.Soni) * num(r.Narx_som) * k),
+              }; })(),
+              Vaqt: xarid.Sana,
             } }) });
         }
       } else {
@@ -200,9 +212,16 @@ export default function XaridDetailPage() {
               X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: xarid.Sana,
               Raqam: String(i + 1), Xarid_ID: xarid.Xarid_ID, Ombor_ID: m?.Ombor_ID || "",
               Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
-              Foiz: "", Foizli_narx: "0", Foizli_narx_dollar: r.Narxi,
-              Jami_Summa: String(num(r.Soni) * num(r.Narxi)),
-              Summa_Som: String(num(r.Soni) * num(r.Narx_som)), Vaqt: xarid.Sana,
+              // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
+              // summalar esa chegirmasiz hisoblanib xaridni oshirib ko'rsatardi)
+              ...(() => { const f = num(r.Foiz), k = f > 0 ? 1 - f / 100 : 1; return {
+                Foiz: f > 0 ? String(f) : "",
+                Foizli_narx: f > 0 ? String(num(r.Narx_som) * k) : "0",
+                Foizli_narx_dollar: f > 0 ? String(num(r.Narxi) * k) : r.Narxi,
+                Jami_Summa: String(num(r.Soni) * num(r.Narxi) * k),
+                Summa_Som: String(num(r.Soni) * num(r.Narx_som) * k),
+              }; })(),
+              Vaqt: xarid.Sana,
             } }) });
         }
       }
@@ -220,7 +239,7 @@ export default function XaridDetailPage() {
     setIsAddMode(true);
     setEditTaminotchi(xarid.Taminotchi_ID);
     setEditIzoh(xarid.Izoh || "");
-    setEditSavat([{ id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "" }]);
+    setEditSavat([{ id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "", Foiz: xaridFoizi(savat) > 0 ? String(xaridFoizi(savat)) : "" }]);
     setEditOpen(true);
   }
 
@@ -238,9 +257,15 @@ export default function XaridDetailPage() {
           Ombor_ID: editRowItem.Ombor_ID || mMap[editRowItem.Mahsulot_ID]?.Ombor_ID || "",
           Mahsulot_ID: editRowItem.Mahsulot_ID,
           Soni: editRowSoni, Narxi: editRowNarxi, Narx_som: editRowNarxSom,
-          Foiz: "", Foizli_narx: "0", Foizli_narx_dollar: editRowNarxi,
-          Jami_Summa: String(num(editRowSoni) * num(editRowNarxi)),
-          Summa_Som: String(num(editRowSoni) * num(editRowNarxSom)), Vaqt: xarid.Sana,
+          // Qatorning o'z chegirmasi saqlanadi va summalarga qo'llanadi
+          ...(() => { const f = qatorFoizi(editRowItem), k = f > 0 ? 1 - f / 100 : 1; return {
+            Foiz: f > 0 ? String(f) : "",
+            Foizli_narx: f > 0 ? String(num(editRowNarxSom) * k) : "0",
+            Foizli_narx_dollar: f > 0 ? String(num(editRowNarxi) * k) : editRowNarxi,
+            Jami_Summa: String(num(editRowSoni) * num(editRowNarxi) * k),
+            Summa_Som: String(num(editRowSoni) * num(editRowNarxSom) * k),
+          }; })(),
+          Vaqt: xarid.Sana,
         } }) });
       afterWrite("Xarid_Savat");
       setEditRowItem(null);
@@ -359,7 +384,14 @@ export default function XaridDetailPage() {
           <div onClick={() => router.push(`/taminotchi/${xarid.Taminotchi_ID}`)} style={{ gridColumn: isMobile ? "1 / -1" : undefined, background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "16px 18px" : "20px 24px", cursor: "pointer" }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>TA&apos;MINOTCHI</p>
             <p style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: "var(--primary)" }}>{tNomi}</p>
-            <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 4 }}>{xarid.Sana}</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+              <p style={{ fontSize: 12, color: "var(--text-3)" }}>{xarid.Sana}</p>
+              {xaridFoizi(savat) > 0 && (
+                <span title="Ta'minotchi bergan chegirma" style={{ fontSize: 11, fontWeight: 800, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                  Chegirma −{foizMatn(xaridFoizi(savat))}
+                </span>
+              )}
+            </div>
           </div>
           <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "13px 14px" : "20px 24px", minWidth: 0 }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>JAMI MAHSULOT</p>
@@ -566,7 +598,7 @@ export default function XaridDetailPage() {
                 </div>
                 );
               })}
-              <button onClick={() => { const first = mahsulotlar[0]; setEditSavat(p => [...p, { id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "" }]); }}
+              <button onClick={() => { const first = mahsulotlar[0]; setEditSavat(p => [...p, { id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "", Foiz: xaridFoizi(savat) > 0 ? String(xaridFoizi(savat)) : "" }]); }}
                 style={{ display: "flex", alignItems: "center", gap: 4, padding: "7px 14px", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12, fontWeight: 600, background: "var(--white)", cursor: "pointer", color: "var(--text-2)", marginTop: 4 }}>
                 <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
                 Qo&apos;shish
@@ -622,7 +654,7 @@ export default function XaridDetailPage() {
                   <p className="drawer__section-label" style={{ margin: 0 }}>Mahsulotlar</p>
                   <button className="btn btn--primary btn--sm" onClick={() => {
                     const first = mahsulotlar[0];
-                    setEditSavat(p => [...p, { id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "" }]);
+                    setEditSavat(p => [...p, { id: uid(), Mahsulot_ID: first?.Mahsulot_ID || "", Soni: "", Narxi: first?.Tan_dollar || "", Narx_som: first?.Tan_som || "", Foiz: xaridFoizi(savat) > 0 ? String(xaridFoizi(savat)) : "" }]);
                   }}>
                     <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg> Yangi
                   </button>

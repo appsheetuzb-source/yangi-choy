@@ -5,6 +5,7 @@ import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
+import { xaridFoizi, foizMatn } from "@/lib/chegirma";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -680,6 +681,7 @@ export default function XaridPage() {
                     const tNomi=tMap[x.Taminotchi_ID]||"—";
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
+                    const chFoiz=xaridFoizi(savati);
                     const isHa=String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                     return (
                       <div key={x.Xarid_ID}
@@ -693,7 +695,10 @@ export default function XaridPage() {
                               </span>
                               <span style={{fontSize:11,color:"var(--text-3)"}}>{x.Sana}</span>
                             </div>
-                            <p style={{fontSize:14,fontWeight:800,color:"var(--text)"}}>{tNomi}</p>
+                            <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                              <p style={{fontSize:14,fontWeight:800,color:"var(--text)"}}>{tNomi}</p>
+                              {chFoiz>0&&<span style={{fontSize:11,fontWeight:800,color:"#d97706",background:"#fffbeb",border:"1px solid #fde68a",padding:"1px 7px",borderRadius:20,whiteSpace:"nowrap"}} title="Ta'minotchi bergan chegirma">−{foizMatn(chFoiz)}</span>}
+                            </div>
                             {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
                           </div>
                           <div style={{display:"flex",gap:6,flexShrink:0,marginLeft:8}}>
@@ -744,6 +749,7 @@ export default function XaridPage() {
                     const tNomi=tMap[x.Taminotchi_ID]||"—";
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
+                    const chFoiz=xaridFoizi(savati);
                     const isHa=String(x.Akt_sverka||"").toUpperCase()==="TRUE";
                     const rowBg=isHa?"#dcfce7":"#fee2e2";
                     const rowBgHover=isHa?"#bbf7d0":"#fecaca";
@@ -758,7 +764,10 @@ export default function XaridPage() {
                           {fmtRaqam(x.Sotuv_Raqami)}
                         </span>
                         <div style={{cursor:"pointer"}} onClick={()=>router.push(`/xarid/${x.Xarid_ID}`)}>
-                          <p style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{tNomi}</p>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <p style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{tNomi}</p>
+                            {chFoiz>0&&<span style={{fontSize:11,fontWeight:800,color:"#d97706",background:"#fffbeb",border:"1px solid #fde68a",padding:"1px 7px",borderRadius:20,whiteSpace:"nowrap"}} title="Ta'minotchi bergan chegirma">−{foizMatn(chFoiz)}</span>}
+                          </div>
                           {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
                         </div>
                         <span style={{fontSize:13,fontWeight:700}}>{xaridSom!==0?xaridSom.toLocaleString("ru-RU"):"—"}</span>
