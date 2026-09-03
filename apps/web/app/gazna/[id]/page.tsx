@@ -132,19 +132,27 @@ export default function GaznaDetailPage() {
   const amt = (summa: string, summa_dollar: string) =>
     isDollar ? num(summa_dollar) : num(summa);
 
+  // Summa !== 0 (avval > 0 edi): MANFIY qatorlar ham hisobga olinadi.
+  // Ular tuzatish/qaytarish yozuvlari va gazna qoldig'iga to'liq ta'sir qiladi.
+  // Avvalgi filtr ularni jimgina tashlab yuborardi:
+  //   Xarajat  1 qator  -23 000 000 so'm
+  //   S_tolov 91 qator -576 490 995 so'm va -31 718 $
+  //   X_tolov  5 qator  -33 669 110 so'm va    -825 $
+  // Gazna_ID / Gazna_dollar_ID allaqachon qaysi kassa ekanini aniqlaydi, shuning uchun
+  // summa belgisiga qarab filtrlash kerak emas.
   const myS = stolov.filter(t =>
-    isDollar ? (t.Gazna_dollar_ID === id && num(t.Summa_dollar) > 0)
-             : (t.Gazna_ID === id && num(t.Summa) > 0)
+    isDollar ? (t.Gazna_dollar_ID === id && num(t.Summa_dollar) !== 0)
+             : (t.Gazna_ID === id && num(t.Summa) !== 0)
   );
   const myX = xtolov.filter(t =>
-    isDollar ? (t.Gazna_dollar_ID === id && num(t.Summa_dollar) > 0)
-             : (t.Gazna_ID === id && num(t.Summa) > 0)
+    isDollar ? (t.Gazna_dollar_ID === id && num(t.Summa_dollar) !== 0)
+             : (t.Gazna_ID === id && num(t.Summa) !== 0)
   );
   // Shu gaznaga tegishli xarajatlar (chiqim)
   const xrAmt = (x: Xarajat) => isDollar ? num(x.Dollar) : num(x.Som);
   const myXr = xarajatlar.filter(x =>
-    isDollar ? (x.Gazna_dollar_ID === id && num(x.Dollar) > 0)
-             : (x.Gazna_ID === id && num(x.Som) > 0)
+    isDollar ? (x.Gazna_dollar_ID === id && num(x.Dollar) !== 0)
+             : (x.Gazna_ID === id && num(x.Som) !== 0)
   );
 
   const allKirdi  = myS.reduce((s, t) => s + amt(t.Summa, t.Summa_dollar), 0);

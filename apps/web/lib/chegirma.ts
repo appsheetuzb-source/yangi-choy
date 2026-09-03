@@ -54,3 +54,56 @@ export function foizMatn(foiz: number): string {
   const yaxlit = Math.round(foiz * 10) / 10;
   return yaxlit.toLocaleString("ru-RU", { maximumFractionDigits: 1 }) + "%";
 }
+
+export interface XaridBoshi {
+  Xarid_ID?: string;
+  Taminotchi_ID?: string;
+  Sana?: string;
+  Sotuv_Raqami?: string;
+}
+
+export interface ChegirmaManbasi {
+  foiz: number;
+  xaridId: string;
+  /** Xarid raqami (Sotuv_Raqami) */
+  raqam: string;
+  sana: string;
+}
+
+/**
+ * Ta'minotchiga berilgan chegirma — uning ENG OXIRGI chegirmali xarididan olinadi.
+ * Chegirma Taminotchi jadvalida saqlanmaydi (u yerda bunday ustun yo'q), shuning uchun
+ * har doim xaridlar orqali topiladi. Qaysi xaridda berilgani ham qaytariladi.
+ */
+export function taminotchiChegirmasi(
+  taminotchiId: string,
+  xaridlar: XaridBoshi[],
+  savatMap: Record<string, ChegirmaQator[]>,
+): ChegirmaManbasi | null {
+  const key = String(taminotchiId || "").trim();
+  if (!key) return null;
+  const kalit = (sn?: string) => {
+    const [d, m, y] = String(sn || "").split(".");
+    return (y || "") + (m || "").padStart(2, "0") + (d || "").padStart(2, "0");
+  };
+  const royxat = (xaridlar || [])
+    .filter(x => String(x.Taminotchi_ID || "").trim() === key)
+    .sort((a, b) => kalit(b.Sana).localeCompare(kalit(a.Sana)));
+  for (const x of royxat) {
+    const xid = String(x.Xarid_ID || "").trim();
+    const foiz = xaridFoizi(savatMap[xid] || []);
+    if (foiz > 0) {
+      return { foiz, xaridId: xid, raqam: String(x.Sotuv_Raqami || ""), sana: String(x.Sana || "") };
+    }
+  }
+  return null;
+}
+
+/** "−13% · №685 · 07.08.2026" ko'rinishidagi to'liq matn */
+export function chegirmaMatn(ch: ChegirmaManbasi | null): string {
+  if (!ch) return "";
+  const bolaklar = ["−" + foizMatn(ch.foiz)];
+  if (ch.raqam) bolaklar.push("№" + ch.raqam);
+  if (ch.sana) bolaklar.push(ch.sana);
+  return bolaklar.join(" · ");
+}

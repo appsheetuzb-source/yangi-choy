@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
-import { xaridFoizi, foizMatn } from "@/lib/chegirma";
+import { taminotchiChegirmasi, chegirmaMatn } from "@/lib/chegirma";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -627,18 +627,9 @@ export default function XaridTolovPage() {
 
   // Ta'minotchiga berilgan chegirma foizi — uning eng oxirgi chegirmali xarididan olinadi.
   // (Chegirma Taminotchi jadvalida saqlanmaydi, u har xaridning savat qatorlarida turadi.)
-  const taminotchiFoizi = useCallback((tid: string) => {
-    const key = String(tid || "").trim();
-    if (!key) return 0;
-    const kalit = (sn: string) => { const [d, m, y] = String(sn || "").split("."); return (y || "") + (m || "").padStart(2, "0") + (d || "").padStart(2, "0"); };
-    const xs = xaridlar
-      .filter(x => String(x.Taminotchi_ID || "").trim() === key)
-      .sort((a, b) => kalit(b.Sana).localeCompare(kalit(a.Sana)));
-    for (const x of xs) { const f = xaridFoizi(savatMap[x.Xarid_ID] || []); if (f > 0) return f; }
-    return 0;
-  }, [xaridlar, savatMap]);
-  const addFoiz  = useMemo(() => taminotchiFoizi(addT),  [taminotchiFoizi, addT]);
-  const editFoiz = useMemo(() => taminotchiFoizi(editT), [taminotchiFoizi, editT]);
+  const chegirmaOf = useCallback((tid: string) => taminotchiChegirmasi(tid, xaridlar, savatMap), [xaridlar, savatMap]);
+  const addFoiz  = useMemo(() => chegirmaOf(addT),  [chegirmaOf, addT]);
+  const editFoiz = useMemo(() => chegirmaOf(editT), [chegirmaOf, editT]);
 
   const selectedT = useMemo(() => taminotchilar.find(t => t.Taminotchi_ID === addT), [taminotchilar, addT]);
   const tQoldiq = useMemo(() => {
@@ -1006,10 +997,10 @@ export default function XaridTolovPage() {
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Ta&apos;minotchi *</label>
                 <SearchSelect items={tItems} value={editT} onChange={setEditT} placeholder="Ta'minotchi tanlang..."/>
-                  {editFoiz > 0 && (
+                  {editFoiz && (
                     <div style={{ marginTop: 6 }}>
                       <span title="Ta'minotchining oxirgi chegirmali xaridida berilgan foiz" style={{ fontSize: 11, fontWeight: 800, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "2px 9px", borderRadius: 20, whiteSpace: "nowrap" }}>
-                        Chegirma −{foizMatn(editFoiz)}
+                        Chegirma {chegirmaMatn(editFoiz)}
                       </span>
                     </div>
                   )}
@@ -1155,10 +1146,10 @@ export default function XaridTolovPage() {
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Ta&apos;minotchi *</label>
                   <SearchSelect items={tItems} value={addT} onChange={setAddT} placeholder="Ta'minotchi tanlang..."/>
-                  {addFoiz > 0 && (
+                  {addFoiz && (
                     <div style={{ marginTop: 6 }}>
                       <span title="Ta'minotchining oxirgi chegirmali xaridida berilgan foiz" style={{ fontSize: 11, fontWeight: 800, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "2px 9px", borderRadius: 20, whiteSpace: "nowrap" }}>
-                        Chegirma −{foizMatn(addFoiz)}
+                        Chegirma {chegirmaMatn(addFoiz)}
                       </span>
                     </div>
                   )}

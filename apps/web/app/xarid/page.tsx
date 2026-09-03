@@ -697,7 +697,7 @@ export default function XaridPage() {
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                               <p style={{fontSize:14,fontWeight:800,color:"var(--text)"}}>{tNomi}</p>
-                              {chFoiz>0&&<span style={{fontSize:11,fontWeight:800,color:"#d97706",background:"#fffbeb",border:"1px solid #fde68a",padding:"1px 7px",borderRadius:20,whiteSpace:"nowrap"}} title="Ta'minotchi bergan chegirma">−{foizMatn(chFoiz)}</span>}
+                              {chFoiz>0&&<span style={{fontSize:13.5,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1.5px solid #f59e0b",padding:"3px 11px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:".01em",lineHeight:1.35}} title="Ta'minotchi bergan chegirma">Chegirma −{foizMatn(chFoiz)}</span>}
                             </div>
                             {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
                           </div>
@@ -766,7 +766,7 @@ export default function XaridPage() {
                         <div style={{cursor:"pointer"}} onClick={()=>router.push(`/xarid/${x.Xarid_ID}`)}>
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                             <p style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{tNomi}</p>
-                            {chFoiz>0&&<span style={{fontSize:11,fontWeight:800,color:"#d97706",background:"#fffbeb",border:"1px solid #fde68a",padding:"1px 7px",borderRadius:20,whiteSpace:"nowrap"}} title="Ta'minotchi bergan chegirma">−{foizMatn(chFoiz)}</span>}
+                            {chFoiz>0&&<span style={{fontSize:13.5,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1.5px solid #f59e0b",padding:"3px 11px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:".01em",lineHeight:1.35}} title="Ta'minotchi bergan chegirma">Chegirma −{foizMatn(chFoiz)}</span>}
                           </div>
                           {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
                         </div>

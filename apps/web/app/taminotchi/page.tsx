@@ -6,14 +6,16 @@ import FabAdd from "@/components/FabAdd";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePersistedState } from "@/lib/usePersistedState";
+import { taminotchiChegirmasi, chegirmaMatn, type ChegirmaManbasi, type ChegirmaQator } from "@/lib/chegirma";
 
 interface Taminotchi {
   Taminotchi_ID: string; Ism: string; Telefon: string; Valyuta: string;
   Boshlangich_Balans: string; Boshlangich_som: string;
   Qoshilgan_Vaqt: string; Qoshdi: string;
 }
-interface Xarid { Xarid_ID: string; Taminotchi_ID: string; }
-interface XaridSavat { Xarid_ID: string; Summa_Som: string; Jami_Summa: string; }
+interface Xarid { Xarid_ID: string; Taminotchi_ID: string; Sana?: string; Sotuv_Raqami?: string; }
+interface XaridSavat { Xarid_ID: string; Summa_Som: string; Jami_Summa: string;
+  Narxi?: string; Narx_som?: string; Foiz?: string; Foizli_narx?: string; Foizli_narx_dollar?: string; }
 interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Summa: string; Summa_dollar: string; }
 
 const VALYUTALAR = ["So'm", "Dollar", "Dollar , So'm"];
@@ -95,6 +97,8 @@ export default function TaminotchiPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  const [chegirmaByT, setChegirmaByT] = useState<Record<string, ChegirmaManbasi>>({});
+
   const loadData = useCallback((delay = 0) => {
     setLoading(true);
     setTimeout(() => {
@@ -118,6 +122,20 @@ export default function TaminotchiPage() {
           xByT[tid].usd += num(s.Jami_Summa);
         });
         setXaridSavatByT(xByT);
+        // Ta'minotchi -> chegirma (qaysi xaridda berilgani bilan)
+        {
+          const sm: Record<string, ChegirmaQator[]> = {};
+          (xsR.data as XaridSavat[]).forEach(s => {
+            const k = String(s.Xarid_ID || "").trim(); if (!k) return;
+            (sm[k] ||= []).push(s);
+          });
+          const chMap: Record<string, ChegirmaManbasi> = {};
+          (tR.data as Taminotchi[]).forEach(t => {
+            const ch = taminotchiChegirmasi(t.Taminotchi_ID, xR.data as Xarid[], sm);
+            if (ch) chMap[String(t.Taminotchi_ID || "").trim()] = ch;
+          });
+          setChegirmaByT(chMap);
+        }
         const tlByT: Record<string, { som: number; usd: number }> = {};
         ((tolvR.data || []) as XTolov[]).forEach(t => {
           const tid = String(t.Taminotchi_ID || "").trim();
@@ -279,6 +297,12 @@ export default function TaminotchiPage() {
                         <div style={{ flex: 1 }}>
                           <p style={{ fontSize: 15, fontWeight: 800 }}>{t.Ism}</p>
                           {t.Telefon && <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 2 }}>{t.Telefon}</p>}
+                          {chegirmaByT[String(t.Taminotchi_ID || "").trim()] && (
+                            <span title="Ta'minotchiga berilgan chegirma va qaysi xaridda berilgani"
+                              style={{ display: "inline-block", marginTop: 4, fontSize: 11, fontWeight: 800, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                              Chegirma {chegirmaMatn(chegirmaByT[String(t.Taminotchi_ID || "").trim()])}
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
                           <button onClick={e => openEdit(t, e)}
