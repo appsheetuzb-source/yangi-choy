@@ -100,6 +100,11 @@ export default function XaridDetailPage() {
   const { user } = useAuth();
   const isAdmin = user?.lavozim === "Admin";
   const [savat, setSavat]             = useState<XaridSavat[]>([]);
+  // Xarid chegirmasi (butun xaridga bitta foiz)
+  const [chegOpen, setChegOpen]     = useState(false);
+  const [chegHa, setChegHa]         = useState(false);
+  const [chegFoiz, setChegFoiz]     = useState("");
+  const [chegSaving, setChegSaving] = useState(false);
   // O'chirilgan ta'minotchini qaytarish
   const [qaytarOpen, setQaytarOpen]     = useState(false);
   const [qaytarSaving, setQaytarSaving] = useState(false);
@@ -348,6 +353,41 @@ export default function XaridDetailPage() {
     </div>
   );
 
+  function openCheg() {
+    const f = xaridFoizi(savat);
+    setChegHa(f > 0);
+    setChegFoiz(f > 0 ? String(Math.round(f * 10) / 10) : "");
+    setChegOpen(true);
+  }
+
+  // Foizni xaridning BARCHA savat qatorlariga qo'llaydi va summalarni qayta hisoblaydi.
+  // Formula app/xarid/page.tsx dagi bilan AYNAN bir xil (asos narx — Narx_som / Narxi,
+  // chegirma esa Foizli_narx va summalarga qo'llanadi).
+  async function handleChegirma() {
+    if (!xarid) return;
+    setChegSaving(true);
+    const f = chegHa ? num(chegFoiz) : 0;
+    const bor = f > 0;
+    const k = bor ? 1 - f / 100 : 1;
+    const s15 = (n: number) => String(Number(n.toPrecision(15)));
+    try {
+      for (const r of savat) {
+        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheet: "Xarid_Savat", idColumn: "X_Savat", idValue: r.X_Savat, row: {
+            ...r,
+            Foiz: bor ? String(f) : "",
+            Foizli_narx: bor ? s15(num(r.Narx_som) * k) : "0",
+            Foizli_narx_dollar: bor ? s15(num(r.Narxi) * k) : r.Narxi,
+            Jami_Summa: s15(num(r.Soni) * num(r.Narxi) * k),
+            Summa_Som: s15(num(r.Soni) * num(r.Narx_som) * k),
+          } }) });
+      }
+      afterWrite("Xarid_Savat");
+      setChegOpen(false);
+      setTimeout(() => loadData(), 800);
+    } finally { setChegSaving(false); }
+  }
+
   async function openQaytar() {
     setQaytarForm({ Ism: "", Telefon: "", Boshlangich_som: "", Boshlangich_Balans: "" });
     setQaytarInfo(null);
@@ -448,10 +488,16 @@ export default function XaridDetailPage() {
                   ↩ Qaytarish
                 </button>
               )}
-              {xaridFoizi(savat) > 0 && (
-                <span title="Ta'minotchi bergan chegirma" style={{ fontSize: 11, fontWeight: 800, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
-                  Chegirma −{foizMatn(xaridFoizi(savat))}
-                </span>
+              {xaridFoizi(savat) > 0 ? (
+                <button onClick={openCheg} title="Chegirmani o'zgartirish"
+                  style={{ fontSize: 11.5, fontWeight: 800, color: "#b45309", background: "#fef3c7", border: "1.5px solid #f59e0b", padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap", cursor: "pointer" }}>
+                  Chegirma −{foizMatn(xaridFoizi(savat))} ✎
+                </button>
+              ) : (
+                <button onClick={openCheg} title="Bu xaridga chegirma qo'shish"
+                  style={{ fontSize: 11.5, fontWeight: 700, color: "var(--text-2)", background: "var(--white)", border: "1px dashed var(--border)", padding: "2px 10px", borderRadius: 20, whiteSpace: "nowrap", cursor: "pointer" }}>
+                  + Chegirma
+                </button>
               )}
             </div>
           </div>
@@ -756,6 +802,68 @@ export default function XaridDetailPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── Xarid chegirmasini belgilash ── */}
+      {chegOpen && (
+        <div className="modal-overlay" onClick={() => !chegSaving && setChegOpen(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 16, fontWeight: 800 }}>Chegirma</p>
+              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 3 }}>
+                Foiz xaridning BARCHA mahsulotlariga qo&apos;llanadi va summalar qayta hisoblanadi.
+              </p>
+            </div>
+
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Chegirma bormi?</label>
+                <div style={{ display: "inline-flex", borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
+                  <button onClick={() => setChegHa(true)}
+                    style={{ padding: "7px 20px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+                      background: chegHa ? "var(--primary)" : "var(--white)", color: chegHa ? "#fff" : "var(--text-2)" }}>Ha</button>
+                  <button onClick={() => setChegHa(false)}
+                    style={{ padding: "7px 20px", fontSize: 13, fontWeight: 700, border: "none", borderLeft: "1px solid var(--border)", cursor: "pointer",
+                      background: !chegHa ? "var(--primary)" : "var(--white)", color: !chegHa ? "#fff" : "var(--text-2)" }}>Yo&apos;q</button>
+                </div>
+              </div>
+
+              {chegHa && (
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Foiz (%)</label>
+                  <input value={chegFoiz} onChange={e => setChegFoiz(e.target.value)} inputMode="decimal" placeholder="masalan 13" autoFocus
+                    style={{ width: 140, padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 15, fontWeight: 700, outline: "none" }}/>
+                </div>
+              )}
+
+              <div style={{ background: "var(--bg)", borderRadius: "var(--radius)", padding: "10px 14px", fontSize: 12.5, fontWeight: 600, color: "var(--text-2)" }}>
+                {(() => {
+                  const f = chegHa ? num(chegFoiz) : 0;
+                  const k = f > 0 ? 1 - f / 100 : 1;
+                  const asosSom = savat.reduce((a, r) => a + num(r.Soni) * num(r.Narx_som), 0);
+                  const asosUsd = savat.reduce((a, r) => a + num(r.Soni) * num(r.Narxi), 0);
+                  return (
+                    <>
+                      <div>Chegirmasiz: {asosSom > 0 ? Math.round(asosSom).toLocaleString("ru-RU") + " so'm" : ""}{asosUsd > 0 ? (asosSom > 0 ? " · " : "") + "$" + asosUsd.toLocaleString("ru-RU", { maximumFractionDigits: 2 }) : ""}</div>
+                      <div style={{ marginTop: 4, color: f > 0 ? "#b45309" : "var(--text-3)" }}>
+                        Chegirma bilan: {asosSom > 0 ? Math.round(asosSom * k).toLocaleString("ru-RU") + " so'm" : ""}{asosUsd > 0 ? (asosSom > 0 ? " · " : "") + "$" + (asosUsd * k).toLocaleString("ru-RU", { maximumFractionDigits: 2 }) : ""}
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
+              <button className="btn btn--outline" style={{ flex: 1 }} disabled={chegSaving} onClick={() => setChegOpen(false)}>Bekor</button>
+              <button className="btn btn--primary" style={{ flex: 2 }}
+                disabled={chegSaving || (chegHa && num(chegFoiz) <= 0)}
+                onClick={handleChegirma}>
+                {chegSaving && <span className="spinner"/>} Saqlash
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── O'chirilgan ta'minotchini qaytarish ── */}
