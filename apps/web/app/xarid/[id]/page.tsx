@@ -5,7 +5,8 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
-import { taminotchiNomi, ochirilganmi } from "@/lib/taminotchi-nom";
+import { taminotchiNomi, ochirilganmi, nomiYoqolgan } from "@/lib/taminotchi-nom";
+import { useAuth } from "@/lib/AuthContext";
 import { xaridFoizi, foizMatn, qatorFoizi } from "@/lib/chegirma";
 
 interface Xarid {
@@ -19,7 +20,7 @@ interface XaridSavat {
   Summa_Som: string; Jami_Summa: string;
   Foiz?: string; Foizli_narx?: string; Foizli_narx_dollar?: string;
 }
-interface Taminotchi { Taminotchi_ID: string; Ism: string; }
+interface Taminotchi { Taminotchi_ID: string; Ism: string; Status?: string; }
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Ombor_ID: string;
   Tan_dollar: string; Tan_som: string;
@@ -96,9 +97,17 @@ export default function XaridDetailPage() {
   const router = useRouter();
 
   const [xarid, setXarid]             = useState<Xarid | null>(null);
+  const { user } = useAuth();
+  const isAdmin = user?.lavozim === "Admin";
   const [savat, setSavat]             = useState<XaridSavat[]>([]);
+  // O'chirilgan ta'minotchini qaytarish
+  const [qaytarOpen, setQaytarOpen]     = useState(false);
+  const [qaytarSaving, setQaytarSaving] = useState(false);
+  const [qaytarInfo, setQaytarInfo]     = useState<{ xarid: number; tolov: number } | null>(null);
+  const [qaytarForm, setQaytarForm]     = useState({ Ism: "", Telefon: "", Boshlangich_som: "", Boshlangich_Balans: "" });
   const [taminotchilar, setTaminotchilar] = useState<Taminotchi[]>([]);
   const [tMap, setTMap]               = useState<Record<string, string>>({});
+  const [tStatus, setTStatus]         = useState<Record<string, string>>({});
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [mMap, setMMap]               = useState<Record<string, Mahsulot>>({});
   const [loading, setLoading]         = useState(true);
@@ -139,8 +148,9 @@ export default function XaridDetailPage() {
       const t = tR.data as Taminotchi[];
       setTaminotchilar(t);
       const tm: Record<string, string> = {};
-      t.forEach(i => { tm[i.Taminotchi_ID] = i.Ism; });
-      setTMap(tm);
+      const tst: Record<string, string> = {};
+      t.forEach(i => { tm[i.Taminotchi_ID] = i.Ism; tst[i.Taminotchi_ID] = i.Status || ""; });
+      setTMap(tm); setTStatus(tst);
       const mArr = (mR.data as Mahsulot[]).filter(m => m.Nomi);
       setMahsulotlar(mArr);
       const mm: Record<string, Mahsulot> = {};
@@ -338,8 +348,51 @@ export default function XaridDetailPage() {
     </div>
   );
 
-  const tNomi = taminotchiNomi(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID]);
-  const tOchirilgan = ochirilganmi(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID]);
+  async function openQaytar() {
+    setQaytarForm({ Ism: "", Telefon: "", Boshlangich_som: "", Boshlangich_Balans: "" });
+    setQaytarInfo(null);
+    setQaytarOpen(true);
+    try {
+      const tid = String(xarid?.Taminotchi_ID || "").trim();
+      const [xR, pR] = await Promise.all([
+        fetchSheetWhere("Xarid", "Taminotchi_ID", tid),
+        fetchSheetWhere("X_Tolov", "Taminotchi_ID", tid),
+      ]);
+      setQaytarInfo({ xarid: (xR.data || []).length, tolov: (pR.data || []).length });
+    } catch { setQaytarInfo({ xarid: 0, tolov: 0 }); }
+  }
+
+  async function handleQaytar() {
+    if (!xarid || !qaytarForm.Ism.trim()) return;
+    setQaytarSaving(true);
+    try {
+      const d = new Date();
+      const p2 = (n: number) => String(n).padStart(2, "0");
+      const vaqt = `${p2(d.getDate())}.${p2(d.getMonth() + 1)}.${d.getFullYear()} ${p2(d.getHours())}:${p2(d.getMinutes())}:${p2(d.getSeconds())}`;
+      // AYNAN o'sha Taminotchi_ID bilan yoziladi — shunda barcha xarid va to'lovlar
+      // avtomat qayta bog'lanadi (ular hech qachon o'chmagan, faqat karta yo'q edi).
+      await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet: "Taminotchi", row: {
+          Taminotchi_ID: xarid.Taminotchi_ID,
+          Ism: qaytarForm.Ism.trim(),
+          Telefon: qaytarForm.Telefon.trim(),
+          Valyuta: "So'm",
+          Boshlangich_Balans: qaytarForm.Boshlangich_Balans.trim(),
+          Boshlangich_som: qaytarForm.Boshlangich_som.trim(),
+          Qoshilgan_Vaqt: vaqt,
+          Qoshdi: user?.pochta || "",
+        } }) });
+      afterWrite("Taminotchi");
+      setQaytarOpen(false);
+      setTimeout(() => loadData(), 800);
+    } finally { setQaytarSaving(false); }
+  }
+
+  const tNomi = taminotchiNomi(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID], "—", tStatus[xarid.Taminotchi_ID]);
+  const tOchirilgan = ochirilganmi(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID], tStatus[xarid.Taminotchi_ID]);
+  // Qaytarish formasi FAQAT nomi butunlay yo'qolganda kerak (eski qattiq o'chirish).
+  // Yumshoq o'chirilganda nom saqlanib qolgan — Firma sahifasidan bir bosishda tiklanadi.
+  const tNomiYoq = nomiYoqolgan(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID]);
   const isHa  = xarid.Akt_sverka === "True" || xarid.Akt_sverka === "true";
   const raqam = xarid.Sotuv_Raqami || "—";
 
@@ -388,6 +441,13 @@ export default function XaridDetailPage() {
             <p style={{ fontSize: isMobile ? (tOchirilgan ? 15 : 17) : (tOchirilgan ? 17 : 20), fontWeight: 800, color: tOchirilgan ? "var(--text-3)" : "var(--primary)", fontStyle: tOchirilgan ? "italic" : "normal" }}>{tNomi}</p>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
               <p style={{ fontSize: 12, color: "var(--text-3)" }}>{xarid.Sana}</p>
+              {tNomiYoq && isAdmin && (
+                <button onClick={openQaytar}
+                  title="O'chirilgan ta'minotchi kartasini qaytarish — xaridlar va to'lovlar yana nomi bilan ko'rinadi"
+                  style={{ fontSize: 11, fontWeight: 700, color: "var(--primary)", background: "var(--white)", border: "1px solid var(--primary)", padding: "2px 10px", borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap" }}>
+                  ↩ Qaytarish
+                </button>
+              )}
               {xaridFoizi(savat) > 0 && (
                 <span title="Ta'minotchi bergan chegirma" style={{ fontSize: 11, fontWeight: 800, color: "#d97706", background: "#fffbeb", border: "1px solid #fde68a", padding: "1px 8px", borderRadius: 20, whiteSpace: "nowrap" }}>
                   Chegirma −{foizMatn(xaridFoizi(savat))}
@@ -696,6 +756,77 @@ export default function XaridDetailPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* ── O'chirilgan ta'minotchini qaytarish ── */}
+      {qaytarOpen && (
+        <div className="modal-overlay" onClick={() => !qaytarSaving && setQaytarOpen(false)}>
+          <div className="modal" style={{ maxWidth: 460 }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: "18px 20px", borderBottom: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 16, fontWeight: 800 }}>Ta&apos;minotchini qaytarish</p>
+              <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 3 }}>
+                Xaridlar va to&apos;lovlar o&apos;chmagan — ular shu ta&apos;minotchi ID siga bog&apos;langan holda turibdi.
+                Karta qaytarilishi bilan hammasi yana nomi bilan ko&apos;rinadi.
+              </p>
+            </div>
+
+            <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ background: "var(--bg)", borderRadius: "var(--radius)", padding: "10px 14px", fontSize: 12.5, fontWeight: 600, color: "var(--text-2)" }}>
+                <div>Ta&apos;minotchi ID: <b>{xarid.Taminotchi_ID}</b></div>
+                {qaytarInfo
+                  ? <div style={{ marginTop: 4 }}>
+                      Bog&apos;langan: <b>{qaytarInfo.xarid}</b> ta xarid · <b>{qaytarInfo.tolov}</b> ta to&apos;lov
+                    </div>
+                  : <div style={{ marginTop: 4, color: "var(--text-3)" }}>Bog&apos;langan yozuvlar sanalmoqda…</div>}
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Nomi *</label>
+                <input value={qaytarForm.Ism} onChange={e => setQaytarForm(p => ({ ...p, Ism: e.target.value }))}
+                  placeholder="Ta'minotchi nomi" autoFocus
+                  style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+                <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: 4 }}>
+                  Asl nom ilovada saqlanmagan — o&apos;chirilganda yo&apos;qolgan. Uni qo&apos;lda kiriting.
+                </p>
+              </div>
+
+              <div>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Telefon</label>
+                <input value={qaytarForm.Telefon} onChange={e => setQaytarForm(p => ({ ...p, Telefon: e.target.value }))}
+                  placeholder="Ixtiyoriy"
+                  style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Boshlang&apos;ich qarz (so&apos;m)</label>
+                  <input value={qaytarForm.Boshlangich_som} onChange={e => setQaytarForm(p => ({ ...p, Boshlangich_som: e.target.value }))}
+                    inputMode="decimal" placeholder="0"
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Boshlang&apos;ich qarz ($)</label>
+                  <input value={qaytarForm.Boshlangich_Balans} onChange={e => setQaytarForm(p => ({ ...p, Boshlangich_Balans: e.target.value }))}
+                    inputMode="decimal" placeholder="0"
+                    style={{ width: "100%", padding: "10px 14px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box" }}/>
+                </div>
+              </div>
+              <p style={{ fontSize: 11, color: "var(--text-3)", marginTop: -4 }}>
+                Boshlang&apos;ich qarz noto&apos;g&apos;ri kiritilsa ta&apos;minotchi qoldig&apos;i xato chiqadi — bilmasangiz 0 qoldiring, keyin Firma kartasidan to&apos;g&apos;rilash mumkin.
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)" }}>
+              <button className="btn btn--outline" style={{ flex: 1 }} disabled={qaytarSaving}
+                onClick={() => setQaytarOpen(false)}>Bekor</button>
+              <button className="btn btn--primary" style={{ flex: 2 }}
+                disabled={qaytarSaving || !qaytarForm.Ism.trim()}
+                onClick={handleQaytar}>
+                {qaytarSaving && <span className="spinner"/>} Qaytarish
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Delete savat item confirm ── */}

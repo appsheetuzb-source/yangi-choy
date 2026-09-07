@@ -7,11 +7,15 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { taminotchiChegirmasi, chegirmaMatn, type ChegirmaManbasi, type ChegirmaQator } from "@/lib/chegirma";
+import { statusOchirilgan, OCHIRILGAN_STATUS } from "@/lib/taminotchi-nom";
 
 interface Taminotchi {
   Taminotchi_ID: string; Ism: string; Telefon: string; Valyuta: string;
   Boshlangich_Balans: string; Boshlangich_som: string;
   Qoshilgan_Vaqt: string; Qoshdi: string;
+  // "O'chirilgan" bo'lsa — yumshoq o'chirilgan: qatori qoladi, nomi saqlanadi,
+  // ro'yxat va tanlagichlarda ko'rinmaydi, lekin eski xarid/to'lovlarda nomi chiqadi.
+  Status?: string;
 }
 interface Xarid { Xarid_ID: string; Taminotchi_ID: string; Sana?: string; Sotuv_Raqami?: string; }
 interface XaridSavat { Xarid_ID: string; Summa_Som: string; Jami_Summa: string;
@@ -21,7 +25,7 @@ interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Summa: string; Sum
 const VALYUTALAR = ["So'm", "Dollar", "Dollar , So'm"];
 const EMPTY: Taminotchi = {
   Taminotchi_ID: "", Ism: "", Telefon: "", Valyuta: "So'm",
-  Boshlangich_Balans: "", Boshlangich_som: "", Qoshilgan_Vaqt: "", Qoshdi: "",
+  Boshlangich_Balans: "", Boshlangich_som: "", Qoshilgan_Vaqt: "", Qoshdi: "", Status: "",
 };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -89,6 +93,8 @@ export default function TaminotchiPage() {
   const [deleteTarget, setDeleteTarget]   = useState<Taminotchi | null>(null);
   useScrollLock(drawerOpen || !!deleteTarget);
   const [deleting, setDeleting]           = useState(false);
+  const [ochirilganKorsat, setOchirilganKorsat] = useState(false);
+  const [tiklanmoqda, setTiklanmoqda]     = useState("");
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -153,7 +159,18 @@ export default function TaminotchiPage() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const filtered = taminotchilar.filter(t =>
+  async function handleTiklash(t: Taminotchi) {
+    setTiklanmoqda(t.Taminotchi_ID);
+    try {
+      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: t.Taminotchi_ID,
+          row: { ...t, Status: "" } }) });
+      afterWrite("Taminotchi"); loadData(800);
+    } finally { setTiklanmoqda(""); }
+  }
+
+  const ochirilganlar = taminotchilar.filter(t => statusOchirilgan(t.Status));
+  const filtered = taminotchilar.filter(t => (ochirilganKorsat ? statusOchirilgan(t.Status) : !statusOchirilgan(t.Status))).filter(t =>
     String(t.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
     String(t.Telefon || "").includes(search)
   );
@@ -193,8 +210,12 @@ export default function TaminotchiPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: deleteTarget.Taminotchi_ID }) });
+      // YUMSHOQ o'chirish: qator o'chirilmaydi, Status = "O'chirilgan" bo'ladi.
+      // Avval DELETE qilinardi va ta'minotchining NOMI butunlay yo'qolib, eski
+      // xarid/to'lovlarda faqat "—" ko'rinardi (BETA TEA va AXMET BEY shu holatda).
+      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: deleteTarget.Taminotchi_ID,
+          row: { ...deleteTarget, Status: OCHIRILGAN_STATUS } }) });
       afterWrite("Taminotchi"); setDeleteTarget(null); loadData(800);
     } finally { setDeleting(false); }
   }
@@ -227,6 +248,16 @@ export default function TaminotchiPage() {
               <input className="search__input" placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)}/>
               {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
             </div>
+          )}
+          {ochirilganlar.length > 0 && (
+            <button onClick={() => setOchirilganKorsat(v => !v)}
+              title="Yumshoq o'chirilgan ta'minotchilar — nomi saqlanadi, bir bosishda tiklanadi"
+              style={{ marginLeft: 10, padding: "6px 12px", fontSize: 12, fontWeight: 700, borderRadius: 20, cursor: "pointer", whiteSpace: "nowrap",
+                border: ochirilganKorsat ? "1px solid #b45309" : "1px solid var(--border)",
+                background: ochirilganKorsat ? "#fef3c7" : "var(--white)",
+                color: ochirilganKorsat ? "#b45309" : "var(--text-2)" }}>
+              O&apos;chirilganlar ({ochirilganlar.length})
+            </button>
           )}
           <div className="header__spacer"/>
           {!isMobile && (
@@ -305,6 +336,14 @@ export default function TaminotchiPage() {
                           )}
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>
+                          {statusOchirilgan(t.Status) ? (
+                            <button onClick={e => { e.stopPropagation(); handleTiklash(t); }}
+                              disabled={tiklanmoqda === t.Taminotchi_ID}
+                              title="Ta'minotchini tiklash — barcha xarid va to'lovlari yana nomi bilan ko'rinadi"
+                              style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid var(--primary)", background: "var(--white)", color: "var(--primary)", cursor: "pointer", fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>
+                              {tiklanmoqda === t.Taminotchi_ID ? "…" : "↩ Tiklash"}
+                            </button>
+                          ) : (<>
                           <button onClick={e => openEdit(t, e)}
                             style={{ width: 32, height: 32, borderRadius: 10, border: "1px solid #dbeafe", background: "#eff6ff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb" }}>
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
@@ -313,6 +352,7 @@ export default function TaminotchiPage() {
                             style={{ width: 32, height: 32, borderRadius: 10, border: "1px solid #fee2e2", background: "#fff1f2", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#ef4444" }}>
                             <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                           </button>
+                          </>)}
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>

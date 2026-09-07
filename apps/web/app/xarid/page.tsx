@@ -22,7 +22,7 @@ interface XaridSavat {
   Soni: string; Narxi: string; Narx_som: string; Foiz: string; Foizli_narx_dollar: string;
   Summa_Som: string; Jami_Summa: string;
 }
-interface Taminotchi { Taminotchi_ID: string; Ism: string; Boshlangich_som?: string; Boshlangich_Balans?: string; }
+interface Taminotchi { Taminotchi_ID: string; Ism: string; Boshlangich_som?: string; Boshlangich_Balans?: string; Status?: string; }
 interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Valyuta: string; Summa: string; Som: string; Summa_dollar: string; Dollar: string; }
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Kg: string; Ombor_ID: string;
@@ -185,6 +185,7 @@ export default function XaridPage() {
   const [xtolov, setXtolov]               = useState<XTolov[]>([]);
   const [taminotchilar, setTaminotchilar] = useState<Taminotchi[]>([]);
   const [tMap, setTMap]                   = useState<Record<string,string>>({});
+  const [tStatus, setTStatus]             = useState<Record<string,string>>({});
   const [mahsulotlar, setMahsulotlar]     = useState<Mahsulot[]>([]);
   const [mMap, setMMap]                   = useState<Record<string,Mahsulot>>({});
   const [omborlar, setOmborlar]           = useState<{Ombor_ID:string;Nomi:string}[]>([]);
@@ -247,8 +248,9 @@ export default function XaridPage() {
         const t=tR.data as Taminotchi[];
         setTaminotchilar(t);
         const tm:Record<string,string>={};
-        t.forEach(i=>{tm[i.Taminotchi_ID]=i.Ism;});
-        setTMap(tm);
+        const tst:Record<string,string>={};
+        t.forEach(i=>{tm[i.Taminotchi_ID]=i.Ism; tst[i.Taminotchi_ID]=i.Status||"";});
+        setTMap(tm); setTStatus(tst);
         // ta'minotchi boshlang'ich bo'sh qolsin
         const mArr=(mR.data as Mahsulot[]).filter(m=>m.Nomi);
         setMahsulotlar(mArr);
@@ -324,7 +326,7 @@ export default function XaridPage() {
     const matchOy  = !filterOy  || String(parseInt(x.Oy||"0")) === filterOy;
     const matchYil = !filterYil || x.Yil === filterYil;
     const matchT   = filterT.length===0 || filterT.includes(x.Taminotchi_ID);
-    const tNomi = taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], "");
+    const tNomi = taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], "", tStatus[x.Taminotchi_ID]);
     const matchSearch = !search || (x.Sotuv_Raqami||"").includes(search) || (x.Sana||"").includes(search) || tNomi.toLowerCase().includes(search.toLowerCase());
     return matchOy && matchYil && matchT && matchSearch;
   }),[xaridlar,filterOy,filterYil,filterT,tMap,search]);
@@ -679,8 +681,8 @@ export default function XaridPage() {
                 <div style={{display:"flex",flexDirection:"column"}}>
                   {filtered.slice(0,shown).map((x,idx)=>{
                     const savati=savatMap[String(x.Xarid_ID||"").trim()]||[];
-                    const tNomi=taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
-                    const tOchirilgan=ochirilganmi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
+                    const tNomi=taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], "—", tStatus[x.Taminotchi_ID]);
+                    const tOchirilgan=ochirilganmi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], tStatus[x.Taminotchi_ID]);
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
                     const chFoiz=xaridFoizi(savati);
@@ -748,8 +750,8 @@ export default function XaridPage() {
                 <>
                   {filtered.slice(0,shown).map((x,idx)=>{
                     const savati=savatMap[String(x.Xarid_ID||"").trim()]||[];
-                    const tNomi=taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
-                    const tOchirilgan=ochirilganmi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
+                    const tNomi=taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], "—", tStatus[x.Taminotchi_ID]);
+                    const tOchirilgan=ochirilganmi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], tStatus[x.Taminotchi_ID]);
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
                     const chFoiz=xaridFoizi(savati);

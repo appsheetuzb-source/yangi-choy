@@ -219,6 +219,7 @@ export default function XaridTolovPage() {
   const izohOpts = useIzohOptions("X_Tolov");
   const [tolovlar, setTolovlar]           = useState<XTolov[]>([]);
   const [tMap, setTMap]                   = useState<Record<string,string>>({});
+  const [tStatus, setTStatus]             = useState<Record<string,string>>({});
   const [xMap, setXMap]                   = useState<Record<string,string>>({});
   const [xaridlar, setXaridlar]           = useState<Xarid[]>([]);
   const [savatMap, setSavatMap]           = useState<Record<string,XaridSavat[]>>({});
@@ -304,8 +305,9 @@ export default function XaridTolovPage() {
       setTolovlar(sorted);
       const tm: Record<string,string> = {};
       const tArr = tmR.data as Taminotchi[];
-      tArr.forEach(t => { tm[t.Taminotchi_ID] = t.Ism; });
-      setTMap(tm);
+      const tst: Record<string,string> = {};
+      tArr.forEach(t => { tm[t.Taminotchi_ID] = t.Ism; tst[t.Taminotchi_ID] = (t as { Status?: string }).Status || ""; });
+      setTMap(tm); setTStatus(tst);
       setTaminotchilar(tArr);
       const xArr = xR.data as Xarid[];
       const xm: Record<string,string> = {};
@@ -585,7 +587,7 @@ export default function XaridTolovPage() {
     const matchOy  = !filterOy  || String(parseInt(t.Oy || "0")) === filterOy;
     const matchYil = !filterYil || t.Yil === filterYil;
     const matchT   = filterT.length === 0 || filterT.includes(t.Taminotchi_ID);
-    const tNomi = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID], "");
+    const tNomi = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID], "", tStatus[t.Taminotchi_ID]);
     const matchSearch = !search ||
       tNomi.toLowerCase().includes(search.toLowerCase()) ||
       (t.Sana || "").includes(search) ||
@@ -805,7 +807,7 @@ export default function XaridTolovPage() {
               {isMobile ? (
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   {filtered.slice(0, shown).map((t, idx) => {
-                    const tNomi    = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID]);
+                    const tNomi    = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID], "—", tStatus[t.Taminotchi_ID]);
                     const somVal   = num(t.Som);
                     const dollarVal = num(t.Dollar);
                     const jamiUsd  = num(t.Summa_dollar);
@@ -885,7 +887,7 @@ export default function XaridTolovPage() {
                 /* ── DESKTOP table rows ── */
                 <>
                   {filtered.slice(0, shown).map((t, idx) => {
-                    const tNomi    = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID]);
+                    const tNomi    = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID], "—", tStatus[t.Taminotchi_ID]);
                     const somVal    = num(t.Som);
                     const dollarVal = num(t.Dollar);
                     const jamiUsd   = num(t.Summa_dollar);

@@ -22,6 +22,10 @@ const REQUIRED: { table: string; column: string }[] = [
   // Mahsulotning o'lchov birligi ("Dona" / "Kg"). Eski AppSheet bazasida bunday ustun
   // bo'lmagan — bo'sh qiymat "Dona" deb o'qiladi (lib/birlik.ts), ya'ni avvalgi holat saqlanadi.
   { table: "mahsulot", column: "Birlik" },
+  // Ta'minotchi "yumshoq" o'chiriladi: qatori qolib, Status = "O'chirilgan" bo'ladi.
+  // Shunda eski xarid/to'lovlarda NOMI saqlanib qoladi (avval qator butunlay o'chib,
+  // nom yo'qolardi va faqat "—" ko'rinardi).
+  { table: "taminotchi", column: "Status" },
 ];
 
 function q(name: string) { return '"' + String(name).replace(/"/g, '""') + '"'; }
