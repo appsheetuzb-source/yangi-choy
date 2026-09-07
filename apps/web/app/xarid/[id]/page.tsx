@@ -5,6 +5,7 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
+import { taminotchiNomi, ochirilganmi } from "@/lib/taminotchi-nom";
 import { xaridFoizi, foizMatn, qatorFoizi } from "@/lib/chegirma";
 
 interface Xarid {
@@ -337,7 +338,8 @@ export default function XaridDetailPage() {
     </div>
   );
 
-  const tNomi = tMap[xarid.Taminotchi_ID] || "—";
+  const tNomi = taminotchiNomi(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID]);
+  const tOchirilgan = ochirilganmi(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID]);
   const isHa  = xarid.Akt_sverka === "True" || xarid.Akt_sverka === "true";
   const raqam = xarid.Sotuv_Raqami || "—";
 
@@ -383,7 +385,7 @@ export default function XaridDetailPage() {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(3,1fr)", gap: isMobile ? 10 : 16, marginBottom: isMobile ? 16 : 24 }}>
           <div onClick={() => router.push(`/taminotchi/${xarid.Taminotchi_ID}`)} style={{ gridColumn: isMobile ? "1 / -1" : undefined, background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "16px 18px" : "20px 24px", cursor: "pointer" }}>
             <p style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".06em", marginBottom: 10 }}>TA&apos;MINOTCHI</p>
-            <p style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, color: "var(--primary)" }}>{tNomi}</p>
+            <p style={{ fontSize: isMobile ? (tOchirilgan ? 15 : 17) : (tOchirilgan ? 17 : 20), fontWeight: 800, color: tOchirilgan ? "var(--text-3)" : "var(--primary)", fontStyle: tOchirilgan ? "italic" : "normal" }}>{tNomi}</p>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
               <p style={{ fontSize: 12, color: "var(--text-3)" }}>{xarid.Sana}</p>
               {xaridFoizi(savat) > 0 && (

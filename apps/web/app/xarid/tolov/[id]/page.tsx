@@ -7,6 +7,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
+import { taminotchiNomi } from "@/lib/taminotchi-nom";
 
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; }
 interface XTolov {
@@ -198,7 +199,7 @@ export default function XaridTolovDetailPage() {
     </div>
   );
 
-  const tNomi    = taminotchilar.find(t => t.Taminotchi_ID === tolov.Taminotchi_ID)?.Ism || "—";
+  const tNomi    = taminotchiNomi(tolov.Taminotchi_ID, taminotchilar.find(t => t.Taminotchi_ID === tolov.Taminotchi_ID)?.Ism);
   const xRaqam  = tolov.Xarid_ID ? xaridlar.find(x => x.Xarid_ID === tolov.Xarid_ID)?.Sotuv_Raqami : null;
   const gaznaNomi = tolov.Gazna_ID ? (gaznalar.find(g => g.Gazna_ID === tolov.Gazna_ID)?.Nomi || tolov.Gazna_ID) : null;
   const gaznaDollarNomi = tolov.Gazna_dollar_ID ? (gaznalar.find(g => g.Gazna_ID === tolov.Gazna_dollar_ID)?.Nomi || tolov.Gazna_dollar_ID) : null;

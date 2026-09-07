@@ -5,6 +5,7 @@ import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
+import { taminotchiNomi, ochirilganmi } from "@/lib/taminotchi-nom";
 import { xaridFoizi, foizMatn } from "@/lib/chegirma";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
@@ -323,7 +324,7 @@ export default function XaridPage() {
     const matchOy  = !filterOy  || String(parseInt(x.Oy||"0")) === filterOy;
     const matchYil = !filterYil || x.Yil === filterYil;
     const matchT   = filterT.length===0 || filterT.includes(x.Taminotchi_ID);
-    const tNomi = tMap[x.Taminotchi_ID]||"";
+    const tNomi = taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID], "");
     const matchSearch = !search || (x.Sotuv_Raqami||"").includes(search) || (x.Sana||"").includes(search) || tNomi.toLowerCase().includes(search.toLowerCase());
     return matchOy && matchYil && matchT && matchSearch;
   }),[xaridlar,filterOy,filterYil,filterT,tMap,search]);
@@ -678,7 +679,8 @@ export default function XaridPage() {
                 <div style={{display:"flex",flexDirection:"column"}}>
                   {filtered.slice(0,shown).map((x,idx)=>{
                     const savati=savatMap[String(x.Xarid_ID||"").trim()]||[];
-                    const tNomi=tMap[x.Taminotchi_ID]||"—";
+                    const tNomi=taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
+                    const tOchirilgan=ochirilganmi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
                     const chFoiz=xaridFoizi(savati);
@@ -696,7 +698,7 @@ export default function XaridPage() {
                               <span style={{fontSize:11,color:"var(--text-3)"}}>{x.Sana}</span>
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                              <p style={{fontSize:14,fontWeight:800,color:"var(--text)"}}>{tNomi}</p>
+                              <p style={{fontSize:14,fontWeight:800,color:tOchirilgan?"var(--text-3)":"var(--text)",fontStyle:tOchirilgan?"italic":"normal"}}>{tNomi}</p>
                               {chFoiz>0&&<span style={{fontSize:13.5,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1.5px solid #f59e0b",padding:"3px 11px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:".01em",lineHeight:1.35}} title="Ta'minotchi bergan chegirma">Chegirma −{foizMatn(chFoiz)}</span>}
                             </div>
                             {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}
@@ -746,7 +748,8 @@ export default function XaridPage() {
                 <>
                   {filtered.slice(0,shown).map((x,idx)=>{
                     const savati=savatMap[String(x.Xarid_ID||"").trim()]||[];
-                    const tNomi=tMap[x.Taminotchi_ID]||"—";
+                    const tNomi=taminotchiNomi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
+                    const tOchirilgan=ochirilganmi(x.Taminotchi_ID, tMap[x.Taminotchi_ID]);
                     const xaridSom=savati.reduce((s,r)=>s+num(r.Summa_Som),0);
                     const xaridUsd=savati.reduce((s,r)=>s+num(r.Jami_Summa),0);
                     const chFoiz=xaridFoizi(savati);
@@ -765,7 +768,7 @@ export default function XaridPage() {
                         </span>
                         <div style={{cursor:"pointer"}} onClick={()=>router.push(`/xarid/${x.Xarid_ID}`)}>
                           <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                            <p style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>{tNomi}</p>
+                            <p style={{fontSize:13,fontWeight:700,color:tOchirilgan?"var(--text-3)":"var(--text)",fontStyle:tOchirilgan?"italic":"normal"}}>{tNomi}</p>
                             {chFoiz>0&&<span style={{fontSize:13.5,fontWeight:800,color:"#b45309",background:"#fef3c7",border:"1.5px solid #f59e0b",padding:"3px 11px",borderRadius:20,whiteSpace:"nowrap",letterSpacing:".01em",lineHeight:1.35}} title="Ta'minotchi bergan chegirma">Chegirma −{foizMatn(chFoiz)}</span>}
                           </div>
                           {x.Izoh&&<p style={{fontSize:11,color:"var(--text-3)",marginTop:1}}>{x.Izoh}</p>}

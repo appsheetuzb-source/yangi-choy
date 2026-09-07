@@ -10,6 +10,7 @@ import { gaznaForUser } from "@/lib/auth";
 import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
 import { taminotchiChegirmasi, chegirmaMatn } from "@/lib/chegirma";
+import { taminotchiNomi, ochirilganmi } from "@/lib/taminotchi-nom";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
@@ -584,7 +585,7 @@ export default function XaridTolovPage() {
     const matchOy  = !filterOy  || String(parseInt(t.Oy || "0")) === filterOy;
     const matchYil = !filterYil || t.Yil === filterYil;
     const matchT   = filterT.length === 0 || filterT.includes(t.Taminotchi_ID);
-    const tNomi = tMap[t.Taminotchi_ID] || "";
+    const tNomi = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID], "");
     const matchSearch = !search ||
       tNomi.toLowerCase().includes(search.toLowerCase()) ||
       (t.Sana || "").includes(search) ||
@@ -804,7 +805,7 @@ export default function XaridTolovPage() {
               {isMobile ? (
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   {filtered.slice(0, shown).map((t, idx) => {
-                    const tNomi    = tMap[t.Taminotchi_ID] || "—";
+                    const tNomi    = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID]);
                     const somVal   = num(t.Som);
                     const dollarVal = num(t.Dollar);
                     const jamiUsd  = num(t.Summa_dollar);
@@ -884,7 +885,7 @@ export default function XaridTolovPage() {
                 /* ── DESKTOP table rows ── */
                 <>
                   {filtered.slice(0, shown).map((t, idx) => {
-                    const tNomi    = tMap[t.Taminotchi_ID] || "—";
+                    const tNomi    = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID]);
                     const somVal    = num(t.Som);
                     const dollarVal = num(t.Dollar);
                     const jamiUsd   = num(t.Summa_dollar);
