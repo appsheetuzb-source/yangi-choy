@@ -100,6 +100,9 @@ export default function XaridDetailPage() {
   const { user } = useAuth();
   const isAdmin = user?.lavozim === "Admin";
   const [savat, setSavat]             = useState<XaridSavat[]>([]);
+  // Tahrirlash oynasidagi chegirma (yangi xarid formasidagi kabi)
+  const [editChegHa, setEditChegHa]     = useState(false);
+  const [editChegFoiz, setEditChegFoiz] = useState("");
   // Xarid chegirmasi (butun xaridga bitta foiz)
   const [chegOpen, setChegOpen]     = useState(false);
   const [chegHa, setChegHa]         = useState(false);
@@ -169,6 +172,11 @@ export default function XaridDetailPage() {
   function openEdit() {
     if (!xarid) return;
     setIsAddMode(false);
+    {
+      const f = xaridFoizi(savat);
+      setEditChegHa(f > 0);
+      setEditChegFoiz(f > 0 ? String(Math.round(f * 10) / 10) : "");
+    }
     setEditTaminotchi(xarid.Taminotchi_ID);
     setEditIzoh(xarid.Izoh || "");
     setEditSavat(savat.map(s => ({ id: uid(), Mahsulot_ID: s.Mahsulot_ID, Soni: s.Soni, Narxi: s.Narxi, Narx_som: s.Narx_som, Foiz: qatorFoizi(s) > 0 ? String(qatorFoizi(s)) : "" })));
@@ -201,7 +209,7 @@ export default function XaridDetailPage() {
               Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
               // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
               // summalar esa chegirmasiz hisoblanib xaridni oshirib ko'rsatardi)
-              ...(() => { const f = num(r.Foiz), k = f > 0 ? 1 - f / 100 : 1; return {
+              ...(() => { const f = editChegHa ? num(editChegFoiz) : 0, k = f > 0 ? 1 - f / 100 : 1; return {
                 Foiz: f > 0 ? String(f) : "",
                 Foizli_narx: f > 0 ? String(num(r.Narx_som) * k) : "0",
                 Foizli_narx_dollar: f > 0 ? String(num(r.Narxi) * k) : r.Narxi,
@@ -230,7 +238,7 @@ export default function XaridDetailPage() {
               Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
               // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
               // summalar esa chegirmasiz hisoblanib xaridni oshirib ko'rsatardi)
-              ...(() => { const f = num(r.Foiz), k = f > 0 ? 1 - f / 100 : 1; return {
+              ...(() => { const f = editChegHa ? num(editChegFoiz) : 0, k = f > 0 ? 1 - f / 100 : 1; return {
                 Foiz: f > 0 ? String(f) : "",
                 Foizli_narx: f > 0 ? String(num(r.Narx_som) * k) : "0",
                 Foizli_narx_dollar: f > 0 ? String(num(r.Narxi) * k) : r.Narxi,
@@ -756,6 +764,34 @@ export default function XaridDetailPage() {
               <div className="drawer__section">
                 <p className="drawer__section-label">Izoh</p>
                 <div className="field"><IzohSelect value={editIzoh} onChange={v => setEditIzoh(v)} options={izohOpts} placeholder="Ixtiyoriy..."/></div>
+              </div>
+              <div className="drawer__section">
+                <p className="drawer__section-label">Chegirma bormi?</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "inline-flex", borderRadius: 10, overflow: "hidden", border: "1px solid var(--border)" }}>
+                    <button type="button" onClick={() => setEditChegHa(true)}
+                      style={{ padding: "7px 20px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer",
+                        background: editChegHa ? "var(--primary)" : "var(--white)", color: editChegHa ? "#fff" : "var(--text-2)" }}>Ha</button>
+                    <button type="button" onClick={() => setEditChegHa(false)}
+                      style={{ padding: "7px 20px", fontSize: 13, fontWeight: 700, border: "none", borderLeft: "1px solid var(--border)", cursor: "pointer",
+                        background: !editChegHa ? "var(--primary)" : "var(--white)", color: !editChegHa ? "#fff" : "var(--text-2)" }}>Yo&apos;q</button>
+                  </div>
+                  {editChegHa && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <input value={editChegFoiz} onChange={e => setEditChegFoiz(e.target.value)} inputMode="decimal" placeholder="0"
+                        style={{ width: 90, padding: "8px 12px", border: "1px solid #f59e0b", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", textAlign: "center" }}/>
+                      <span style={{ fontSize: 14, fontWeight: 800, color: "#b45309" }}>%</span>
+                    </div>
+                  )}
+                </div>
+                {editChegHa && num(editChegFoiz) > 0 && (
+                  <p style={{ fontSize: 11.5, color: "var(--text-3)", marginTop: 8 }}>
+                    Foiz barcha mahsulotlarga qo&apos;llanadi. Jami:{" "}
+                    <b style={{ color: "#b45309" }}>
+                      {Math.round(editSavat.reduce((a, r) => a + num(r.Soni) * num(r.Narx_som), 0) * (1 - num(editChegFoiz) / 100)).toLocaleString("ru-RU")} so&apos;m
+                    </b>
+                  </p>
+                )}
               </div>
               <div className="drawer__section">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
