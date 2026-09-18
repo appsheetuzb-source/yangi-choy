@@ -57,6 +57,17 @@ function fmtUsd(v: number) {
   return v ? "$" + v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4}) : "—";
 }
 
+// "DD.MM.YYYY" <-> "YYYY-MM-DD" (input type=date uchun)
+function sanaToIso(sana: string): string {
+  const m = String(sana || "").match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
+}
+function isoToSana(iso: string): { sana: string; oy: string; yil: string } | null {
+  const m = String(iso || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return null;
+  return { sana: `${m[3]}.${m[2]}.${m[1]}`, oy: String(parseInt(m[2], 10)), yil: m[1] };
+}
+
 function nowStr() {
   const d=new Date();
   const t=new Date(d.toLocaleString("en-US",{timeZone:"Asia/Tashkent"}));
@@ -407,6 +418,8 @@ export default function SotuvPage() {
   const [editMijoz, setEditMijoz]       = useState("");
   const [editAgent, setEditAgent]       = useState("");
   const [editIzoh, setEditIzoh]         = useState("");
+  const [addSana, setAddSana]             = useState("");   // YYYY-MM-DD, bo'sh = bugun
+  const [editSana, setEditSana]           = useState("");   // YYYY-MM-DD
   const [editKurs, setEditKurs]         = useState("");
   const [editSavat, setEditSavat]       = useState<SavatItem[]>([]);
   const [editSaving, setEditSaving]     = useState(false);
@@ -559,6 +572,7 @@ export default function SotuvPage() {
     // Agent — joriy foydalanuvchi (login bo'lgan user) bo'yicha avtomatik tanlanadi
     setAddMijoz(""); setAddAgent(user?.id || agentlar[0]?.Foydalanuvchi_ID || "");
     setAddIzoh(""); setAddKurs(defaultKurs);
+    setAddSana(sanaToIso(nowStr().sana));
     setSavat([{id:uid(),Mahsulot_ID:"",Soni:"",Som_Narx:"",Narx:"",valyuta:"som",Check:"TRUE"}]);
     setAddOpen(true);
   }
@@ -570,7 +584,10 @@ export default function SotuvPage() {
     const valid=savat.filter(s=>s.Mahsulot_ID&&num(s.Soni)!==0&&(num(s.Som_Narx)||num(s.Narx)));
     // Bo'sh savat bilan ham saqlashga ruxsat beriladi — keyin mahsulot qo'shilsa avtomat saqlanadi
     setSaving(true);
-    const {sana:snStr,oy,yil,vaqt}=nowStr();
+    // Sana formadan olinadi (o'zgartirish mumkin), vaqt esa haqiqiy kiritish payti
+    const nw=nowStr();
+    const sp=isoToSana(addSana);
+    const snStr=sp?sp.sana:nw.sana, oy=sp?sp.oy:nw.oy, yil=sp?sp.yil:nw.yil, vaqt=nw.vaqt;
     const sotuvId=uid();
     const maxRaqam=sotuvlar.reduce((mx,s)=>Math.max(mx,num(s.Sotuv_Raqami)),0);
     const raqam=String(maxRaqam+1);
@@ -721,6 +738,7 @@ export default function SotuvPage() {
 
   function openEdit(s:Sotuv) {
     setDetailSotuv(s);
+    setEditSana(sanaToIso(s.Sana));
     setEditMijoz(s.Mijoz_ID);
     setEditAgent(s.Agent);
     setEditIzoh(s.Izoh||"");
@@ -766,9 +784,13 @@ export default function SotuvPage() {
           excludeSotuvId:detailSotuv.Sotuv_ID,
         }));
       }
+      // Sana tahrirlangan bo'lsa Sotuv va BARCHA savat qatorlarida yangilanadi
+      // (avval sana o'zgartirib bo'lmasdi — detailSotuv.Sana o'zgarmay qolardi).
+      const sp = isoToSana(editSana);
+      const sanaPatch = sp ? { Sana: sp.sana, Oy: sp.oy, Yil: sp.yil } : {};
       await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:detailSotuv.Sotuv_ID,
-          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,...balPatch}})});
+          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,...sanaPatch,...balPatch}})});
       // Delete old savat rows
       for(const r of (savatSomMap[detailSotuv.Sotuv_ID]||[])){
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
@@ -779,7 +801,7 @@ export default function SotuvPage() {
           body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID})});
       }
       // Post new savat rows
-      const snRow=detailSotuv.Sana; const [,moRow,yRow]=snRow.split(".");
+      const snRow=sp?sp.sana:detailSotuv.Sana; const [,moRow,yRow]=snRow.split(".");
       let savatIdx=1;
       // Ombor semantikasi (handleSave bilan bir xil): Ombor_ID=manba, Ombor_2=qabul(do'konga transfer)
       const fOmbor=omborByAgent(agentlar);
@@ -1373,7 +1395,8 @@ export default function SotuvPage() {
               </div>
               <div style={{flexShrink:0}}>
                 <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Yangi sotuv</h2>
-                <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>{sana}</p>
+                <input type="date" value={addSana} onChange={e=>setAddSana(e.target.value)} title="Sotuv sanasi"
+                  style={{fontSize:12,fontWeight:600,padding:"4px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",color:"var(--text)",cursor:"pointer",outline:"none"}}/>
               </div>
               {isMobile && (
                 <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
@@ -1567,7 +1590,11 @@ export default function SotuvPage() {
               </div>
               <div style={{flex:1}}>
                 <h2 style={{fontSize:16,fontWeight:800,marginBottom:2}}>Sotuvni tahrirlash</h2>
-                <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>#{detailSotuv.Sotuv_Raqami} — {detailSotuv.Sana}</p>
+                <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                  <p style={{fontSize:12,color:"var(--text-3)",fontWeight:600}}>#{detailSotuv.Sotuv_Raqami}</p>
+                  <input type="date" value={editSana} onChange={e=>setEditSana(e.target.value)} title="Sotuv sanasi"
+                    style={{fontSize:12,fontWeight:600,padding:"4px 6px",border:"1px solid var(--border)",borderRadius:"var(--radius)",background:"var(--white)",color:"var(--text)",cursor:"pointer",outline:"none"}}/>
+                </div>
               </div>
               <button onClick={()=>setDetailSotuv(null)} style={{width:34,height:34,borderRadius:8,border:"1px solid var(--border)",background:"var(--white)",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
                 <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
