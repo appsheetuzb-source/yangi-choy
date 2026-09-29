@@ -516,8 +516,9 @@ export default function XaridPage() {
   };
 
   // Mobile product row for add/edit
-  function MobileProductRow({ s, onUpdate, onRemove, mItems, chegirmaHa, narxError, onAddNew }: {
+  function MobileProductRow({ s, idx, onUpdate, onRemove, mItems, chegirmaHa, narxError, onAddNew }: {
     s: SavatItem;
+    idx?: number;
     onUpdate: (id:string, field:keyof SavatItem, val:string)=>void;
     onRemove: (id:string)=>void;
     mItems: {id:string;label:string}[];
@@ -531,7 +532,9 @@ export default function XaridPage() {
     return (
       <div style={{background:"var(--bg)",borderRadius:"var(--radius)",padding:"12px",marginBottom:10,border:"1px solid var(--border)"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)"}}>MAHSULOT</span>
+          <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)"}}>
+            {typeof idx === "number" ? `#${idx + 1} · MAHSULOT` : "MAHSULOT"}
+          </span>
           <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
             <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
@@ -879,6 +882,7 @@ export default function XaridPage() {
               </div>
               {!isMobile&&editSavat.length>0&&(
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,paddingBottom:6,borderBottom:"1px solid var(--border)"}}>
+                  <div style={{width:28,textAlign:"center"}}><span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>&#8470;</span></div>
                   <div style={{flex:3,minWidth:0}}><span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>MAHSULOT</span></div>
                   <div style={{width:90,textAlign:"center"}}><span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>MIQDOR</span></div>
                   <div style={{width:100,textAlign:"center"}}><span style={{fontSize:10,fontWeight:700,color:"#2563eb",letterSpacing:".04em"}}>NARX ($)</span></div>
@@ -889,12 +893,12 @@ export default function XaridPage() {
                 </div>
               )}
               {isMobile ? (
-                editSavat.map(s=>{
+                editSavat.map((s,idx)=>{
                   const a=!!num(s.Narxi),b=!!num(s.Narx_som);const ne=editTriedSave&&!!s.Mahsulot_ID&&!!s.Soni&&((!a&&!b)||(a&&b));
-                  return <MobileProductRow key={s.id} s={s} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={editChegirmaHa} narxError={ne} onAddNew={(rowId,name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateEditItem(rowId,"Mahsulot_ID",id) })}/>;
+                  return <MobileProductRow key={s.id} s={s} idx={idx} onUpdate={updateEditItem} onRemove={id=>setEditSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={editChegirmaHa} narxError={ne} onAddNew={(rowId,name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateEditItem(rowId,"Mahsulot_ID",id) })}/>;
                 })
               ) : (
-                editSavat.map(s=>{
+                editSavat.map((s,idx)=>{
                   const foiz=editChegirmaHa?num(s.Foiz):0;
                   const jS=num(s.Soni)*num(s.Narx_som)*(1-foiz/100);
                   const jU=num(s.Soni)*num(s.Narxi)*(1-foiz/100);
@@ -902,6 +906,7 @@ export default function XaridPage() {
                   return (
                   <div key={s.id} style={{marginBottom:bothFilled?2:8}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{width:28,flexShrink:0,textAlign:"center",fontSize:13,fontWeight:700,color:"var(--text-3)"}}>{idx+1}</span>
                     <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateEditItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={(name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateEditItem(s.id,"Mahsulot_ID",id) })}/></div>
                     <input type="number" value={s.Soni} onChange={e=>updateEditItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     <input value={s.Narxi} onChange={e=>updateEditItem(s.id,"Narxi",e.target.value)} placeholder="Narx ($)" style={{width:100,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#2563eb",textAlign:"center"}}/>
@@ -1026,6 +1031,7 @@ export default function XaridPage() {
               )}
               {!isMobile&&savat.length>0&&(
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,paddingBottom:6,borderBottom:"1px solid var(--border)"}}>
+                  <div style={{width:28,textAlign:"center"}}><span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>&#8470;</span></div>
                   <div style={{flex:3,minWidth:0}}><span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>MAHSULOT</span></div>
                   <div style={{width:90,textAlign:"center"}}><span style={{fontSize:10,fontWeight:700,color:"var(--text-3)",letterSpacing:".04em"}}>MIQDOR</span></div>
                   <div style={{width:100,textAlign:"center"}}><span style={{fontSize:10,fontWeight:700,color:"#2563eb",letterSpacing:".04em"}}>NARX ($)</span></div>
@@ -1036,12 +1042,12 @@ export default function XaridPage() {
                 </div>
               )}
               {isMobile ? (
-                savat.map(s=>{
+                savat.map((s,idx)=>{
                   const a=!!num(s.Narxi),b=!!num(s.Narx_som);const ne=triedSave&&!!s.Mahsulot_ID&&!!s.Soni&&((!a&&!b)||(a&&b));
-                  return <MobileProductRow key={s.id} s={s} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={chegirmaHa} narxError={ne} onAddNew={(rowId,name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateItem(rowId,"Mahsulot_ID",id) })}/>;
+                  return <MobileProductRow key={s.id} s={s} idx={idx} onUpdate={updateItem} onRemove={id=>setSavat(p=>p.filter(r=>r.id!==id))} mItems={mItems} chegirmaHa={chegirmaHa} narxError={ne} onAddNew={(rowId,name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateItem(rowId,"Mahsulot_ID",id) })}/>;
                 })
               ) : (
-                savat.map(s=>{
+                savat.map((s,idx)=>{
                   const foiz=chegirmaHa?num(s.Foiz):0;
                   const jS=num(s.Soni)*num(s.Narx_som)*(1-foiz/100);
                   const jU=num(s.Soni)*num(s.Narxi)*(1-foiz/100);
@@ -1049,6 +1055,7 @@ export default function XaridPage() {
                   return (
                   <div key={s.id} style={{marginBottom:bothFilled?2:8}}>
                   <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{width:28,flexShrink:0,textAlign:"center",fontSize:13,fontWeight:700,color:"var(--text-3)"}}>{idx+1}</span>
                     <div style={{flex:3,minWidth:0}}><SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>updateItem(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={(name)=>setNewProd({ name, ombor: omborlar[0]?.Ombor_ID || "", onDone:(id)=>updateItem(s.id,"Mahsulot_ID",id) })}/></div>
                     <input type="number" value={s.Soni} onChange={e=>updateItem(s.id,"Soni",e.target.value)} placeholder="Miqdor" style={{width:90,padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
                     <input value={s.Narxi} onChange={e=>updateItem(s.id,"Narxi",e.target.value)} placeholder="Narx ($)" style={{width:100,padding:"10px",border:`1px solid ${ne?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",color:"#2563eb",textAlign:"center"}}/>
