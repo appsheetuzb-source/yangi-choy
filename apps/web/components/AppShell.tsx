@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { canAccess } from "@/lib/auth";
 import Sidebar from "./Sidebar";
 import SaveToast from "./SaveToast";
-import { useNoWheelNumber } from "@/lib/use-no-wheel-number";
+import { useNoStepperScroll } from "@/lib/use-no-stepper-scroll";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -15,8 +15,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const isLoginPage = pathname === "/login";
 
-  // Raqamli inputlarda sichqoncha roliki qiymatni o'zgartirmasligi uchun (butun ilovada)
-  useNoWheelNumber();
+  // Raqam/sana/vaqt maydonlarida rolik va strelka qiymatni o'zgartirmasligi uchun (butun ilovada)
+  useNoStepperScroll();
 
   useEffect(() => {
     if (loading) return;
