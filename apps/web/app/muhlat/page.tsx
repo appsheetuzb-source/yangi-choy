@@ -69,6 +69,85 @@ function Karta({ label, val, rang, fon, isMobile }: { label: string; val: number
   );
 }
 
+// ─────────────────────────── Qidiruvli tanlash (bitta maydon) ───────────────────────────
+// Ilovadagi SearchSelect uslubi: maydon bosilganda ichida qidiruv bilan ro'yxat ochiladi.
+// Nom yoki telefon bo'yicha qidiradi; ↑ ↓ Enter bilan tanlanadi, Esc ro'yxatni yopadi (oynani emas).
+function TanlashMaydoni({ items, value, onChange, placeholder, acc }: {
+  items: Item[]; value: string; onChange: (id: string) => void; placeholder: string; acc: string;
+}) {
+  const [q, setQ] = useState("");
+  const [ochiq, setOchiq] = useState(false);
+  const [faol, setFaol] = useState(0);
+  const ref = useRef<HTMLDivElement>(null);
+  const tugmaRef = useRef<HTMLButtonElement>(null);
+  const royxatRef = useRef<HTMLDivElement>(null);
+  const tanlangan = items.find(i => i.id === value);
+
+  useEffect(() => {
+    if (!ochiq) return;
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOchiq(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [ochiq]);
+
+  const mos = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const sRaqam = s.replace(/[^\d]/g, "");
+    const r = s ? items.filter(i => i.nomi.toLowerCase().includes(s) || (!!sRaqam && i.tel.replace(/[^\d]/g, "").includes(sRaqam))) : items;
+    return r.slice(0, 100);
+  }, [items, q]);
+
+  useEffect(() => {
+    if (ochiq) royxatRef.current?.querySelector<HTMLElement>(`[data-i="${faol}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [faol, ochiq]);
+
+  function tanla(id: string) {
+    onChange(id); setOchiq(false); setQ("");
+    tugmaRef.current?.focus();
+  }
+  function klaviatura(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown") { e.preventDefault(); setFaol(f => Math.min(f + 1, Math.max(0, mos.length - 1))); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setFaol(f => Math.max(f - 1, 0)); }
+    else if (e.key === "Enter") { e.preventDefault(); if (mos[faol]) tanla(mos[faol].id); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOchiq(false); tugmaRef.current?.focus(); }
+  }
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button ref={tugmaRef} type="button" onClick={() => { setOchiq(o => !o); setQ(""); setFaol(0); }}
+        style={{ ...INPUT, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", textAlign: "left",
+          border: `1px solid ${value || ochiq ? acc : "var(--border)"}`, fontSize: 13.5, fontWeight: tanlangan ? 600 : 400, color: tanlangan ? "var(--text)" : "var(--text-3)" }}>
+        <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0, color: "var(--text-3)" }}><circle cx="11" cy="11" r="7" strokeWidth={2}/><path strokeLinecap="round" strokeWidth={2} d="M20 20l-3.5-3.5"/></svg>
+        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tanlangan ? tanlangan.nomi : placeholder}</span>
+        {tanlangan?.tel && <span style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-3)", flexShrink: 0 }}>{tanlangan.tel}</span>}
+        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ flexShrink: 0, color: "var(--text-3)", transform: ochiq ? "rotate(180deg)" : "none", transition: "transform .15s" }}>
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7"/>
+        </svg>
+      </button>
+      {ochiq && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 300, background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius)", boxShadow: "var(--shadow-lg)", overflow: "hidden" }}>
+          <div style={{ padding: 8, borderBottom: "1px solid var(--border)" }}>
+            <input autoFocus value={q} onChange={e => { setQ(e.target.value); setFaol(0); }} onKeyDown={klaviatura}
+              placeholder="Qidirish (nom yoki telefon)..." style={{ ...INPUT, padding: "8px 10px" }}/>
+          </div>
+          <div ref={royxatRef} style={{ maxHeight: 240, overflowY: "auto", overscrollBehavior: "contain" }} onTouchMove={e => e.stopPropagation()}>
+            {mos.length === 0
+              ? <div style={{ padding: "12px 14px", fontSize: 13, color: "var(--text-3)" }}>Topilmadi</div>
+              : mos.map((i, k) => (
+                <div key={i.id} data-i={k} onMouseDown={e => e.preventDefault()} onClick={() => tanla(i.id)} onMouseEnter={() => setFaol(k)}
+                  style={{ padding: "9px 14px", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 8,
+                    background: k === faol ? "var(--bg)" : "transparent", fontWeight: i.id === value ? 700 : 500, color: i.id === value ? acc : "var(--text)" }}>
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{i.nomi}</span>
+                  {i.tel && <span style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-3)", flexShrink: 0 }}>{i.tel}</span>}
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─────────────────────────── Yangi muhlat formasi (oyna) ───────────────────────────
 type SaqlashMalumoti = { entId: string; nomi: string; belgilanganIso: string; vadaIso: string; izoh: string };
 
@@ -90,7 +169,6 @@ function MuhlatForma(p: FormaProps) {
   const mijozmi = p.turi === TURI_MIJOZ;
   const acc = mijozmi ? "#2563eb" : "#7c3aed";
   const accFon = mijozmi ? "#eff6ff" : "#f5f3ff";
-  const [qidir, setQidir] = useState("");
   const [entId, setEntId] = useState("");
   // Belgilangan sana: foydalanuvchi o'zgartirmaguncha har doim BUGUN
   const [belgilanganQolda, setBelgilanganQolda] = useState("");
@@ -98,13 +176,7 @@ function MuhlatForma(p: FormaProps) {
   const [vada, setVada] = useState("");
   const [izoh, setIzoh] = useState("");
 
-  const itemMap = useMemo(() => { const m: Record<string, Item> = {}; p.items.forEach(i => { m[i.id] = i; }); return m; }, [p.items]);
-  const mos = useMemo(() => {
-    const q = qidir.trim().toLowerCase();
-    const r = q ? p.items.filter(i => i.nomi.toLowerCase().includes(q) || i.tel.includes(q)) : p.items;
-    return r.slice(0, 300);
-  }, [p.items, qidir]);
-  const tanlangan = itemMap[entId];
+  const tanlangan = useMemo(() => p.items.find(i => i.id === entId), [p.items, entId]);
 
   const bandmi = p.band.has(p.turi);
   const belgilanganXato = belgilangan > p.bugun;
@@ -163,15 +235,9 @@ function MuhlatForma(p: FormaProps) {
 
           <div>
             <label style={LABEL}>{mijozmi ? "MIJOZ" : "TA'MINOTCHI"} *</label>
-            <input value={qidir} onChange={e => setQidir(e.target.value)} placeholder="Qidirish (nom yoki telefon)..."
-              style={{ ...INPUT, padding: "9px 12px", marginBottom: 6 }}/>
-            <select value={entId} onChange={e => { const v = e.target.value; setEntId(v); if (mijozmi && v) p.onQarzKerak(v); }}
-              style={{ ...INPUT, padding: "10px 12px", fontSize: 13.5, fontWeight: 600, border: `1px solid ${entId ? acc : "var(--border)"}`, cursor: "pointer" }}>
-              <option value="">— tanlang —</option>
-              {entId && tanlangan && !mos.some(i => i.id === entId) && <option value={entId}>{tanlangan.nomi}</option>}
-              {mos.map(i => <option key={i.id} value={i.id}>{i.nomi}</option>)}
-            </select>
-            {qidir.trim() && mos.length === 0 && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Topilmadi</p>}
+            <TanlashMaydoni items={p.items} value={entId} acc={acc}
+              placeholder={mijozmi ? "Mijozni qidiring va tanlang..." : "Ta'minotchini qidiring va tanlang..."}
+              onChange={v => { setEntId(v); if (mijozmi && v) p.onQarzKerak(v); }}/>
             {mijozmi && entId && (
               <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginTop: 6 }}>
                 Joriy qarz:{" "}
@@ -346,9 +412,9 @@ function MuhlatPanel(p: PanelProps) {
                   </button>
                 )}
                 <span style={{ flex: 1 }}/>
-                <button onClick={() => p.onDelete(m)} title="O'chirish" disabled={band}
-                  style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid #fee2e2", background: "#fff1f2", color: "#ef4444", cursor: "pointer", fontSize: 14, lineHeight: 1, flexShrink: 0 }}>
-                  ×
+                <button onClick={() => p.onDelete(m)} title="O'chirish" aria-label="O'chirish" disabled={band}
+                  style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #fecaca", background: "#fef2f2", color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, opacity: band ? 0.6 : 1 }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                 </button>
               </div>
             </div>
@@ -782,6 +848,7 @@ export default function MuhlatPage() {
       {ochirish && (
         <div className="modal-overlay" onClick={() => !ochirilmoqda && setOchirish(null)}>
           <div className="confirm" onClick={e => e.stopPropagation()}>
+            <div className="confirm__icon"><svg width="24" height="24" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></div>
             <p className="confirm__title">Muhlatni o&apos;chirish</p>
             <p className="confirm__text">
               <strong>{tr(ochirish.Nomi) || "—"}</strong> uchun {tr(ochirish.Tugash)} muhlati
