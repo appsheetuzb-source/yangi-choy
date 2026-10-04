@@ -1,5 +1,6 @@
 "use client";
 import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
+import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni, opVaqti } from "@/lib/mijoz-ledger";
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
@@ -42,6 +43,37 @@ function ChekContent() {
   const [sharing, setSharing]         = useState(false);
   const chekRef = useRef<HTMLDivElement>(null);
 
+  // YAGONA LEDGER: chek qaysi tugmadan ochilganidan qat'i nazar raqamlar bir xil chiqadi.
+  // URL'dagi totalSom/tolovSom faqat ledger yuklanmay qolsa zaxira sifatida ishlatiladi.
+  type Led = { oldSom: number; oldUsd: number; yangiSom: number; yangiUsd: number; holat: string; sotuvVaqt: string;
+    keyin: null | { som: number; usd: number; vaqt: string } };
+  const [led, setLed] = useState<Led | null>(null);
+  const [chopVaqti] = useState(() => {
+    const d = new Date(); const p = (n: number) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  });
+  useEffect(() => {
+    if (!id) return;
+    let bekor = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/sheets?range=Sotuv&filterColumn=Sotuv_ID&filterValue=${encodeURIComponent(id)}`, { cache: "no-store" });
+        const srow = ((await r.json()).data || [])[0] as { Mijoz_ID?: string } | undefined;
+        const mid = String(srow?.Mijoz_ID || "").trim();
+        if (!mid) return;
+        const L = mijozLedger(await mijozLedgerMalumoti(mid, id));
+        const nq = ledgerNuqta(L, "sotuv", id);
+        if (!nq || bekor) return;
+        setLed({
+          oldSom: nq.op.oldSom, oldUsd: nq.op.oldUsd, yangiSom: nq.op.yangiSom, yangiUsd: nq.op.yangiUsd,
+          holat: holatMatni(nq.oldingi), sotuvVaqt: opVaqti(nq.op),
+          keyin: nq.keyinAmalBor ? { som: nq.oxirgi.yangiSom, usd: nq.oxirgi.yangiUsd, vaqt: holatMatni(nq.oxirgi) } : null,
+        });
+      } catch { /* tarmoq xatosi — URL raqamlari bilan qoladi */ }
+    })();
+    return () => { bekor = true; };
+  }, [id]);
+
 
   useEffect(()=>{
     if(!id) return;
@@ -73,8 +105,10 @@ function ChekContent() {
   const thisDollar     = savatDollar.reduce((s,r)=>s+num(r.Summa),0);
   // To'lov "Eski qarz"ga singdiriladi — alohida "To'lov" qatori ko'rsatilmaydi (mijozga qulay).
   // Eski qarz = shu sotuvsiz joriy qoldiq (snapshot − shu sotuvdan keyingi to'lovlar).
-  const eskiQarzSom    = totalSom - tolovSom;
-  const eskiQarzDollar = totalDollar - tolovDollar;
+  const eskiQarzSom    = led ? led.oldSom : totalSom - tolovSom;
+  const eskiQarzDollar = led ? led.oldUsd : totalDollar - tolovDollar;
+  const yakunSom       = led ? led.yangiSom : totalSom + thisSom - tolovSom;
+  const yakunDollar    = led ? led.yangiUsd : totalDollar + thisDollar - tolovDollar;
 
   const hasSom    = !rowsReady || savatSom.length > 0;
   const hasDollar = !rowsReady || savatDollar.length > 0;
@@ -466,7 +500,7 @@ function ChekContent() {
         <div className="chek-info">
           <div className="chek-info__item">
             <span className="chek-info__label" style={{fontWeight:800}}>Sana</span>
-            <span className="chek-info__value" style={{fontWeight:800}}>{sana||"—"}</span>
+            <span className="chek-info__value" style={{fontWeight:800}}>{led?.sotuvVaqt||sana||"—"}</span>
           </div>
           <div className="chek-info__item">
             <span className="chek-info__label" style={{fontWeight:800}}>Agent</span>
@@ -572,20 +606,29 @@ function ChekContent() {
             {showDollarBal && <div className="chek-balance__header-cell">Dollar</div>}
           </div>
           <div className="chek-balance__row">
-            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(eskiQarzSom)}</span></div>}
-            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd2(eskiQarzDollar)}</span></div>}
+            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz{led&&<small style={{display:"block",fontSize:9.5,fontWeight:600,color:"#7a8299",marginTop:1}}>{led.holat} holatiga</small>}</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(eskiQarzSom)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Eski qarz{led&&<small style={{display:"block",fontSize:9.5,fontWeight:600,color:"#7a8299",marginTop:1}}>{led.holat} holatiga</small>}</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd2(eskiQarzDollar)}</span></div>}
           </div>
           <div className="chek-balance__row">
             {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtSom(thisSom)}</span></div>}
             {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:800}}>Olingan tovar</span><span className="chek-balance__cell-val" style={{fontWeight:800}}>{fmtUsd2(thisDollar)}</span></div>}
           </div>
           <div className="chek-balance__row chek-balance__row--total">
-            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(totalSom+thisSom-tolovSom)}</span></div>}
-            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd2(totalDollar+thisDollar-tolovDollar)}</span></div>}
+            {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(yakunSom)}</span></div>}
+            {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Yakuniy balans</span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd2(yakunDollar)}</span></div>}
           </div>
         </div>
 
-        <div className="chek-footer">MUSAFFO TEA · {sana}</div>
+        {led?.keyin && (
+          <div className="chek-balance" style={{marginTop:10}}>
+            <div className="chek-balance__row chek-balance__row--total">
+              {showSomBal    && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Hozirgi qoldiq<small style={{display:"block",fontSize:9.5,fontWeight:600,color:"#7a8299",marginTop:1}}>{led.keyin.vaqt} holatiga</small></span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtSom(led.keyin.som)}</span></div>}
+              {showDollarBal && <div className="chek-balance__cell"><span className="chek-balance__cell-label" style={{fontWeight:900}}>Hozirgi qoldiq<small style={{display:"block",fontSize:9.5,fontWeight:600,color:"#7a8299",marginTop:1}}>{led.keyin.vaqt} holatiga</small></span><span className="chek-balance__cell-val" style={{fontWeight:900}}>{fmtUsd2(led.keyin.usd)}</span></div>}
+            </div>
+          </div>
+        )}
+
+        <div className="chek-footer">MUSAFFO TEA · Chop etildi: {chopVaqti}</div>
       </>
     );
   }

@@ -7,6 +7,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi } from "@/lib/mijoz-ledger";
 
 interface Mijoz {
   Mijoz_ID: string; Ism: string; Telefon: string; Valyuta: string; Agent: string;
@@ -31,7 +32,7 @@ interface SavatDollarRow {
   Sotuv_ID: string; Summa: string;
 }
 interface STolovRow {
-  Mijoz_ID: string; Valyuta: string; Som: string; Dollar: string; Summa: string; Summa_dollar: string;
+  Mijoz_ID: string; Valyuta: string; Som: string; Dollar: string; Summa: string; Summa_dollar: string; Turi?: string;
 }
 
 const VALYUTALAR = ["So'm", "Dollar", "Dollar , So'm"];
@@ -104,6 +105,9 @@ export default function MijozlarPage() {
   const [sotuvUsdMap, setSotuvUsdMap]   = useState<Record<string, number>>({});
   const [tolovSomMap, setTolovSomMap]   = useState<Record<string, number>>({});
   const [tolovUsdMap, setTolovUsdMap]   = useState<Record<string, number>>({});
+  // So'm ⇄ $ ayirboshlash ("to'lov" ishorasida) — TO'LOV ustuniga kirmaydi, lekin qarzga ta'sir qiladi
+  const [abSomMap, setAbSomMap]         = useState<Record<string, number>>({});
+  const [abUsdMap, setAbUsdMap]         = useState<Record<string, number>>({});
   const [agentlar, setAgentlar]         = useState<Foydalanuvchi[]>([]);
   const [omborlar, setOmborlar]         = useState<Ombor[]>([]);
   const [agentMap, setAgentMap]         = useState<Record<string, string>>({});
@@ -186,17 +190,24 @@ export default function MijozlarPage() {
 
         const tSom: Record<string, number> = {};
         const tUsd: Record<string, number> = {};
+        const aSom: Record<string, number> = {};
+        const aUsd: Record<string, number> = {};
         ((tR.data || []) as STolovRow[]).forEach(t => {
           const id = String(t.Mijoz_ID || "").trim();
           if (!id) return;
+          const ab = ayirboshlashmi(t);
           if (isDollarValyuta(t.Valyuta)) {
-            tUsd[id] = (tUsd[id] || 0) + num(t.Summa_dollar);
+            const m = ab ? aUsd : tUsd;
+            m[id] = (m[id] || 0) + num(t.Summa_dollar);
           } else {
-            tSom[id] = (tSom[id] || 0) + num(t.Summa);
+            const m = ab ? aSom : tSom;
+            m[id] = (m[id] || 0) + num(t.Summa);
           }
         });
         setTolovSomMap(tSom);
         setTolovUsdMap(tUsd);
+        setAbSomMap(aSom);
+        setAbUsdMap(aUsd);
       })
       .catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
       .finally(() => setLoading(false));
@@ -344,8 +355,8 @@ export default function MijozlarPage() {
           const totTolovUsd = sumBy(tolovUsdMap);
           const totBoshSom  = allMijozlar.reduce((s, m) => s + num(m.Boshlangich_Balans_som), 0);
           const totBoshUsd  = allMijozlar.reduce((s, m) => s + num(m.Boshlangich_Balans_dollar), 0);
-          const totQarzSom  = totBoshSom + totSotuvSom - totTolovSom;
-          const totQarzUsd  = totBoshUsd + totSotuvUsd - totTolovUsd;
+          const totQarzSom  = totBoshSom + totSotuvSom - totTolovSom - sumBy(abSomMap);
+          const totQarzUsd  = totBoshUsd + totSotuvUsd - totTolovUsd - sumBy(abUsdMap);
 
           const sc: React.CSSProperties = {
             background: "var(--white)", borderRadius: "var(--radius-xl)",
@@ -510,8 +521,8 @@ export default function MijozlarPage() {
                         const stUsd  = sotuvUsdMap[m.Mijoz_ID] || 0;
                         const tlSom  = tolovSomMap[m.Mijoz_ID] || 0;
                         const tlUsd  = tolovUsdMap[m.Mijoz_ID] || 0;
-                        const qSom   = num(m.Boshlangich_Balans_som)    + stSom - tlSom;
-                        const qUsd   = num(m.Boshlangich_Balans_dollar) + stUsd - tlUsd;
+                        const qSom   = num(m.Boshlangich_Balans_som)    + stSom - tlSom - (abSomMap[m.Mijoz_ID] || 0);
+                        const qUsd   = num(m.Boshlangich_Balans_dollar) + stUsd - tlUsd - (abUsdMap[m.Mijoz_ID] || 0);
                         return (
                           <div key={m.Mijoz_ID}
                             onClick={() => router.push(`/mijozlar/${m.Mijoz_ID}`)}
@@ -587,8 +598,8 @@ export default function MijozlarPage() {
                         const sotuvUsd = sotuvUsdMap[m.Mijoz_ID] || 0;
                         const tolovSom = tolovSomMap[m.Mijoz_ID] || 0;
                         const tolovUsd = tolovUsdMap[m.Mijoz_ID] || 0;
-                        const qSom     = num(m.Boshlangich_Balans_som)    + sotuvSom - tolovSom;
-                        const qUsd     = num(m.Boshlangich_Balans_dollar) + sotuvUsd - tolovUsd;
+                        const qSom     = num(m.Boshlangich_Balans_som)    + sotuvSom - tolovSom - (abSomMap[m.Mijoz_ID] || 0);
+                        const qUsd     = num(m.Boshlangich_Balans_dollar) + sotuvUsd - tolovUsd - (abUsdMap[m.Mijoz_ID] || 0);
                         return (
                           <div key={m.Mijoz_ID || idx}
                             onClick={() => router.push(`/mijozlar/${m.Mijoz_ID}`)}

@@ -10,6 +10,8 @@ import { useIzohOptions } from "@/lib/useIzohOptions";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
+import { tolovXabari } from "@/lib/telegram-xabar";
+import { AYIRBOSHLASH, ayirboshlashmi } from "@/lib/mijoz-ledger";
 
 // Bu sahifadagi (Pul ayirish) forma hisoblari HAR DOIM foydalanuvchining o'ziga
 // biriktirilgan kassalar bilan cheklanadi — Admin ham faqat o'z kassasini ko'radi
@@ -540,10 +542,11 @@ export default function SotuvTolovPage() {
     // Ostatka = to'lovdan oldingi qarz (formadagi QOLDIQ — xom ma'lumotdan hisoblangan, balansMap emas)
     const ostatkaSom = mijozQoldi ? mijozQoldi.som : 0;
     const ostatkaDollar = mijozQoldi ? mijozQoldi.usd : 0;
+    const tolovId = uid();
     try {
       const saveRes = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", row: {
-          Tolov_ID: uid(), Sotuv_ID: addSotuvId, Mijoz_ID: addMijoz, Agent: user?.id || "",
+          Tolov_ID: tolovId, Sotuv_ID: addSotuvId, Mijoz_ID: addMijoz, Agent: user?.id || "",
           Yil: yil, Oy: oy, Sana: sana, Valyuta: valyuta, Turi: addTuri,
           Qarz_som: String(ostatkaSom), Qarz_dollar: String(ostatkaDollar),
           Som: String(somVal), Dollar: String(usdVal),
@@ -555,25 +558,15 @@ export default function SotuvTolovPage() {
       if (!saveRes.ok) { const je = await saveRes.json().catch(() => ({})); throw new Error(je.error || "Server bilan bog'lanishda xatolik"); }
       localStorage.setItem("dollar_kurs", addKurs);
 
-      // Telegram bot xabari — sotuvga to'lov qilindi (ma'lumotlar S_tolov qatoridan)
-      const nS = (v: number) => String(Math.round(v));
-      const nU = (v: number) => String(Math.round(v * 100) / 100);
-      const msg =
-        `💲✅ Sotuvga to'lov qilindi\n\n` +
-        `📅 Sana: ${sana}\n` +
-        `👤 Mijoz: ${mijozNameMap[addMijoz] || "—"}\n` +
-        `📅 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
-        `📅 Ostatka(Dollar): ${nU(ostatkaDollar)}\n` +
-        `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
-        `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
-        `💵 Jami so'm: ${nS(num(summa))}\n` +
-        `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
-        `💵 Qoldiq (so'm): ${nS(ostatkaSom - num(summa))}\n` +
-        `💵 Qoldiq ($): ${nU(ostatkaDollar - num(summaDollar))}\n` +
-        `📌 Izoh: ${addIzoh && addIzoh.trim() ? addIzoh : "null"}`;
-      // Klientning agenti bo'yicha yo'naltirish (o'z do'kon guruhiga)
-      const tgAgent = mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(addMijoz).trim())?.Agent || "";
-      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: tgAgent }) }).catch(() => {});
+      // Telegram — saqlangandan keyin YAGONA ledgerdan (chek bilan bir xil qoldiq; vaqt bilan;
+      // o'tgan sana bilan kiritilgan bo'lsa mijozning hozirgi qoldig'i ham boradi)
+      void tolovXabari({
+        sarlavha: "💲✅ Sotuvga to'lov qilindi",
+        mijozId: addMijoz, mijozNomi: mijozNameMap[addMijoz] || "", tolovId, sana, vaqt,
+        somVal, usdVal, summa, summaDollar, izoh: addIzoh,
+        agent: mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(addMijoz).trim())?.Agent || "",
+        zaxira: { oldSom: ostatkaSom, oldUsd: ostatkaDollar, yangiSom: ostatkaSom - num(summa), yangiUsd: ostatkaDollar - num(summaDollar) },
+      });
 
       const qoldiA = balansMap[addMijoz];
       if (qoldiA) {
@@ -651,7 +644,7 @@ export default function SotuvTolovPage() {
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
     const _sp = editSana ? isoToParts(editSana) : { sana: editTarget.Sana, oy: editTarget.Oy, yil: editTarget.Yil };
     try {
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+      const putRes = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: editTarget.Tolov_ID,
           row: { ...editTarget, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Sotuv_ID: editSotuvId, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
             Som: String(somVal), Dollar: String(usdVal),
@@ -662,42 +655,15 @@ export default function SotuvTolovPage() {
           } }) });
       localStorage.setItem("dollar_kurs", editKurs);
 
-      // Telegram bot xabari — sotuvga to'lov TAHRIRLANDI (o'zgargan summa)
-      {
-        const nS = (v: number) => String(Math.round(v));
-        const nU = (v: number) => String(Math.round(v * 100) / 100);
-        // Ostatka = tahrirlashdan oldingi REAL qarz (xom ma'lumotdan: boshlang'ich + jami sotuv
-        // − shu to'lovdan boshqa barcha to'lovlar) — Qo'shish xabaridagi mijozQoldi bilan bir xil
-        const em = mijozlar.find(m => m.Mijoz_ID === editTarget.Mijoz_ID);
-        const eBSom = num(em?.Boshlangich_Balans_som);
-        const eBUsd = num(em?.Boshlangich_Balans_dollar);
-        let eXSom = 0, eXUsd = 0;
-        sotuvlar.filter(s => s.Mijoz_ID === editTarget.Mijoz_ID && String(s.Chek || "").trim() !== "").forEach(s => {
-          eXSom += savatSomTot[s.Sotuv_ID] || 0;
-          eXUsd += savatDolTot[s.Sotuv_ID] || 0;
-        });
-        const eTSom = tolovlar.filter(t => t.Mijoz_ID === editTarget.Mijoz_ID && t.Tolov_ID !== editTarget.Tolov_ID).reduce((a, t) => a + (t.Valyuta !== "Dollar" ? num(t.Summa || t.Som) : 0), 0);
-        const eTUsd = tolovlar.filter(t => t.Mijoz_ID === editTarget.Mijoz_ID && t.Tolov_ID !== editTarget.Tolov_ID).reduce((a, t) => a + (t.Valyuta === "Dollar" ? num(t.Summa_dollar || t.Dollar) : 0), 0);
-        const ostatkaSom    = eBSom + eXSom - eTSom;
-        const ostatkaDollar = eBUsd + eXUsd - eTUsd;
-        const yangiQoldiSom = ostatkaSom - somVal;
-        const yangiQoldiUsd = ostatkaDollar - usdVal;
-        const msg =
-          `✏️ Sotuvga to'lov tahrirlandi\n\n` +
-          `📅 Sana: ${editTarget.Sana || ""}\n` +
-          `👤 Mijoz: ${mijozNameMap[editTarget.Mijoz_ID] || "—"}\n` +
-          `📅 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
-          `📅 Ostatka(Dollar): ${nU(ostatkaDollar)}\n` +
-          `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
-          `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
-          `💵 Jami so'm: ${nS(num(summa))}\n` +
-          `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
-          `💵 Qoldiq (so'm): ${nS(yangiQoldiSom)}\n` +
-          `💵 Qoldiq ($): ${nU(yangiQoldiUsd)}\n` +
-          `📌 Izoh: ${editIzohV && editIzohV.trim() ? editIzohV : "null"}`;
-        const tgAgentE = mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(editTarget.Mijoz_ID).trim())?.Agent || "";
-        fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: tgAgentE }) }).catch(() => {});
-      }
+      // Telegram — sotuvga to'lov TAHRIRLANDI. Qoldiqlar saqlangandan keyin ledgerdan (yangi sana/vaqt
+      // bo'yicha to'g'ri joyda); avval eski sana yuborilardi va "Qoldiq" faqat bitta valyutadan ayirilardi.
+      if (putRes.ok) void tolovXabari({
+        sarlavha: "✏️ Sotuvga to'lov tahrirlandi",
+        mijozId: editTarget.Mijoz_ID, mijozNomi: mijozNameMap[editTarget.Mijoz_ID] || "", tolovId: editTarget.Tolov_ID,
+        sana: _sp.sana, vaqt: editVaqt || editTarget.Vaqt,
+        somVal, usdVal, summa, summaDollar, izoh: editIzohV,
+        agent: mijozlar.find(m => String(m.Mijoz_ID || "").trim() === String(editTarget.Mijoz_ID).trim())?.Agent || "",
+      });
 
       const qoldiE = balansMap[editTarget.Mijoz_ID];
       if (qoldiE) {
@@ -744,6 +710,8 @@ export default function SotuvTolovPage() {
 
   const filtered = useMemo(() => tolovlar.filter(t => {
     if (!t.Tolov_ID) return false;
+    // So'm ⇄ $ ayirboshlash pul to'lovi emas — mijoz sahifasida alohida ko'rinadi (qarz hisobida qoladi)
+    if (ayirboshlashmi(t)) return false;
     // Non-admin faqat o'z to'lovlarini ko'radi
     if (isSotuvchi && user?.id && t.Agent !== user.id) return false;
     // Sotuvchi FAQAT o'ziga biriktirilgan kassa(lar) to'lovlarini ko'radi (Gazna_ID / Gazna_dollar_ID)
@@ -767,7 +735,7 @@ export default function SotuvTolovPage() {
   }), [tolovlar, filterOy, filterYil, filterM, filterAgent, filterTuri, filterSana, mijozNameMap, search, isSotuvchi, isAdmin, user]);
 
   // Filtr uchun mavjud to'lov turlari
-  const turilar = useMemo(() => Array.from(new Set(tolovlar.map(t => (t.Turi || "").trim()).filter(Boolean))).sort(), [tolovlar]);
+  const turilar = useMemo(() => Array.from(new Set(tolovlar.map(t => (t.Turi || "").trim()).filter(x => x && x !== AYIRBOSHLASH))).sort(), [tolovlar]);
 
   useEffect(() => setPage(0), [filterOy, filterYil, filterM, filterAgent, filterTuri, filterSana, search]);
   const paged = useMemo(() => filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE), [filtered, page]);

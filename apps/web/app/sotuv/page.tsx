@@ -12,6 +12,7 @@ import { birlikOf } from "@/lib/birlik";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
+import { sotuvTasdiqXabari } from "@/lib/telegram-xabar";
 
 interface Sotuv {
   Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Status: string;
@@ -457,9 +458,14 @@ export default function SotuvPage() {
     setTasdiqSaving(s.Sotuv_ID);
     setSotuvlar(prev => prev.map(x => x.Sotuv_ID===s.Sotuv_ID ? {...x, Chek:newChek} : x));
     try {
-      await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+      const r = await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv", idColumn:"Sotuv_ID", idValue:s.Sotuv_ID, updates:{Chek:newChek, Status:newChek?"Tasdiqlandi":"Tasdiqlashga"}})});
       afterWrite("Sotuv");
+      // Tasdiqlanganda sotuv qarzga qo'shiladi — mijozga Telegram (qoldiqlar chek bilan bir xil ledgerdan)
+      if (r.ok && newChek) {
+        const mj = mijozlar.find(m => String(m.Mijoz_ID||"").trim() === String(s.Mijoz_ID||"").trim());
+        void sotuvTasdiqXabari({ sotuvId: s.Sotuv_ID, mijozId: s.Mijoz_ID, mijozNomi: mj?.Ism || "", agent: mj?.Agent || "" });
+      }
     } finally { setTasdiqSaving(""); }
   }
 

@@ -3,6 +3,7 @@ import { fetchSheets } from "@/lib/sheet-cache";
 
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi } from "@/lib/mijoz-ledger";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
@@ -12,7 +13,7 @@ import {
 interface Sotuv { Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Mijoz_ID: string; Status: string; }
 interface SotuvSavat { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Som_Narx: string; Summa_som: string; }
 interface SotuvSavatDollar { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Narx: string; Summa: string; }
-interface STolov { Tolov_ID: string; Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Valyuta: string; Summa: string; Summa_dollar: string; }
+interface STolov { Tolov_ID: string; Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Valyuta: string; Summa: string; Summa_dollar: string; Turi?: string; }
 interface Xarid { Xarid_ID: string; Yil: string; Oy: string; Sana: string; Taminotchi_ID: string; }
 interface XaridSavat { X_Savat: string; Xarid_ID: string; Mahsulot_ID: string; Soni: string; Narx_som: string; Narxi: string; Summa_Som: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; }
@@ -137,7 +138,8 @@ export default function StatistikaPage() {
           if(!r["Sotuv_Savat"]?.headers?.length || r["Sotuv_Savat"]?.error) throw new Error("heavy incomplete");
           setSavat(r["Sotuv_Savat"]?.data || []);
           setSavatD(r["Sotuv_Savat_Dollar"]?.data || []);
-          setTolovlar(r["S_tolov"]?.data || []);
+          // So'm ⇄ $ ayirboshlash tushum emas — statistikaga kirmaydi
+          setTolovlar(((r["S_tolov"]?.data || []) as STolov[]).filter(t => !ayirboshlashmi(t)));
           setXSavat(r["Xarid_Savat"]?.data || []);
         }).catch(()=>{
           if(attempt<5) setTimeout(()=>loadHeavy(attempt+1), Math.min(1000*Math.pow(2,attempt),8000));

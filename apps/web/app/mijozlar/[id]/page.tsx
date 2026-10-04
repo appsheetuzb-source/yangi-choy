@@ -11,6 +11,8 @@ import { gaznaForUser } from "@/lib/auth";
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { tolovXabari, ayirboshlashXabari } from "@/lib/telegram-xabar";
+import { AYIRBOSHLASH, ayirboshlashmi, ayirboshlashGuruhi } from "@/lib/mijoz-ledger";
 
 interface Mijoz {
   Mijoz_ID: string; Ism: string; Telefon: string; Valyuta: string; Agent: string;
@@ -38,6 +40,10 @@ interface STolov {
   Izoh: string; Dollar_Kursi: string; Vaqt: string; Check: string;
 }
 
+// So'm ⇄ $ ayirboshlash — S_tolov dagi ikki oyoq (ab-<guruh>-s / ab-<guruh>-d) bitta amal sifatida.
+// som/usd "to'lov" ishorasida: som > 0 — so'm qarzi kamaydi, usd < 0 — $ qarzi ortdi (va aksincha).
+interface AbGuruh { id: string; sana: string; vaqt: string; kurs: number; som: number; usd: number; izoh: string; legIds: string[]; }
+
 const VALYUTALAR = ["So'm", "Dollar", "Dollar , So'm"];
 
 function num(v: string | number | undefined) {
@@ -54,6 +60,15 @@ function fmtUsd(v: number) {
 function parseDate(s: string) {
   const [d, mo, y] = (s || "").split(".").map(Number);
   return (y || 0) * 10000 + (mo || 0) * 100 + (d || 0);
+}
+function abMatni(g: AbGuruh | undefined, arrow = "→"): string {
+  if (!g) return "Ayirboshlash";
+  const somT = Math.abs(g.som).toLocaleString("ru-RU") + " so'm";
+  const usdT = fmtUsd(Math.abs(g.usd));
+  const kursT = g.kurs ? ` (kurs ${g.kurs.toLocaleString("ru-RU")})` : "";
+  return g.som > 0 || g.usd < 0
+    ? `Ayirboshlash: ${somT} ${arrow} ${usdT}${kursT}`
+    : `Ayirboshlash: ${usdT} ${arrow} ${somT}${kursT}`;
 }
 function sanaKey(sana: string) {
   const [d, m, y] = (sana || "").split(".");
@@ -82,6 +97,7 @@ const BANK_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" 
 const KARTA_ICON = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>);
 const KASSA_ICON = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></svg>);
 const CALC_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="8" y2="10"/><line x1="12" y1="10" x2="12" y2="10"/><line x1="16" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="8" y2="14"/><line x1="12" y1="14" x2="12" y2="14"/><line x1="16" y1="14" x2="16" y2="18"/><line x1="8" y1="18" x2="12" y2="18"/></svg>);
+const SWAP_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>);
 const SAVE_ICON  = (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>);
 const CHECK_ICON = (<svg width="16" height="16" viewBox="0 0 24 24" fill="#2563eb" stroke="#fff" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" stroke="none"/><polyline points="8 12 11 15 16 9"/></svg>);
 function turiIcon(t: string) {
@@ -172,7 +188,18 @@ export default function MijozDetailPage() {
   const [gaznalar, setGaznalar]       = useState<Gazna[]>([]);
   const [mijozBalans, setMijozBalans] = useState<{ Qoldi_som: string; Qoldi_dollar: string } | null>(null);
   const tIzohOpts = useIzohOptions("S_tolov");
-  useScrollLock(tAddOpen);
+
+  // ── So'm ⇄ $ ayirboshlash ──
+  const [abOpen, setAbOpen]         = useState(false);
+  const [abYon, setAbYon]           = useState<"som2usd" | "usd2som">("som2usd");
+  const [abSumma, setAbSumma]       = useState("");
+  const [abKurs, setAbKurs]         = useState("");
+  const [abSana, setAbSana]         = useState(() => sanaToIso(nowStr().sana));
+  const [abIzoh, setAbIzoh]         = useState("");
+  const [abSaving, setAbSaving]     = useState(false);
+  const [abDelete, setAbDelete]     = useState<AbGuruh | null>(null);
+  const [abDeleting, setAbDeleting] = useState(false);
+  useScrollLock(tAddOpen || abOpen || !!abDelete);
 
   const sotuvRef = useRef<HTMLDivElement>(null);
   const tolovRef = useRef<HTMLDivElement>(null);
@@ -273,12 +300,29 @@ export default function MijozDetailPage() {
       s + (savatDolMap[sv.Sotuv_ID] || []).reduce((ss, r) => ss + num(r.Summa), 0), 0),
     [sotuvlar, savatDolMap]);
 
+  // Ayirboshlash oyoqlari (Turi="Ayirboshlash") pul to'lovi EMAS: "To'langan"ga va to'lovlar ro'yxatiga
+  // kirmaydi, lekin qarzga ta'sir qiladi (so'm qarzi kamayib $ qarzi ortadi yoki aksincha)
+  const realTolov = useMemo(() => tolovlar.filter(t => !ayirboshlashmi(t)), [tolovlar]);
   const tolovSom = useMemo(() =>
-    tolovlar.filter(t => !isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Summa), 0),
-    [tolovlar]);
+    realTolov.filter(t => !isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Summa), 0),
+    [realTolov]);
   const tolovDollar = useMemo(() =>
-    tolovlar.filter(t => isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Summa_dollar), 0),
-    [tolovlar]);
+    realTolov.filter(t => isDollarValyuta(t.Valyuta)).reduce((s, t) => s + num(t.Summa_dollar), 0),
+    [realTolov]);
+  const abGuruhlar = useMemo(() => {
+    const m: Record<string, AbGuruh> = {};
+    tolovlar.filter(t => ayirboshlashmi(t)).forEach(t => {
+      const g = ayirboshlashGuruhi(t.Tolov_ID) || String(t.Tolov_ID || "");
+      const e = m[g] || (m[g] = { id: g, sana: t.Sana, vaqt: t.Vaqt || "", kurs: num(t.Dollar_Kursi), som: 0, usd: 0, izoh: "", legIds: [] });
+      if (isDollarValyuta(t.Valyuta)) e.usd += num(t.Summa_dollar); else e.som += num(t.Summa);
+      if (t.Tolov_ID) e.legIds.push(t.Tolov_ID);
+      if (!e.izoh && t.Izoh) e.izoh = t.Izoh;
+      if (!e.kurs) e.kurs = num(t.Dollar_Kursi);
+    });
+    return Object.values(m).sort((a, b) => (sanaKey(b.sana) + b.vaqt).localeCompare(sanaKey(a.sana) + a.vaqt));
+  }, [tolovlar]);
+  const abSom    = abGuruhlar.reduce((s, g) => s + g.som, 0);
+  const abDollar = abGuruhlar.reduce((s, g) => s + g.usd, 0);
 
   const fromKey = qFrom ? qFrom.replace(/-/g, "") : "";
   const toKey   = qTo ? qTo.replace(/-/g, "") : "";
@@ -299,8 +343,8 @@ export default function MijozDetailPage() {
     });
   }, [sotuvlar, savatMap, savatDolMap, fromKey, toKey, sumQ, textQ, qActive]);
   const fTolov = useMemo(() => {
-    if (!qActive) return tolovlar;
-    return tolovlar.filter(t => {
+    if (!qActive) return realTolov;
+    return realTolov.filter(t => {
       if (fromKey || toKey) { const k = sanaKey(t.Sana); if ((fromKey && k < fromKey) || (toKey && k > toKey)) return false; }
       if (sumQ) {
         if (!`${Math.round(num(t.Som))} ${Math.round(num(t.Dollar))} ${Math.round(num(t.Summa))}`.includes(sumQ)) return false;
@@ -308,12 +352,12 @@ export default function MijozDetailPage() {
       if (textQ && !`${t.Turi || ""} ${t.Izoh || ""} ${t.Sana}`.toLowerCase().includes(textQ)) return false;
       return true;
     });
-  }, [tolovlar, fromKey, toKey, sumQ, textQ, qActive]);
+  }, [realTolov, fromKey, toKey, sumQ, textQ, qActive]);
 
   const boshlangichSom    = num(mijoz?.Boshlangich_Balans_som);
   const boshlangichDollar = num(mijoz?.Boshlangich_Balans_dollar);
-  const qarzSom    = boshlangichSom    + jamiSotuvSom    - tolovSom;
-  const qarzDollar = boshlangichDollar + jamiSotuvDollar - tolovDollar;
+  const qarzSom    = boshlangichSom    + jamiSotuvSom    - tolovSom    - abSom;
+  const qarzDollar = boshlangichDollar + jamiSotuvDollar - tolovDollar - abDollar;
 
   // ── Akt-sverka (so'm va $ alohida) ──────────────────────
   function aktSection(cur: "som" | "dollar", fromISO: string, toISO: string): ExportSection | null {
@@ -329,12 +373,21 @@ export default function MijozDetailPage() {
       const amt = cur === "som"
         ? (savatMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa_som), 0)
         : (savatDolMap[s.Sotuv_ID] || []).reduce((a, r) => a + num(r.Summa), 0);
-      if (amt > 0) events.push({ sana: s.Sana, vaqt: s.Vaqt || "", debit: amt, credit: 0, tavsif: `Sotuv${s.Sotuv_Raqami ? " #" + s.Sotuv_Raqami : ""}` });
+      // Manfiy summa — qaytarish (qarz kamayadi). Avval tashlab yuborilardi va akt yakuni real qarzdan farq qilardi
+      if (amt !== 0) events.push({ sana: s.Sana, vaqt: s.Vaqt || "", debit: amt > 0 ? amt : 0, credit: amt < 0 ? -amt : 0,
+        tavsif: `Sotuv${s.Sotuv_Raqami ? " #" + s.Sotuv_Raqami : ""}${amt < 0 ? " (qaytarish)" : ""}` });
     });
+    const abById: Record<string, AbGuruh> = {};
+    abGuruhlar.forEach(g => { abById[g.id] = g; });
     tolovlar.forEach(t => {
       const isD = isDollarValyuta(t.Valyuta);
       const amt = cur === "som" ? (!isD ? num(t.Summa) : 0) : (isD ? num(t.Summa_dollar) : 0);
-      if (amt > 0) events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: 0, credit: amt, tavsif: `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}` });
+      if (amt === 0) return;
+      const tavsif = ayirboshlashmi(t)
+        ? abMatni(abById[ayirboshlashGuruhi(t.Tolov_ID) || String(t.Tolov_ID || "")], "->")
+        : `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}`;
+      // Musbat — qarz kamayadi; manfiy (ayirboshlashning qarshi oyog'i, qaytarilgan pul) — qarz ortadi
+      events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: amt < 0 ? -amt : 0, credit: amt > 0 ? amt : 0, tavsif });
     });
     events.sort((a, b) => (dkey(a.sana) + a.vaqt).localeCompare(dkey(b.sana) + b.vaqt));
     const boshlangich = cur === "som" ? boshlangichSom : boshlangichDollar;
@@ -482,6 +535,90 @@ export default function MijozDetailPage() {
       }
     } catch {}
   }
+  // ── So'm ⇄ $ ayirboshlash ──
+  // Ikki oyoq S_tolov ga BITTA so'rovda yoziladi (Turi="Ayirboshlash", kassa bo'sh — pul harakati yo'q):
+  //   so'm → $: so'm oyog'i +A (so'm qarzi kamayadi), $ oyog'i −A/kurs ($ qarzi ortadi); $ → so'm teskarisi.
+  function openAb() {
+    setAbYon(qarzSom <= 0 && qarzDollar > 0 ? "usd2som" : "som2usd");
+    setAbSumma(""); setAbIzoh("");
+    setAbSana(sanaToIso(nowStr().sana));
+    setAbKurs(centralKurs || (typeof localStorage !== "undefined" ? localStorage.getItem("dollar_kurs") || "" : ""));
+    setAbOpen(true);
+  }
+  function abHisob() {
+    const a = num(abSumma), k = num(abKurs);
+    const som2usd = abYon === "som2usd";
+    const somAmt = som2usd ? Math.round(a) : (k > 0 ? Math.round(a * k) : 0);
+    const usdAmt = som2usd ? (k > 0 ? Math.round(a / k * 100) / 100 : 0) : Math.round(a * 100) / 100;
+    // "To'lov" ishorasida: so'm → $ bo'lsa so'm oyog'i musbat, $ oyog'i manfiy
+    return { som2usd, k, somAmt, usdAmt, somLeg: som2usd ? somAmt : -somAmt, usdLeg: som2usd ? -usdAmt : usdAmt };
+  }
+  async function handleAb() {
+    if (!mijoz || abSaving) return;
+    const h = abHisob();
+    if (h.k < 11000 || h.somAmt <= 0 || h.usdAmt <= 0) return;
+    setAbSaving(true);
+    const { vaqt } = nowStr();
+    const { sana, oy, yil } = abSana ? isoToParts(abSana) : nowStr();
+    const g = uid();
+    const umumiy = {
+      Sotuv_ID: "", Mijoz_ID: mijoz.Mijoz_ID, Agent: user?.id || "",
+      Yil: yil, Oy: oy, Sana: sana, Vaqt: vaqt, Turi: AYIRBOSHLASH,
+      Qarz_som: String(qarzSom), Qarz_dollar: String(qarzDollar),
+      Dollar_Kursi: String(h.k), Izoh: abIzoh, Check: "True",
+      Gazna_ID: "", Gazna_dollar_ID: "",
+    };
+    try {
+      const res = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet: "S_tolov", rows: [
+          { ...umumiy, Tolov_ID: `ab-${g}-s`, Valyuta: "So'm",   Som: String(h.somLeg), Summa: String(h.somLeg), Dollar: "", Summa_dollar: "" },
+          { ...umumiy, Tolov_ID: `ab-${g}-d`, Valyuta: "Dollar", Som: "", Summa: "", Dollar: String(h.usdLeg), Summa_dollar: String(h.usdLeg) },
+        ] }) });
+      if (!res.ok) { const je = await res.json().catch(() => ({})); throw new Error(je.error || "Server bilan bog'lanishda xatolik"); }
+      if (typeof localStorage !== "undefined") localStorage.setItem("dollar_kurs", String(h.k));
+      if (mijozBalans) {
+        try {
+          await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sheet: "MijozBalans", idColumn: "Mijoz_ID", idValue: mijoz.Mijoz_ID,
+              row: { Qoldi_som: String(num(mijozBalans.Qoldi_som) - h.somLeg), Qoldi_dollar: String(num(mijozBalans.Qoldi_dollar) - h.usdLeg) } }) });
+        } catch {}
+      }
+      // Mijozga yangi qoldiq (ikkala valyutada) — ledgerdan
+      void ayirboshlashXabari({ guruh: g, mijozId: mijoz.Mijoz_ID, mijozNomi: mijoz.Ism || "", izoh: abIzoh, agent: mijoz.Agent || "" });
+      afterWrite("S_tolov");
+      afterWrite("MijozBalans");
+      setAbOpen(false);
+      setTimeout(() => setTick(t => t + 1), 600);
+    } catch (e) {
+      alert("Ayirboshlash saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
+    } finally { setAbSaving(false); }
+  }
+  async function handleAbDelete() {
+    if (!abDelete || !mijoz) return;
+    setAbDeleting(true);
+    let xato = false;
+    for (const tid of abDelete.legIds) {
+      try {
+        const r = await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: tid }) });
+        if (!r.ok) xato = true;
+      } catch { xato = true; }
+    }
+    if (!xato && mijozBalans) {
+      try {
+        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sheet: "MijozBalans", idColumn: "Mijoz_ID", idValue: mijoz.Mijoz_ID,
+            row: { Qoldi_som: String(num(mijozBalans.Qoldi_som) + abDelete.som), Qoldi_dollar: String(num(mijozBalans.Qoldi_dollar) + abDelete.usd) } }) });
+      } catch {}
+    }
+    afterWrite("S_tolov");
+    afterWrite("MijozBalans");
+    setAbDeleting(false);
+    setAbDelete(null);
+    if (xato) alert("Ayirboshlash to'liq o'chmadi — sahifa yangilanadi, qolgan qismini qayta o'chiring.");
+    setTimeout(() => setTick(t => t + 1), 600);
+  }
+
   async function handleAddTolov() {
     if (!mijoz) return;
     const somVal = num(tSumma), usdVal = num(tDollar);
@@ -499,10 +636,11 @@ export default function MijozDetailPage() {
     const valyuta     = isSom ? "So'm" : "Dollar";
     // Ostatka = to'lovdan oldingi joriy qarz (sahifadagi JORIY QARZ bilan bir xil — xom ma'lumotdan)
     const ostatkaSom = qarzSom, ostatkaDollar = qarzDollar;
+    const tolovId = uid();
     try {
       const saveRes = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "S_tolov", row: {
-          Tolov_ID: uid(), Sotuv_ID: "", Mijoz_ID: mijoz.Mijoz_ID, Agent: user?.id || "",
+          Tolov_ID: tolovId, Sotuv_ID: "", Mijoz_ID: mijoz.Mijoz_ID, Agent: user?.id || "",
           Yil: yil, Oy: oy, Sana: sana, Valyuta: valyuta, Turi: tTuri,
           Qarz_som: String(ostatkaSom), Qarz_dollar: String(ostatkaDollar),
           Som: String(somVal), Dollar: String(usdVal),
@@ -514,23 +652,14 @@ export default function MijozDetailPage() {
       if (!saveRes.ok) { const je = await saveRes.json().catch(() => ({})); throw new Error(je.error || "Server bilan bog'lanishda xatolik"); }
       if (typeof localStorage !== "undefined") localStorage.setItem("dollar_kurs", tKurs);
 
-      // Telegram bot xabari — sotuvga to'lov qilindi
-      const nS = (v: number) => String(Math.round(v));
-      const nU = (v: number) => String(Math.round(v * 100) / 100);
-      const msg =
-        `💲✅ Sotuvga to'lov qilindi\n\n` +
-        `📅 Sana: ${sana}\n` +
-        `👤 Mijoz: ${mijoz.Ism || "—"}\n` +
-        `📅 Ostatka(So'm): ${nS(ostatkaSom)}\n` +
-        `📅 Ostatka(Dollar): ${nU(ostatkaDollar)}\n` +
-        `💵 So'm: ${somVal > 0 ? nS(somVal) : "null"}\n` +
-        `💵 Dollar: ${usdVal > 0 ? nU(usdVal) : "null"}\n` +
-        `💵 Jami so'm: ${nS(num(summa))}\n` +
-        `💵 Jami dollar: ${nU(num(summaDollar))}\n` +
-        `💵 Qoldiq (so'm): ${nS(ostatkaSom - num(summa))}\n` +
-        `💵 Qoldiq ($): ${nU(ostatkaDollar - num(summaDollar))}\n` +
-        `📌 Izoh: ${tIzoh && tIzoh.trim() ? tIzoh : "null"}`;
-      fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: msg, agent: mijoz.Agent || "" }) }).catch(() => {});
+      // Telegram — saqlangandan keyin YAGONA ledgerdan (chek bilan bir xil qoldiq; vaqt bilan;
+      // o'tgan sana bilan kiritilgan bo'lsa mijozning hozirgi qoldig'i ham boradi)
+      void tolovXabari({
+        sarlavha: "💲✅ Sotuvga to'lov qilindi",
+        mijozId: mijoz.Mijoz_ID, mijozNomi: mijoz.Ism || "", tolovId, sana, vaqt,
+        somVal, usdVal, summa, summaDollar, izoh: tIzoh, agent: mijoz.Agent || "",
+        zaxira: { oldSom: ostatkaSom, oldUsd: ostatkaDollar, yangiSom: ostatkaSom - num(summa), yangiUsd: ostatkaDollar - num(summaDollar) },
+      });
 
       // MijozBalans qoldig'ini yangilaymiz (mavjud bo'lsa)
       if (mijozBalans) {
@@ -717,6 +846,48 @@ export default function MijozDetailPage() {
             {qarzDollar !== 0 && <p style={{ fontSize: isMobile ? 13 : 15, fontWeight: 800, color: qarzDollar > 0 ? "#ef4444" : "#16a34a", marginTop: 4 }}>{fmtUsd(qarzDollar)}</p>}
             {qarzSom === 0 && qarzDollar === 0 && <p style={{ ...statVal, color: "#16a34a" }}>0</p>}
           </div>
+        </div>
+
+        {/* ── So'm ⇄ $ ayirboshlash ── */}
+        <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden", marginBottom: isMobile ? 14 : 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: isMobile ? "12px 14px" : "14px 20px", borderBottom: abGuruhlar.length ? "1px solid var(--border)" : "none" }}>
+            <span style={{ width: 36, height: 36, borderRadius: 10, background: "#f5f3ff", color: "#7c3aed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{SWAP_ICON}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{ fontSize: 15, fontWeight: 700 }}>So&apos;m ⇄ $ ayirboshlash</p>
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}>
+                {abGuruhlar.length ? `${abGuruhlar.length} ta amal` : "So'm qarzini $ qarziga (yoki aksincha) kurs bo'yicha o'tkazish"}
+              </p>
+            </div>
+            <button onClick={openAb}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: "var(--radius)", border: "none", background: "#7c3aed", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+              Ayirboshlash
+            </button>
+          </div>
+          {abGuruhlar.map((g, i) => {
+            const som2usd = g.som > 0 || g.usd < 0;
+            const somT = fmtSom(Math.abs(g.som)), usdT = fmtUsd(Math.abs(g.usd));
+            return (
+              <div key={g.id} style={{ display: "flex", alignItems: "center", gap: isMobile ? 8 : 14, flexWrap: isMobile ? "wrap" : "nowrap", padding: isMobile ? "10px 14px" : "10px 20px", borderBottom: i < abGuruhlar.length - 1 ? "1px solid var(--border)" : "none" }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 84 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>{g.sana || "—"}</span>
+                  {g.vaqt && <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>{g.vaqt.split(":").slice(0, 2).join(":")}</span>}
+                </div>
+                <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 10, background: "#f5f3ff", color: "#7c3aed", whiteSpace: "nowrap" }}>{som2usd ? "So'm → $" : "$ → So'm"}</span>
+                <span style={{ flex: 1, minWidth: isMobile ? "100%" : 0, order: isMobile ? 5 : 0, fontSize: 14, fontWeight: 800 }}>
+                  {som2usd
+                    ? <>{somT} <span style={{ color: "var(--text-3)" }}>→</span> <span style={{ color: "#2563eb" }}>{usdT}</span></>
+                    : <><span style={{ color: "#2563eb" }}>{usdT}</span> <span style={{ color: "var(--text-3)" }}>→</span> {somT}</>}
+                  {g.izoh && <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--text-3)", marginTop: 2 }}>{g.izoh}</span>}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-2)", whiteSpace: "nowrap", marginLeft: isMobile ? "auto" : 0 }}>kurs {g.kurs ? g.kurs.toLocaleString("ru-RU") : "—"}</span>
+                <button onClick={() => setAbDelete(g)} title="O'chirish"
+                  style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid #fecaca", background: "#fef2f2", color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {/* Sana va summa bo'yicha qidiruv */}
@@ -1166,6 +1337,152 @@ export default function MijozDetailPage() {
           </div>
         );
       })()}
+
+      {/* ── So'm ⇄ $ ayirboshlash modal ── */}
+      {abOpen && (() => {
+        const h = abHisob();
+        const yangiSom = qarzSom - h.somLeg, yangiUsd = qarzDollar - h.usdLeg;
+        const kursXato = num(abKurs) < 11000;
+        const canSave = !abSaving && !kursXato && h.somAmt > 0 && h.usdAmt > 0;
+        const manbaQarz = h.som2usd ? qarzSom : qarzDollar;
+        const rang = "#7c3aed";
+        const inp: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: "var(--radius)", fontSize: 14, fontWeight: 700, outline: "none", boxSizing: "border-box" };
+        return (
+          <div style={{ position: "fixed", inset: 0, zIndex: 1200, background: "rgba(15,42,76,.42)", backdropFilter: "blur(4px)", display: "flex", alignItems: isMobile ? "flex-end" : "center", justifyContent: "center", padding: isMobile ? 0 : 20 }}
+            onClick={() => { if (!abSaving) setAbOpen(false); }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background: "var(--white)", width: "100%", maxWidth: isMobile ? "100%" : 560, borderRadius: isMobile ? "20px 20px 0 0" : 16, display: "flex", flexDirection: "column", maxHeight: isMobile ? "94dvh" : "92vh" }}>
+              {isMobile && <div style={{ width: 40, height: 4, borderRadius: 2, background: "var(--border)", margin: "12px auto 0" }}/>}
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: "#f5f3ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: rang }}>{SWAP_ICON}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 style={{ fontSize: 16, fontWeight: 800 }}>So&apos;m ⇄ $ ayirboshlash</h2>
+                  <p style={{ fontSize: 12, color: "var(--text-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mijoz.Ism}</p>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, flexShrink: 0 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", textAlign: "center" }}>Sana</span>
+                  <input type="date" value={abSana} onChange={e => setAbSana(e.target.value)} style={{ fontSize: 12, fontWeight: 600, padding: "6px 8px", border: "1px solid var(--border)", borderRadius: "var(--radius)", outline: "none", textAlign: "center" }}/>
+                </div>
+                <button onClick={() => { if (!abSaving) setAbOpen(false); }} style={{ width: 34, height: 34, borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+                {/* Joriy qarz */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--radius)", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em" }}>JORIY QARZ:</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: qarzSom > 0 ? "#ef4444" : "#16a34a" }}>{qarzSom.toLocaleString("ru-RU")} so&apos;m</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: qarzDollar > 0 ? "#ef4444" : "#16a34a" }}>{fmtUsd(qarzDollar)}</span>
+                </div>
+                {/* Yo'nalish */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 8 }}>Yo&apos;nalish</label>
+                  <div style={{ display: "flex", borderRadius: "var(--radius)", overflow: "hidden", border: "1.5px solid var(--border)" }}>
+                    {([["som2usd", "So'm → $"], ["usd2som", "$ → So'm"]] as const).map(([v, l], i) => (
+                      <button key={v} type="button" onClick={() => { setAbYon(v); setAbSumma(""); }}
+                        style={{ flex: 1, padding: "10px", fontSize: 13, fontWeight: 700, border: "none", cursor: "pointer", background: abYon === v ? rang : "var(--white)", color: abYon === v ? "#fff" : "var(--text-3)", borderRight: i === 0 ? "1.5px solid var(--border)" : "none" }}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {/* Summa + kurs */}
+                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 6 }}>
+                      <label style={{ fontSize: 12, fontWeight: 600, color: h.som2usd ? "var(--text-2)" : "#2563eb" }}>{h.som2usd ? "So'm qarzidan" : "$ qarzidan"}</label>
+                      {manbaQarz > 0 && (
+                        <button type="button" onClick={() => setAbSumma(h.som2usd ? String(Math.round(qarzSom)) : String(Math.round(qarzDollar * 100) / 100))}
+                          style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8, border: `1px solid ${rang}`, background: "#f5f3ff", color: rang, cursor: "pointer" }}>
+                          Hammasi: {h.som2usd ? qarzSom.toLocaleString("ru-RU") : fmtUsd(qarzDollar)}
+                        </button>
+                      )}
+                    </div>
+                    {h.som2usd
+                      ? <CurInput icon={SOM_ICON} iconColor="var(--primary)" value={abSumma} onChange={e => setAbSumma(e.target.value.replace(/\D/g, ""))} placeholder="0" inputMode="numeric" autoFocus
+                          style={{ ...inp, border: "1.5px solid var(--primary)" }}/>
+                      : <CurInput icon={USD_ICON} iconColor="#2563eb" value={abSumma} onChange={e => setAbSumma(e.target.value.replace(/[^\d.]/g, "").replace(/(\..*)\./g, "$1"))} placeholder="0.00" inputMode="decimal" autoFocus
+                          style={{ ...inp, border: "1.5px solid #2563eb", color: "#2563eb" }}/>}
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: kursXato ? "#ef4444" : "var(--text-2)", display: "block", marginBottom: 6 }}>Kurs <span style={{ color: "#ef4444" }}>*</span></label>
+                    <CurInput icon={KURS_ICON} iconColor="#16a34a" value={abKurs} onChange={e => setAbKurs(e.target.value.replace(/\D/g, ""))} placeholder="Min: 11 000" inputMode="numeric"
+                      style={{ ...inp, fontWeight: 600, border: `1.5px solid ${kursXato ? "#ef4444" : "var(--border)"}` }}/>
+                    {centralKurs && num(abKurs) !== num(centralKurs) && (
+                      <button type="button" onClick={() => setAbKurs(centralKurs)} style={{ marginTop: 6, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--white)", color: "var(--text-2)", cursor: "pointer" }}>
+                        Joriy kurs: {num(centralKurs).toLocaleString("ru-RU")}
+                      </button>
+                    )}
+                  </div>
+                </div>
+                {/* Natija */}
+                {h.somAmt > 0 && h.usdAmt > 0 && !kursXato && (
+                  <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ flex: "1 1 200px", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#f5f3ff", borderRadius: "var(--radius)" }}>
+                      <span style={{ width: 34, height: 34, borderRadius: 9, background: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", color: rang, flexShrink: 0 }}>{SWAP_ICON}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>{h.som2usd ? "$ qarziga o'tadi" : "So'm qarziga o'tadi"}</div>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: rang }}>
+                          {h.som2usd ? `${h.somAmt.toLocaleString("ru-RU")} so'm → ${fmtUsd(h.usdAmt)}` : `${fmtUsd(h.usdAmt)} → ${h.somAmt.toLocaleString("ru-RU")} so'm`}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ flex: "1 1 200px", display: "flex", alignItems: "center", gap: 10, padding: "12px 14px", background: "#f8fafc", border: "1px solid var(--border)", borderRadius: "var(--radius)" }}>
+                      <span style={{ width: 34, height: 34, borderRadius: 9, background: "var(--white)", display: "flex", alignItems: "center", justifyContent: "center", color: "#2563eb", flexShrink: 0 }}>{CALC_ICON}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>Ayirboshlashdan keyingi qarz</div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: yangiSom > 0 ? "#ef4444" : "#16a34a" }}>{yangiSom.toLocaleString("ru-RU")} so&apos;m</span>
+                          <span style={{ fontSize: 15, fontWeight: 800, color: yangiUsd > 0 ? "#ef4444" : "#16a34a" }}>{fmtUsd(yangiUsd)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <p style={{ fontSize: 11.5, fontWeight: 600, color: "var(--text-3)", lineHeight: 1.45 }}>
+                  Kassaga pul kirmaydi va chiqmaydi — faqat mijoz qarzi bir valyutadan ikkinchisiga o&apos;tadi. Amal mijoz sahifasida, akt-sverkalarda va mijozga Telegram xabarida ko&apos;rinadi.
+                </p>
+                {/* Izoh */}
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", display: "block", marginBottom: 6 }}>Izoh</label>
+                  <IzohSelect value={abIzoh} onChange={v => setAbIzoh(v)} options={tIzohOpts} placeholder="Izoh yozing (ixtiyoriy)..." textarea rows={2} maxLength={255}
+                    style={{ width: "100%", padding: "10px 12px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 14, outline: "none", boxSizing: "border-box", resize: "vertical", fontFamily: "inherit", minHeight: 56 }}/>
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 10, padding: "16px 20px", borderTop: "1px solid var(--border)", paddingBottom: isMobile ? "max(16px, env(safe-area-inset-bottom))" : 16 }}>
+                <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setAbOpen(false)} disabled={abSaving}>Bekor</button>
+                <button className="btn btn--primary" style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: canSave ? rang : undefined, borderColor: canSave ? rang : undefined }} onClick={handleAb} disabled={!canSave}>
+                  {abSaving ? <span className="spinner"/> : <span style={{ display: "flex" }}>{SAVE_ICON}</span>} Saqlash
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Ayirboshlashni o'chirish ── */}
+      {abDelete && (
+        <div className="modal-overlay" onClick={() => { if (!abDeleting) setAbDelete(null); }}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 440 }}>
+            <div className="modal__head">
+              <h2 className="modal__title">Ayirboshlashni o&apos;chirish</h2>
+              <button className="modal__close" onClick={() => { if (!abDeleting) setAbDelete(null); }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="modal__body">
+              <p style={{ fontSize: 14, fontWeight: 700 }}>{abDelete.sana} · {abMatni(abDelete)}</p>
+              <p style={{ fontSize: 13, color: "var(--text-2)" }}>Ikkala yozuv (so&apos;m va $) o&apos;chiriladi — mijoz qarzi ayirboshlashdan oldingi holatga qaytadi.</p>
+            </div>
+            <div className="modal__footer">
+              <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setAbDelete(null)} disabled={abDeleting}>Bekor</button>
+              <button className="btn btn--red" style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} onClick={handleAbDelete} disabled={abDeleting}>
+                {abDeleting && <span className="spinner"/>} O&apos;chirish
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

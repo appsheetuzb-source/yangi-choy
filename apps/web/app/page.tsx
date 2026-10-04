@@ -4,6 +4,7 @@ import { fetchSheets } from "@/lib/sheet-cache";
 import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi } from "@/lib/mijoz-ledger";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -12,7 +13,7 @@ import {
 interface Sotuv { Sotuv_ID: string; Yil: string; Oy: string; Sana: string; Mijoz_ID: string; Agent: string; Sotuv_Raqami: string; Vaqt: string; Chek?: string; }
 interface SavatSom { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa_som: string; }
 interface SavatDol { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa: string; }
-interface STolov { Tolov_ID: string; Agent: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Summa: string; Summa_dollar: string; Vaqt: string; }
+interface STolov { Tolov_ID: string; Agent: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Summa: string; Summa_dollar: string; Vaqt: string; Turi?: string; }
 interface XTolov { Gazna_ID: string; Gazna_dollar_ID: string; Sana: string; Summa: string; Summa_dollar: string; }
 interface Xarajat { Gazna_ID: string; Gazna_dollar_ID: string; Sana: string; Som: string; Dollar: string; }
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; Kg: string; }
@@ -139,8 +140,9 @@ export default function Home() {
       if(isSotuvchi && !mySotuvIds.has(r.Sotuv_ID)) return;
       if(inR(r.Sotuv_ID)) { oyDollar+=num(r.Summa); oyFoydaDollar += num(r.Summa) - num(mahMap[r.Mahsulot_ID]?.Tan_dollar)*num(r.Soni); }
     });
-    const oyTolovSom = myTolovlar.filter(x=>inRange(x.Sana, dateFrom, dateTo)).reduce((a,x)=>a+num(x.Summa),0);
-    const oyTolovDollar = myTolovlar.filter(x=>inRange(x.Sana, dateFrom, dateTo)).reduce((a,x)=>a+num(x.Summa_dollar),0);
+    // So'm ⇄ $ ayirboshlash tushum emas (kassaga pul kirmaydi) — faqat qarz hisobida qatnashadi
+    const oyTolovSom = myTolovlar.filter(x=>!ayirboshlashmi(x) && inRange(x.Sana, dateFrom, dateTo)).reduce((a,x)=>a+num(x.Summa),0);
+    const oyTolovDollar = myTolovlar.filter(x=>!ayirboshlashmi(x) && inRange(x.Sana, dateFrom, dateTo)).reduce((a,x)=>a+num(x.Summa_dollar),0);
 
     // Gazna balans
     // Gazna joriy balans = boshlangich + kirim(S_tolov) - chiqim(X_tolov + Xarajat)
@@ -232,7 +234,7 @@ export default function Home() {
 
   const recentTolov = useMemo(()=>{
     const key=(x:STolov)=> (x.Sana?.split(".").reverse().join("")||"")+(x.Vaqt||"");
-    return [...myTolovlar].filter(x=>x.Tolov_ID).sort((a,b)=>key(b).localeCompare(key(a))).slice(0,6);
+    return [...myTolovlar].filter(x=>x.Tolov_ID && !ayirboshlashmi(x)).sort((a,b)=>key(b).localeCompare(key(a))).slice(0,6);
   },[myTolovlar]);
 
   // Sotuv_ID -> jami summa xaritasi (har chaqiruvda 23k qatorni filter qilmaslik uchun)

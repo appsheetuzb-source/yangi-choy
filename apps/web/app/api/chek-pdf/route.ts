@@ -8,10 +8,14 @@ export const runtime = "nodejs";
 // Print Label ko'rsatishi uchun). Ma'lumot client'dan POST bilan keladi (formatlangan).
 
 interface Item { nomi: string; soni: string; narx: string; summa: string; }
-interface Bal { eski: string; olingan: string; tolov: string | null; yakuniy: string; }
+interface Bal { eski: string; olingan: string; tolov: string | null; yakuniy: string;
+  holat?: string;        // eski qarz qaysi amal holatiga (ledger)
+  hozirgi?: string;      // shu sotuvdan keyin amal bo'lsa — mijozning hozirgi qoldig'i
+  hozirgiVaqt?: string; }
 interface Payload {
   sana: string; agent: string; mijoz: string; tel: string;
   items: Item[]; jami: string; bal: Bal | null;
+  chop?: string;          // chek chop etilgan vaqt
 }
 
 const W = 226.772;          // 80mm nuqtada
@@ -37,6 +41,7 @@ function safe(s: string): string {
     .replace(/[‘’ʼ′]/g, "'")   // burama/modifikator apostroflar -> '
     .replace(/[–—−]/g, "-")          // tire/minus -> -
     .replace(/[“”]/g, '"')
+    .replace(/·/g, "-")
     .replace(/[^\x20-\x7E]/g, " ");                 // qolgan non-ASCII -> bo'sh joy (xatolik bermasin)
 }
 
@@ -72,7 +77,9 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
     sana: safe(d0.sana), agent: safe(d0.agent), mijoz: safe(d0.mijoz), tel: safe(d0.tel),
     items: (d0.items || []).map(it => ({ nomi: safe(it.nomi), soni: safe(it.soni), narx: safe(it.narx), summa: safe(it.summa) })),
     jami: safe(d0.jami),
-    bal: d0.bal ? { eski: safe(d0.bal.eski), olingan: safe(d0.bal.olingan), tolov: d0.bal.tolov ? safe(d0.bal.tolov) : null, yakuniy: safe(d0.bal.yakuniy) } : null,
+    bal: d0.bal ? { eski: safe(d0.bal.eski), olingan: safe(d0.bal.olingan), tolov: d0.bal.tolov ? safe(d0.bal.tolov) : null, yakuniy: safe(d0.bal.yakuniy),
+      holat: d0.bal.holat ? safe(d0.bal.holat) : "", hozirgi: d0.bal.hozirgi ? safe(d0.bal.hozirgi) : "", hozirgiVaqt: d0.bal.hozirgiVaqt ? safe(d0.bal.hozirgiVaqt) : "" } : null,
+    chop: d0.chop ? safe(d0.chop) : "",
   };
   const ops: Op[] = [];
   let y = M;   // yuqoridan pastga — matn "pastki chegara"si (baseline) sifatida ishlatamiz
@@ -151,12 +158,25 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
       ops.push({ t: "text", x: 0, base: top + 9, text: val, size: 8, font: bold, align: "right", rightX: XR - 3 });
       y = top + 13; hline(M, XR);
     };
+    // Kichik izoh qatori (masalan "18.09.2026 16:07 - To'lov holatiga")
+    const izohRow = (text: string) => {
+      const top = y;
+      ops.push({ t: "text", x: M + 3, base: top + 7, text, size: 6, font });
+      y = top + 9; hline(M, XR);
+    };
     balRow("Eski qarz", d.bal.eski);
+    if (d.bal.holat) izohRow(d.bal.holat + " holatiga");
     balRow("Olingan tovar", d.bal.olingan);
     if (d.bal.tolov) balRow("To'lov", "- " + d.bal.tolov);
     balRow("Yakuniy balans", d.bal.yakuniy);
+    if (d.bal.hozirgi) {
+      balRow("Hozirgi qoldiq", d.bal.hozirgi);
+      if (d.bal.hozirgiVaqt) izohRow(d.bal.hozirgiVaqt + " holatiga");
+    }
     vlines([M, XR], bTop, y);
   }
+
+  if (d.chop) { gap(3); txt("Chop etildi: " + d.chop, M + innerW / 2, 6.5, font, "center"); }
 
   gap(6);
   return { ops, height: y };

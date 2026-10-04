@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { exportPDF, exportExcel, type ExportSection } from "@/lib/export";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi, ayirboshlashGuruhi } from "@/lib/mijoz-ledger";
 
 const SAVE_KEY = "aktMijoz_sel";
 
@@ -11,7 +12,15 @@ interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent: string;
 interface Sotuv { Sotuv_ID: string; Mijoz_ID: string; Sana: string; Vaqt?: string; Chek?: string; Sotuv_Raqami?: string; }
 interface SavatSom { Sotuv_ID: string; Summa_som: string; }
 interface SavatDol { Sotuv_ID: string; Sotuv_ID2?: string; Summa: string; }
-interface STolov { Tolov_ID: string; Mijoz_ID: string; Sana: string; Vaqt?: string; Valyuta: string; Turi?: string; Som: string; Summa: string; Summa_dollar: string; Check?: string; }
+interface STolov { Tolov_ID: string; Mijoz_ID: string; Sana: string; Vaqt?: string; Valyuta: string; Turi?: string; Som: string; Summa: string; Summa_dollar: string; Check?: string; Dollar_Kursi?: string; }
+// So'm ⇄ $ ayirboshlash (ikki oyoq birlashtirilgan). som/usd "to'lov" ishorasida: som > 0 — so'm qarzi kamaydi
+interface AbRow { id: string; sana: string; som: number; usd: number; kurs: number; k: string; }
+type PayRow = { id: string; sana: string; valyuta: string; turi: string; som: number; usd: number; chk: boolean; k: string };
+type PayItem = ({ kind: "pay" } & PayRow) | ({ kind: "ab" } & AbRow);
+function abSummaMatni(a: AbRow, arrow = "→"): string {
+  const somT = fmtSom(Math.abs(a.som)), usdT = "$" + fmtUsd(Math.abs(a.usd));
+  return a.som > 0 || a.usd < 0 ? `${somT} ${arrow} ${usdT}` : `${usdT} ${arrow} ${somT}`;
+}
 
 function num(v: string | number | undefined) { return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0; }
 function isDollar(v: string) { const s = String(v || "").toLowerCase(); return s.includes("dollar") || s === "$"; }
@@ -110,7 +119,11 @@ export default function AktSverkaPage() {
     // to'lovlar
     const myTol = tolovlar.filter(t => mid(t.Mijoz_ID) === selMijoz);
     let tolovSom = 0, tolovUsd = 0;
-    const payRows: { id: string; sana: string; valyuta: string; turi: string; som: number; usd: number; chk: boolean; k: string }[] = [];
+    // So'm ⇄ $ ayirboshlash — to'lov emas (kassaga pul kirmagan), alohida ko'rsatiladi.
+    // abSom/abUsd — qarzga ta'siri: + ortdi, − kamaydi
+    let abSom = 0, abUsd = 0;
+    const abMap: Record<string, AbRow> = {};
+    const payRows: PayRow[] = [];
     myTol.forEach(t => {
       const dD = isDollar(t.Valyuta);
       const som = dD ? 0 : num(t.Summa), usd = dD ? num(t.Summa_dollar) : 0;
@@ -118,18 +131,29 @@ export default function AktSverkaPage() {
       const k = dkey(t.Sana);
       if (fromK && k < fromK) { eskiSom -= som; eskiUsd -= usd; return; }
       if (toK && k > toK) return;
+      if (ayirboshlashmi(t)) {
+        abSom -= som; abUsd -= usd;
+        const g = ayirboshlashGuruhi(t.Tolov_ID) || String(t.Tolov_ID || "").trim();
+        const e = abMap[g] || (abMap[g] = { id: g, sana: t.Sana, som: 0, usd: 0, kurs: num(t.Dollar_Kursi), k: k + (t.Vaqt || "") });
+        e.som += som; e.usd += usd;
+        return;
+      }
       tolovSom += som; tolovUsd += usd;
       payRows.push({ id: String(t.Tolov_ID || "").trim(), sana: t.Sana, valyuta: dD ? "Dollar" : "So'm", turi: t.Turi || "", som, usd, chk, k: k + (t.Vaqt || "") });
     });
 
     salesList.sort((a, b) => b.k.localeCompare(a.k));
     payRows.sort((a, b) => b.k.localeCompare(a.k));
+    const payList: PayItem[] = [
+      ...payRows.map(p => ({ kind: "pay" as const, ...p })),
+      ...Object.values(abMap).map(a => ({ kind: "ab" as const, ...a })),
+    ].sort((a, b) => b.k.localeCompare(a.k));
 
     return {
-      eskiSom, eskiUsd, sotuvSom, sotuvUsd, tolovSom, tolovUsd,
-      qoldiqSom: eskiSom + sotuvSom - tolovSom,
-      qoldiqUsd: eskiUsd + sotuvUsd - tolovUsd,
-      salesList, payRows, salesCount: salesList.length, payCount: payRows.length,
+      eskiSom, eskiUsd, sotuvSom, sotuvUsd, tolovSom, tolovUsd, abSom, abUsd,
+      qoldiqSom: eskiSom + sotuvSom - tolovSom + abSom,
+      qoldiqUsd: eskiUsd + sotuvUsd - tolovUsd + abUsd,
+      salesList, payRows, payList, salesCount: salesList.length, payCount: payList.length,
     };
   }, [selected, selMijoz, sotuvlar, somByS, dolByS, tolovlar, fromISO, toISO]);
 
@@ -137,18 +161,24 @@ export default function AktSverkaPage() {
     if (!data || !selected) return;
     const ds = (iso: string) => iso ? iso.split("-").reverse().join(".") : "";
     const secs: ExportSection[] = [];
-    if (data.eskiSom || data.sotuvSom || data.tolovSom || data.qoldiqSom)
+    if (data.eskiSom || data.sotuvSom || data.tolovSom || data.abSom || data.qoldiqSom)
       secs.push({ heading: "SO'M", headers: ["Ko'rsatkich", "Summa"], rows: [
         ["Eski qarzdorlik", fmtSom(data.eskiSom) + " so'm"],
         ["Sotuv summasi", fmtSom(data.sotuvSom) + " so'm"],
         ["To'lov summasi", fmtSom(data.tolovSom) + " so'm"],
+        ...(data.abSom ? [["Ayirboshlash (so'm <-> $)", (data.abSom > 0 ? "+" : "") + fmtSom(data.abSom) + " so'm"]] : []),
       ], foot: ["Tugash qoldiq", fmtSom(data.qoldiqSom) + " so'm"] });
-    if (data.eskiUsd || data.sotuvUsd || data.tolovUsd || data.qoldiqUsd)
+    if (data.eskiUsd || data.sotuvUsd || data.tolovUsd || data.abUsd || data.qoldiqUsd)
       secs.push({ heading: "DOLLAR ($)", headers: ["Ko'rsatkich", "Summa"], rows: [
         ["Eski qarzdorlik", fmtUsd(data.eskiUsd) + " $"],
         ["Sotuv summasi", fmtUsd(data.sotuvUsd) + " $"],
         ["To'lov summasi", fmtUsd(data.tolovUsd) + " $"],
+        ...(data.abUsd ? [["Ayirboshlash (so'm <-> $)", (data.abUsd > 0 ? "+" : "") + fmtUsd(data.abUsd) + " $"]] : []),
       ], foot: ["Tugash qoldiq", fmtUsd(data.qoldiqUsd) + " $"] });
+    const abList = data.payList.filter((p): p is { kind: "ab" } & AbRow => p.kind === "ab");
+    if (abList.length)
+      secs.push({ heading: "AYIRBOSHLASH (SO'M <-> $)", headers: ["Sana", "Amal", "Kurs"],
+        rows: abList.map(a => [a.sana, abSummaMatni(a, "->"), a.kurs ? fmtSom(a.kurs) : "-"]) });
     const opts = {
       title: `Akt-sverka — ${selected.Ism || ""}`,
       subtitle: `Davr: ${ds(fromISO)} — ${ds(toISO)}${selected.Telefon ? "  ·  Tel: " + selected.Telefon : ""}`,
@@ -206,12 +236,14 @@ export default function AktSverkaPage() {
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Eski qarzdorlik</span><span style={{ fontSize: 14, fontWeight: 700 }}>{fmtSom(data.eskiSom)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Sotuv summasi</span><span style={{ fontSize: 14, fontWeight: 700 }}>{fmtSom(data.sotuvSom)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>To&apos;lov summasi</span><span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>{fmtSom(data.tolovSom)}</span></div>
+                    {data.abSom !== 0 && <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Ayirboshlash (so&apos;m ⇄ $)</span><span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{data.abSom > 0 ? "+" : ""}{fmtSom(data.abSom)}</span></div>}
                     <div style={{ ...sumRow, borderBottom: "none", paddingTop: 12 }}><span style={{ fontSize: 13, fontWeight: 700 }}>Tugash qoldiq</span><span style={{ fontSize: 17, fontWeight: 800, color: data.qoldiqSom > 0 ? "#ef4444" : "#16a34a" }}>{fmtSom(data.qoldiqSom)}</span></div>
 
                     <p style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", letterSpacing: ".05em", margin: "14px 0 2px" }}>DOLLAR ($)</p>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Eski qarzdorlik</span><span style={{ fontSize: 14, fontWeight: 700 }}>$ {fmtUsd(data.eskiUsd)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Sotuv summasi</span><span style={{ fontSize: 14, fontWeight: 700 }}>$ {fmtUsd(data.sotuvUsd)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>To&apos;lov summasi</span><span style={{ fontSize: 14, fontWeight: 700, color: "#2563eb" }}>$ {fmtUsd(data.tolovUsd)}</span></div>
+                    {data.abUsd !== 0 && <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Ayirboshlash (so&apos;m ⇄ $)</span><span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{data.abUsd > 0 ? "+" : "−"} $ {fmtUsd(Math.abs(data.abUsd))}</span></div>}
                     <div style={{ ...sumRow, borderBottom: "none", paddingTop: 12 }}><span style={{ fontSize: 13, fontWeight: 700 }}>Tugash qoldiq</span><span style={{ fontSize: 17, fontWeight: 800, color: data.qoldiqUsd > 0 ? "#ef4444" : "#2563eb" }}>$ {fmtUsd(data.qoldiqUsd)}</span></div>
                   </div>
                 )}
@@ -252,8 +284,17 @@ export default function AktSverkaPage() {
                   {["SANA", "VALYUTA", "SUMMA"].map(h => <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", textAlign: h === "SUMMA" ? "right" : "left" }}>{h}</span>)}
                   <span />
                 </div>
-                {!data || data.payRows.length === 0 ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>To&apos;lov yo&apos;q</div> :
-                  data.payRows.map((p, i) => {
+                {!data || data.payList.length === 0 ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>To&apos;lov yo&apos;q</div> :
+                  data.payList.map((p, i) => {
+                    if (p.kind === "ab") return (
+                      <div key={"ab-" + p.id} title={`So'm ⇄ $ ayirboshlash${p.kurs ? " · kurs " + fmtSom(p.kurs) : ""} — kassaga pul kirmagan`}
+                        style={{ display: "grid", gridTemplateColumns: isMobile ? "76px 1fr 96px 14px" : "100px 1fr 130px 18px", padding: "10px 18px", borderBottom: "1px solid var(--border)", alignItems: "center", background: "#faf5ff" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#7c3aed" }}>{p.sana}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>⇄ Ayirboshlash{p.kurs ? <span style={{ display: "block", fontSize: 10.5, fontWeight: 600, color: "var(--text-3)" }}>kurs {fmtSom(p.kurs)}</span> : null}</span>
+                        <span style={{ fontSize: 12.5, fontWeight: 700, textAlign: "right", color: "#7c3aed" }}>{abSummaMatni(p)}</span>
+                        <span />
+                      </div>
+                    );
                     const col = p.chk ? "#16a34a" : "#ef4444";
                     return (
                     <div key={p.id || i} onClick={() => p.id && goDetail(`/sotuv/tolov/${p.id}`)}

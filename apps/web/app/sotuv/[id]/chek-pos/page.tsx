@@ -1,5 +1,6 @@
 "use client";
 import { fetchSheet, fetchSheetWhere } from "@/lib/sheet-cache";
+import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni, opVaqti } from "@/lib/mijoz-ledger";
 import { useEffect, useState, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 
@@ -47,15 +48,16 @@ function ProdTable({ rows, jami }: { rows: React.ReactNode[][]; jami: string }) 
   );
 }
 
-function BalTable({ eski, olingan, tolov, yakuniy }: { eski: string; olingan: string; tolov: string|null; yakuniy: string }) {
+function BalTable({ eski, olingan, tolov, yakuniy, holat, hozirgi, hozirgiVaqt }: { eski: string; olingan: string; tolov: string|null; yakuniy: string; holat?: string; hozirgi?: string; hozirgiVaqt?: string }) {
   return (
     <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
       <thead><tr><th style={{ ...balCell, textAlign: "center", fontWeight: 900 }} colSpan={2}>BALANS</th></tr></thead>
       <tbody>
-        <tr><td style={balCell}>Eski qarz</td><td style={{ ...balCell, textAlign: "right" }}>{eski}</td></tr>
+        <tr><td style={balCell}>Eski qarz{holat && <div style={{ fontSize: 9.5, fontWeight: 600 }}>{holat} holatiga</div>}</td><td style={{ ...balCell, textAlign: "right" }}>{eski}</td></tr>
         <tr><td style={balCell}>Olingan tovar</td><td style={{ ...balCell, textAlign: "right" }}>{olingan}</td></tr>
         {tolov && <tr><td style={balCell}>To&apos;lov</td><td style={{ ...balCell, textAlign: "right" }}>− {tolov}</td></tr>}
         <tr><td style={{ ...balCell, fontWeight: 900 }}>Yakuniy balans</td><td style={{ ...balCell, textAlign: "right", fontWeight: 900 }}>{yakuniy}</td></tr>
+        {hozirgi && <tr><td style={{ ...balCell, fontWeight: 900 }}>Hozirgi qoldiq{hozirgiVaqt && <div style={{ fontSize: 9.5, fontWeight: 600 }}>{hozirgiVaqt} holatiga</div>}</td><td style={{ ...balCell, textAlign: "right", fontWeight: 900 }}>{hozirgi}</td></tr>}
       </tbody>
     </table>
   );
@@ -77,6 +79,32 @@ function PosContent() {
   const [mMap, setMMap]         = useState<Record<string,Mahsulot>>({});
   const [rowsReady, setRowsReady] = useState(false);
   const [busy, setBusy]         = useState(false);
+
+  // YAGONA LEDGER — A4 chek bilan bir xil raqamlar (qaysi tugmadan ochilganidan qat'i nazar)
+  type Led = { oldSom: number; yangiSom: number; holat: string; sotuvVaqt: string; keyin: null | { som: number; vaqt: string } };
+  const [led, setLed] = useState<Led | null>(null);
+  const [chopVaqti] = useState(() => {
+    const d = new Date(); const p = (n: number) => String(n).padStart(2, "0");
+    return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  });
+  useEffect(() => {
+    if (!id) return;
+    let bekor = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/sheets?range=Sotuv&filterColumn=Sotuv_ID&filterValue=${encodeURIComponent(id)}`, { cache: "no-store" });
+        const srow = ((await r.json()).data || [])[0] as { Mijoz_ID?: string } | undefined;
+        const mid = String(srow?.Mijoz_ID || "").trim();
+        if (!mid) return;
+        const L = mijozLedger(await mijozLedgerMalumoti(mid, id));
+        const nq = ledgerNuqta(L, "sotuv", id);
+        if (!nq || bekor) return;
+        setLed({ oldSom: nq.op.oldSom, yangiSom: nq.op.yangiSom, holat: holatMatni(nq.oldingi), sotuvVaqt: opVaqti(nq.op),
+          keyin: nq.keyinAmalBor ? { som: nq.oxirgi.yangiSom, vaqt: holatMatni(nq.oxirgi) } : null });
+      } catch { /* URL raqamlari bilan qoladi */ }
+    })();
+    return () => { bekor = true; };
+  }, [id]);
 
   useEffect(()=>{
     if(!id) return;
@@ -103,8 +131,10 @@ function PosContent() {
 
   const thisSom    = savatSom.reduce((s,r)=>s+num(r.Summa_som),0);
   const hasSom     = savatSom.length > 0;
-  const showSom    = hasSom || totalSom !== 0 || tolovSom !== 0;
-  const yakuniySom = totalSom + thisSom - tolovSom;
+  const eskiSom    = led ? led.oldSom : totalSom - tolovSom;
+  const showSom    = hasSom || eskiSom !== 0 || tolovSom !== 0;
+  const yakuniySom = led ? led.yangiSom : totalSom + thisSom - tolovSom;
+  const sanaVaqt   = led?.sotuvVaqt || sana;
 
   // Serverda PDF yasab yuklab olamiz (pdf-lib) -> Print Label bilan oching.
   async function printChek() {
@@ -112,7 +142,7 @@ function PosContent() {
     setBusy(true);
     try {
       const payload = {
-        sana, agent: agentNomi, mijoz: mijozIsm, tel: mijozTel,
+        sana: sanaVaqt, agent: agentNomi, mijoz: mijozIsm, tel: mijozTel, chop: chopVaqti,
         items: savatSom.map(r => ({
           nomi: mMap[r.Mahsulot_ID]?.Nomi || r.Mahsulot_ID,
           soni: fmtSoni(num(r.Soni)),
@@ -120,7 +150,8 @@ function PosContent() {
           summa: fmtSom(num(r.Summa_som)),
         })),
         jami: fmtSom(thisSom),
-        bal: showSom ? { eski: fmtSom(totalSom - tolovSom), olingan: fmtSom(thisSom), tolov: null, yakuniy: fmtSom(yakuniySom) } : null,
+        bal: showSom ? { eski: fmtSom(eskiSom), olingan: fmtSom(thisSom), tolov: null, yakuniy: fmtSom(yakuniySom),
+          holat: led?.holat || "", hozirgi: led?.keyin ? fmtSom(led.keyin.som) : "", hozirgiVaqt: led?.keyin?.vaqt || "" } : null,
       };
       const res = await fetch("/api/chek-pdf", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
       if (!res.ok) throw new Error("server");
@@ -164,7 +195,7 @@ function PosContent() {
           <div style={{ fontSize: 11, fontWeight: 700 }}>Sotuv cheki</div>
         </div>
         <div style={{ fontSize: 12.5, fontWeight: 700, lineHeight: 1.55, marginBottom: 8, borderBottom: "1px solid #000", paddingBottom: 6 }}>
-          <div>Sana: <b>{sana||"—"}</b></div>
+          <div>Sana: <b>{sanaVaqt||"—"}</b></div>
           {agentNomi && <div>Agent: <b>{agentNomi}</b></div>}
           <div>Mijoz: <b>{mijozIsm||"—"}</b></div>
           {mijozTel && <div>Telefon: <b>{mijozTel}</b></div>}
@@ -176,7 +207,9 @@ function PosContent() {
           <>
             {hasSom && <ProdTable jami={fmtSom(thisSom)}
               rows={savatSom.map(r=>[mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID, fmtSoni(num(r.Soni)), fmtSom(num(r.Som_Narx)), fmtSom(num(r.Summa_som))])} />}
-            {showSom && <BalTable eski={fmtSom(totalSom - tolovSom)} olingan={fmtSom(thisSom)} tolov={null} yakuniy={fmtSom(yakuniySom)} />}
+            {showSom && <BalTable eski={fmtSom(eskiSom)} olingan={fmtSom(thisSom)} tolov={null} yakuniy={fmtSom(yakuniySom)}
+              holat={led?.holat} hozirgi={led?.keyin ? fmtSom(led.keyin.som) : undefined} hozirgiVaqt={led?.keyin?.vaqt} />}
+            <div style={{ textAlign: "center", fontSize: 10, fontWeight: 600 }}>Chop etildi: {chopVaqti}</div>
           </>
         )}
       </div>

@@ -7,6 +7,8 @@ import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/om
 import { useEffect, useState, useRef, useMemo } from "react";
 import { birlikOf } from "@/lib/birlik";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
+import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni } from "@/lib/mijoz-ledger";
+import { sotuvTasdiqXabari } from "@/lib/telegram-xabar";
 import { useParams, useRouter } from "next/navigation";
 import LiveClock from "@/components/LiveClock";
 import IzohSelect from "@/components/IzohSelect";
@@ -335,6 +337,9 @@ export default function SotuvDetailPage() {
   // Shu sotuvдан keyingi (keyingi sotuvgacha) barcha to'lovlar — yakuniy qoldiq uchun (strict ledger)
   const [winTolovSom, setWinTolovSom]         = useState(0);
   const [winTolovDollar, setWinTolovDollar]   = useState(0);
+  // Ledger: oldingi qoldiq qaysi amal holatiga, shu sotuvning ledgerdagi summasi va (bo'lsa) hozirgi qoldiq
+  const [ledInfo, setLedInfo] = useState<null | { holat: string; opSom: number; opUsd: number;
+    keyin: null | { som: number; usd: number; vaqt: string } }>(null);
 
   // Edit drawer
   const [editOpen, setEditOpen]           = useState(false);
@@ -390,9 +395,14 @@ export default function SotuvDetailPage() {
     setTasdiqSaving(true);
     setSotuv(s=>s?{...s,Chek:newChek}:s);
     try {
-      await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+      const r = await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:sotuv.Sotuv_ID,updates:{Chek:newChek, Status:newChek?"Tasdiqlandi":"Tasdiqlashga"}})});
       afterWrite("Sotuv");
+      // Tasdiqlanganda sotuv qarzga qo'shiladi — mijozga Telegram (qoldiqlar chek bilan bir xil ledgerdan)
+      if (r.ok && newChek) {
+        const mj = mijozlar.find(m => String(m.Mijoz_ID||"").trim() === String(sotuv.Mijoz_ID||"").trim());
+        void sotuvTasdiqXabari({ sotuvId: sotuv.Sotuv_ID, mijozId: sotuv.Mijoz_ID, mijozNomi: mj?.Ism || "", agent: mj?.Agent || "" });
+      }
     } finally { setTasdiqSaving(false); }
   }
 
@@ -465,31 +475,46 @@ export default function SotuvDetailPage() {
       setStolovlar(sorted);
       setGaznalar(((gzR.data||[]) as Gazna[]).filter(g=>g.Gazna_ID));
 
-      // Mijoz balansi — SNAPSHOT (sotuv YARATILGAN paytdagi eski qarz). MUZLATILGAN:
-      // keyingi sotuvlar qo'shilsa ham shu sotuvning "Mijoz balansi" va "Yakuniy qoldiq" i o'zgarmaydi.
-      // (Yakuniy qoldiq = snapshot + shu sotuv tovari − shu sotuvga qilingan to'lov — faqat shu sotuv o'zgarsa o'zgaradi.)
+      // Mijoz balansi — YAGONA LEDGER (chek bilan aynan bir xil raqam).
+
+      // Avval muzlatilgan Sotuv.Balans + "vaqt oynasi" ishlatilardi: to'lov/sotuv sanasi tahrirlansa
+
+      // snapshot eskirib qolardi va sotuvdan KEYINGI to'lov "eski qarz"ga singdirilardi.
+
+      // Snapshot ledger yuklanguncha zaxira sifatida ko'rinadi.
+
       setMijozQarzSom(num(s?.Balans));
+
       setMijozQarzDollar(num(s?.Balans_dollar));
 
-      // Yakuniy qoldiq uchun: shu sotuvДAN KEYINGI (keyingi sotuvgacha) barcha to'lovlar (bog'langan yoki umumiy).
-      // Strict ledger — oldingi sotuvlarga ta'sir qilmaydi, yangi sotuv qo'shilsa ham o'zgarmaydi. Fonda hisoblanadi.
+      setLedInfo(null);
+
       const _mid = String(s?.Mijoz_ID||"").trim();
+
       if (_mid) {
+
         (async () => {
+
           try {
-            const ts=(sn:string,vq:string)=>{const [d,mo,y]=String(sn||"").split(".").map(Number);const [h,mi,se]=String(vq||"").split(":").map(Number);return (y||0)*1e10+(mo||0)*1e8+(d||0)*1e6+(h||0)*1e4+(mi||0)*100+(se||0);};
-            const thisT = ts(s.Sana||"", s.Vaqt||"");
-            const [salesR, tolovR] = await Promise.all([
-              fetchSheetWhere("Sotuv", "Mijoz_ID", _mid),
-              fetchSheetWhere("S_tolov", "Mijoz_ID", _mid),
-            ]);
-            let nextT = Infinity;
-            (salesR.data as Sotuv[]).forEach(x=>{ if(String(x.Chek||"").trim()===""||x.Sotuv_ID===id) return; const t=ts(x.Sana||"",x.Vaqt||""); if(t>thisT&&t<nextT) nextT=t; });
-            let wSom=0, wDol=0;
-            (tolovR.data as STolov[]).forEach(t=>{ const tt=ts(t.Sana||"",t.Vaqt||""); if(tt>thisT&&tt<nextT){ if(String(t.Valyuta||"")==="Dollar") wDol+=num(t.Summa_dollar); else wSom+=num(t.Summa); } });
-            setWinTolovSom(wSom); setWinTolovDollar(wDol);
-          } catch { /* xato bo'lsa 0 qoladi */ }
+
+            const L = mijozLedger(await mijozLedgerMalumoti(_mid, id));
+
+            const nq = ledgerNuqta(L, "sotuv", id);
+
+            if (!nq) return;
+
+            setMijozQarzSom(nq.op.oldSom); setMijozQarzDollar(nq.op.oldUsd);
+
+            setWinTolovSom(0); setWinTolovDollar(0);
+
+            setLedInfo({ holat: holatMatni(nq.oldingi), opSom: nq.op.som, opUsd: nq.op.usd,
+
+              keyin: nq.keyinAmalBor ? { som: nq.oxirgi.yangiSom, usd: nq.oxirgi.yangiUsd, vaqt: holatMatni(nq.oxirgi) } : null });
+
+          } catch { /* xato bo'lsa snapshot qiymatlari qoladi */ }
+
         })();
+
       }
     }).finally(()=>setLoading(false));
   }
@@ -1136,9 +1161,11 @@ export default function SotuvDetailPage() {
               {label:"Mijoz balansi", val:mijozQarzSom-winTolovSom, color:(mijozQarzSom-winTolovSom)>0?"#ef4444":"#16a34a", bold:false, neg:false},
               {label:"Sotuv summasi", val:jamiSom, color:"var(--text)", bold:false, neg:false},
               {label:"Yakuniy qoldiq", val:mijozQarzSom+jamiSom-winTolovSom, color:"var(--text)", bold:true, neg:false},
-            ].map((r,i,arr)=>(
+              // Shu sotuvdan keyin amallar bo'lsa — mijozning hozirgi qoldig'i (shu sotuvning joriy tahriri hisobga olinadi)
+              ...(ledInfo?.keyin ? [{label:"Hozirgi qoldiq", val:ledInfo.keyin.som+(jamiSom-ledInfo.opSom), color:"#7c3aed", bold:true, neg:false, vaqt:ledInfo.keyin.vaqt}] : []),
+            ].map((r:{label:string;val:number;color:string;bold:boolean;neg:boolean;vaqt?:string},i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
-                <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
+                <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}{ledInfo&&r.label==="Mijoz balansi"&&<span style={{display:"block",fontSize:10.5,fontWeight:600,color:"var(--text-3)",marginTop:1}}>{ledInfo.holat} holatiga</span>}{r.vaqt&&<span style={{display:"block",fontSize:10.5,fontWeight:600,color:"var(--text-3)",marginTop:1}}>{r.vaqt} holatiga</span>}</p>
                 <p style={{fontSize:r.bold?16:13,fontWeight:r.bold?800:700,color:r.color}}>
                   {r.neg?"− ":""}{r.val!==0?r.val.toLocaleString("ru-RU"):"0"} <span style={{fontSize:10,fontWeight:600}}>so&apos;m</span>
                 </p>
@@ -1154,9 +1181,10 @@ export default function SotuvDetailPage() {
               {label:"Mijoz balansi", val:mijozQarzDollar-winTolovDollar, color:(mijozQarzDollar-winTolovDollar)>0?"#ef4444":"#16a34a", bold:false, neg:false},
               {label:"Sotuv summasi", val:jamiDollar, color:"var(--text)", bold:false, neg:false},
               {label:"Yakuniy qoldiq", val:mijozQarzDollar+jamiDollar-winTolovDollar, color:"var(--text)", bold:true, neg:false},
-            ].map((r,i,arr)=>(
+              ...(ledInfo?.keyin ? [{label:"Hozirgi qoldiq", val:ledInfo.keyin.usd+(jamiDollar-ledInfo.opUsd), color:"#7c3aed", bold:true, neg:false, vaqt:ledInfo.keyin.vaqt}] : []),
+            ].map((r:{label:string;val:number;color:string;bold:boolean;neg:boolean;vaqt?:string},i,arr)=>(
               <div key={i} style={{paddingBottom:i<arr.length-1?10:0,marginBottom:i<arr.length-1?10:0,borderBottom:i<arr.length-1?"1px solid var(--border)":"none"}}>
-                <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}</p>
+                <p style={{fontSize:12,fontWeight:700,color:"var(--text-2)",marginBottom:3}}>{r.label}{ledInfo&&r.label==="Mijoz balansi"&&<span style={{display:"block",fontSize:10.5,fontWeight:600,color:"var(--text-3)",marginTop:1}}>{ledInfo.holat} holatiga</span>}{r.vaqt&&<span style={{display:"block",fontSize:10.5,fontWeight:600,color:"var(--text-3)",marginTop:1}}>{r.vaqt} holatiga</span>}</p>
                 <p style={{fontSize:r.bold?16:13,fontWeight:r.bold?800:700,color:r.color}}>
                   {r.neg?"− ":""}${r.val!==0?r.val.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2}):"0.00"}
                 </p>
