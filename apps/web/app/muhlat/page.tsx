@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { mijozlarQoldigi, type Qoldiq } from "@/lib/mijoz-ledger";
 import { statusOchirilgan } from "@/lib/taminotchi-nom";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 import {
   MUHLAT, MUHLAT_UZAYTIRISH, TURI_MIJOZ, TURI_FIRMA, BAJARILDI, ESLATMA_SOATI,
   type Muhlat, type MuhlatUzaytirish, yangiMuhlat, yangiUzaytirish,
@@ -68,6 +69,153 @@ function Karta({ label, val, rang, fon, isMobile }: { label: string; val: number
   );
 }
 
+// ─────────────────────────── Yangi muhlat formasi (oyna) ───────────────────────────
+type SaqlashMalumoti = { entId: string; nomi: string; belgilanganIso: string; vadaIso: string; izoh: string };
+
+interface FormaProps {
+  turi: string;
+  items: Item[];
+  bugun: string;                 // ISO (Toshkent)
+  band: Set<string>;
+  qarzlar: Record<string, Qoldiq>;
+  onSave: (f: SaqlashMalumoti) => Promise<boolean>;
+  onQarzKerak: (id: string) => void;
+  onYop: () => void;
+  onSaqlandi: () => void;
+}
+
+// Oyna faqat ochiq paytda mount bo'ladi — har ochilganda forma toza (bugungi sana bilan) boshlanadi
+function MuhlatForma(p: FormaProps) {
+  useScrollLock(true);
+  const mijozmi = p.turi === TURI_MIJOZ;
+  const acc = mijozmi ? "#2563eb" : "#7c3aed";
+  const accFon = mijozmi ? "#eff6ff" : "#f5f3ff";
+  const [qidir, setQidir] = useState("");
+  const [entId, setEntId] = useState("");
+  // Belgilangan sana: foydalanuvchi o'zgartirmaguncha har doim BUGUN
+  const [belgilanganQolda, setBelgilanganQolda] = useState("");
+  const belgilangan = belgilanganQolda || p.bugun;
+  const [vada, setVada] = useState("");
+  const [izoh, setIzoh] = useState("");
+
+  const itemMap = useMemo(() => { const m: Record<string, Item> = {}; p.items.forEach(i => { m[i.id] = i; }); return m; }, [p.items]);
+  const mos = useMemo(() => {
+    const q = qidir.trim().toLowerCase();
+    const r = q ? p.items.filter(i => i.nomi.toLowerCase().includes(q) || i.tel.includes(q)) : p.items;
+    return r.slice(0, 300);
+  }, [p.items, qidir]);
+  const tanlangan = itemMap[entId];
+
+  const bandmi = p.band.has(p.turi);
+  const belgilanganXato = belgilangan > p.bugun;
+  const vadaXato = !!vada && vada < belgilangan;
+  const tayyor = !!entId && !!vada && !vadaXato && !belgilanganXato && !bandmi;
+
+  async function saqla() {
+    if (!tayyor) return;
+    const ok = await p.onSave({ entId, nomi: tanlangan?.nomi || "", belgilanganIso: belgilangan, vadaIso: vada, izoh: izoh.trim() });
+    if (ok) p.onSaqlandi();
+  }
+  const yop = () => { if (!bandmi) p.onYop(); };
+
+  // Fon bosilganda yopiladi — lekin faqat bosish HAM fonda boshlangan bo'lsa (inputda matn belgilab,
+  // sichqonchani oyna tashqarisida qo'yib yuborganda forma yopilib, kiritilgan ma'lumot yo'qolmasin)
+  const fonBosildi = useRef(false);
+  // Klaviatura: oyna ochilganda fokus ichkariga o'tadi; Tab oyna ichida aylanadi; Esc yopadi
+  const oynaRef = useRef<HTMLDivElement>(null);
+  useEffect(() => { oynaRef.current?.focus(); }, []);
+  function klaviatura(e: React.KeyboardEvent) {
+    if (e.key === "Escape") { e.stopPropagation(); yop(); return; }
+    if (e.key !== "Tab" || !oynaRef.current) return;
+    const el = Array.from(oynaRef.current.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]"));
+    if (!el.length) return;
+    const birinchi = el[0], oxirgi = el[el.length - 1];
+    const hozir = document.activeElement;
+    if (e.shiftKey && (hozir === birinchi || hozir === oynaRef.current)) { e.preventDefault(); oxirgi.focus(); }
+    else if (!e.shiftKey && hozir === oxirgi) { e.preventDefault(); birinchi.focus(); }
+  }
+
+  return (
+    <div className="modal-overlay"
+      onMouseDown={e => { fonBosildi.current = e.target === e.currentTarget; }}
+      onClick={e => { if (fonBosildi.current && e.target === e.currentTarget) yop(); fonBosildi.current = false; }}>
+      <div className="modal" ref={oynaRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="Muhlat belgilash"
+        onKeyDown={klaviatura} onClick={e => e.stopPropagation()} style={{ maxWidth: 480, outline: "none" }}>
+        <div className="modal__head">
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <h2 className="modal__title">Muhlat belgilash</h2>
+            <span style={{ fontSize: 11, fontWeight: 800, color: acc, background: accFon, padding: "3px 10px", borderRadius: 20, letterSpacing: ".04em" }}>
+              {mijozmi ? "MIJOZ" : "FIRMA"}
+            </span>
+          </div>
+          <button className="modal__close" onClick={yop} aria-label="Yopish">
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <div className="modal__body">
+          <div>
+            <label style={LABEL}>MUHLAT BELGILANGAN SANA *</label>
+            <input type="date" value={belgilangan} max={p.bugun} onChange={e => setBelgilanganQolda(e.target.value === p.bugun ? "" : e.target.value)}
+              style={{ ...INPUT, padding: "9px 10px", border: `1px solid ${belgilanganXato ? "#ef4444" : acc}`, cursor: "pointer" }}/>
+            {belgilanganXato && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Kelajakdagi sana bo&apos;lmaydi</p>}
+          </div>
+
+          <div>
+            <label style={LABEL}>{mijozmi ? "MIJOZ" : "TA'MINOTCHI"} *</label>
+            <input value={qidir} onChange={e => setQidir(e.target.value)} placeholder="Qidirish (nom yoki telefon)..."
+              style={{ ...INPUT, padding: "9px 12px", marginBottom: 6 }}/>
+            <select value={entId} onChange={e => { const v = e.target.value; setEntId(v); if (mijozmi && v) p.onQarzKerak(v); }}
+              style={{ ...INPUT, padding: "10px 12px", fontSize: 13.5, fontWeight: 600, border: `1px solid ${entId ? acc : "var(--border)"}`, cursor: "pointer" }}>
+              <option value="">— tanlang —</option>
+              {entId && tanlangan && !mos.some(i => i.id === entId) && <option value={entId}>{tanlangan.nomi}</option>}
+              {mos.map(i => <option key={i.id} value={i.id}>{i.nomi}</option>)}
+            </select>
+            {qidir.trim() && mos.length === 0 && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Topilmadi</p>}
+            {mijozmi && entId && (
+              <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginTop: 6 }}>
+                Joriy qarz:{" "}
+                {p.qarzlar[entId]
+                  ? <b style={{ color: p.qarzlar[entId].som > 0 || p.qarzlar[entId].usd > 0 ? "#b91c1c" : "#15803d" }}>{qarzMatni(p.qarzlar[entId])}</b>
+                  : <span style={{ color: "var(--text-3)" }}>yuklanmoqda…</span>}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label style={{ ...LABEL, color: vadaXato ? "#b91c1c" : LABEL.color }}>{mijozmi ? "VA'DA QILINGAN SANA" : "MUHLAT TUGASHI"} *</label>
+            <input type="date" value={vada} min={belgilangan} onChange={e => setVada(e.target.value)}
+              style={{ ...INPUT, padding: "9px 10px", border: `1px solid ${vadaXato ? "#ef4444" : vada ? acc : "var(--border)"}`, cursor: "pointer" }}/>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+              {([[1, "Ertaga"], [3, "3 kun"], [7, "1 hafta"], [14, "2 hafta"]] as const).map(([k, l]) => (
+                <button key={k} type="button" onClick={() => setVada(isoQosh(toshkentHozir().iso, k))} style={CHIP}>
+                  {l} · {isoSana(isoQosh(p.bugun, k)).slice(0, 5)}
+                </button>
+              ))}
+            </div>
+            {vadaXato && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Va&apos;da sanasi belgilangan sanadan oldin bo&apos;lmaydi</p>}
+          </div>
+
+          <div>
+            <label style={LABEL}>IZOH</label>
+            <input value={izoh} onChange={e => setIzoh(e.target.value)} placeholder="Ixtiyoriy..." maxLength={255}
+              style={{ ...INPUT, padding: "9px 12px" }}/>
+          </div>
+        </div>
+
+        <div className="modal__footer">
+          <button className="btn btn--outline" style={{ flex: 1 }} disabled={bandmi} onClick={yop}>Bekor</button>
+          <button className="btn btn--primary" disabled={!tayyor} onClick={saqla}
+            style={{ flex: 2, display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              ...(tayyor ? { background: acc, borderColor: acc } : {}) }}>
+            {bandmi && <span className="spinner"/>} Saqlash
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─────────────────────────── Panel (Mijoz / Firma) ───────────────────────────
 interface PanelProps {
   turi: string;
@@ -78,7 +226,7 @@ interface PanelProps {
   band: Set<string>;             // band amallar: turi (forma) yoki Muhlat_ID (qator)
   qarzlar: Record<string, Qoldiq>;
   tarix: Record<string, MuhlatUzaytirish[]>;
-  onSave: (f: { entId: string; nomi: string; belgilanganIso: string; vadaIso: string; izoh: string }) => Promise<boolean>;
+  onSave: (f: SaqlashMalumoti) => Promise<boolean>;
   onToggle: (m: Muhlat) => void;
   onExtend: (m: Muhlat) => void;
   onDelete: (m: Muhlat) => void;
@@ -90,103 +238,27 @@ function MuhlatPanel(p: PanelProps) {
   const mijozmi = p.turi === TURI_MIJOZ;
   const acc = mijozmi ? "#2563eb" : "#7c3aed";
   const accFon = mijozmi ? "#eff6ff" : "#f5f3ff";
-  const [qidir, setQidir] = useState("");
-  const [entId, setEntId] = useState("");
-  // Belgilangan sana: foydalanuvchi o'zgartirmaguncha har doim BUGUN (sahifa tunda ochiq qolsa ham)
-  const [belgilanganQolda, setBelgilanganQolda] = useState("");
-  const belgilangan = belgilanganQolda || p.bugun;
-  const [vada, setVada] = useState("");
-  const [izoh, setIzoh] = useState("");
+  const [formaOchiq, setFormaOchiq] = useState(false);
   const [korinish, setKorinish] = useState<"faol" | "bajarilgan">("faol");
   const [ochiqTarix, setOchiqTarix] = useState<Record<string, boolean>>({});
 
   const itemMap = useMemo(() => { const m: Record<string, Item> = {}; p.items.forEach(i => { m[i.id] = i; }); return m; }, [p.items]);
-  const mos = useMemo(() => {
-    const q = qidir.trim().toLowerCase();
-    const r = q ? p.items.filter(i => i.nomi.toLowerCase().includes(q) || i.tel.includes(q)) : p.items;
-    return r.slice(0, 300);
-  }, [p.items, qidir]);
-  const tanlangan = itemMap[entId];
-
   const faollar = p.royxat.filter(faolmi);
   const bajarilganlar = p.royxat.filter(m => !faolmi(m));
   const korinadi = korinish === "faol" ? faollar : bajarilganlar;
 
-  const bandmi = p.band.has(p.turi);
-  const minVada = belgilangan;
-  const belgilanganXato = belgilangan > p.bugun;
-  const vadaXato = !!vada && vada < belgilangan;
-  const tayyor = !!entId && !!vada && !vadaXato && !belgilanganXato && !bandmi;
-
-  async function saqla() {
-    if (!tayyor) return;
-    const ok = await p.onSave({ entId, nomi: tanlangan?.nomi || "", belgilanganIso: belgilangan, vadaIso: vada, izoh: izoh.trim() });
-    if (ok) { setEntId(""); setVada(""); setIzoh(""); setQidir(""); setBelgilanganQolda(""); setKorinish("faol"); }
-  }
-
   return (
     <div style={{ background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", overflow: "hidden", minWidth: 0 }}>
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 11, fontWeight: 800, color: acc, background: accFon, padding: "3px 10px", borderRadius: 20, letterSpacing: ".04em" }}>
           {mijozmi ? "MIJOZ" : "FIRMA"}
         </span>
         <p style={{ fontSize: 12.5, fontWeight: 600, color: "var(--text-3)" }}>{faollar.length} ta faol muhlat</p>
-      </div>
-
-      {/* ── Yangi muhlat ── */}
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", background: "var(--bg)", display: "flex", flexDirection: "column", gap: 10 }}>
-        <div>
-          <label style={LABEL}>MUHLAT BELGILANGAN SANA *</label>
-          <input type="date" value={belgilangan} max={p.bugun} onChange={e => setBelgilanganQolda(e.target.value === p.bugun ? "" : e.target.value)}
-            style={{ ...INPUT, border: `1px solid ${belgilanganXato ? "#ef4444" : acc}`, cursor: "pointer" }}/>
-          {belgilanganXato && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Kelajakdagi sana bo&apos;lmaydi</p>}
-        </div>
-
-        <div>
-          <label style={LABEL}>{mijozmi ? "MIJOZ" : "TA'MINOTCHI"} *</label>
-          <input value={qidir} onChange={e => setQidir(e.target.value)} placeholder="Qidirish (nom yoki telefon)..."
-            style={{ ...INPUT, padding: "8px 12px", marginBottom: 6 }}/>
-          <select value={entId} onChange={e => { const v = e.target.value; setEntId(v); if (mijozmi && v) p.onQarzKerak(v); }}
-            style={{ ...INPUT, padding: "9px 12px", fontSize: 13.5, fontWeight: 600, border: `1px solid ${entId ? acc : "var(--border)"}`, cursor: "pointer" }}>
-            <option value="">— tanlang —</option>
-            {entId && tanlangan && !mos.some(i => i.id === entId) && <option value={entId}>{tanlangan.nomi}</option>}
-            {mos.map(i => <option key={i.id} value={i.id}>{i.nomi}</option>)}
-          </select>
-          {qidir.trim() && mos.length === 0 && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Topilmadi</p>}
-          {mijozmi && entId && (
-            <p style={{ fontSize: 12, fontWeight: 600, color: "var(--text-2)", marginTop: 6 }}>
-              Joriy qarz:{" "}
-              {p.qarzlar[entId]
-                ? <b style={{ color: p.qarzlar[entId].som > 0 || p.qarzlar[entId].usd > 0 ? "#b91c1c" : "#15803d" }}>{qarzMatni(p.qarzlar[entId])}</b>
-                : <span style={{ color: "var(--text-3)" }}>yuklanmoqda…</span>}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label style={{ ...LABEL, color: vadaXato ? "#b91c1c" : LABEL.color }}>{mijozmi ? "VA'DA QILINGAN SANA" : "MUHLAT TUGASHI"} *</label>
-          <input type="date" value={vada} min={minVada} onChange={e => setVada(e.target.value)}
-            style={{ ...INPUT, border: `1px solid ${vadaXato ? "#ef4444" : vada ? acc : "var(--border)"}`, cursor: "pointer" }}/>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
-            {([[1, "Ertaga"], [3, "3 kun"], [7, "1 hafta"], [14, "2 hafta"]] as const).map(([k, l]) => (
-              <button key={k} type="button" onClick={() => setVada(isoQosh(toshkentHozir().iso, k))} style={CHIP}>
-                {l} · {isoSana(isoQosh(p.bugun, k)).slice(0, 5)}
-              </button>
-            ))}
-          </div>
-          {vadaXato && <p style={{ fontSize: 11, color: "#b91c1c", marginTop: 4 }}>Va&apos;da sanasi belgilangan sanadan oldin bo&apos;lmaydi</p>}
-        </div>
-
-        <div>
-          <label style={LABEL}>IZOH</label>
-          <input value={izoh} onChange={e => setIzoh(e.target.value)} placeholder="Ixtiyoriy..." maxLength={255}
-            style={{ ...INPUT, padding: "8px 12px" }}/>
-        </div>
-
-        <button disabled={!tayyor} onClick={saqla}
-          style={{ padding: "10px 14px", borderRadius: "var(--radius)", border: "none", fontSize: 13.5, fontWeight: 700, color: "#fff",
-            background: tayyor ? acc : (mijozmi ? "#93c5fd" : "#c4b5fd"), cursor: tayyor ? "pointer" : "not-allowed" }}>
-          {bandmi ? "Saqlanmoqda…" : "Muhlat belgilash"}
+        <span style={{ flex: 1 }}/>
+        <button type="button" onClick={() => setFormaOchiq(true)}
+          style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: "var(--radius)", border: "none", background: acc, color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>
+          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg>
+          Muhlat qo&apos;shish
         </button>
       </div>
 
@@ -199,10 +271,10 @@ function MuhlatPanel(p: PanelProps) {
           </button>
         ))}
       </div>
-      <div style={{ maxHeight: 560, overflowY: "auto" }}>
+      <div style={{ maxHeight: "min(70vh, 720px)", overflowY: "auto" }}>
         {korinadi.length === 0 ? (
-          <p style={{ padding: "22px 18px", fontSize: 13, color: "var(--text-3)", textAlign: "center" }}>
-            {p.loading ? "Yuklanmoqda…" : korinish === "faol" ? "Faol muhlat yo'q" : "Bajarilgan muhlat yo'q"}
+          <p style={{ padding: "26px 18px", fontSize: 13, color: "var(--text-3)", textAlign: "center" }}>
+            {p.loading ? "Yuklanmoqda…" : korinish === "faol" ? "Faol muhlat yo'q — «Muhlat qo'shish» tugmasini bosing" : "Bajarilgan muhlat yo'q"}
           </p>
         ) : korinadi.map((m, i) => {
           const h = holatOf(m, p.bugun);
@@ -283,6 +355,13 @@ function MuhlatPanel(p: PanelProps) {
           );
         })}
       </div>
+
+      {formaOchiq && (
+        <MuhlatForma turi={p.turi} items={p.items} bugun={p.bugun} band={p.band} qarzlar={p.qarzlar}
+          onSave={p.onSave} onQarzKerak={p.onQarzKerak}
+          onYop={() => setFormaOchiq(false)}
+          onSaqlandi={() => { setFormaOchiq(false); setKorinish("faol"); }}/>
+      )}
     </div>
   );
 }
@@ -598,6 +677,7 @@ export default function MuhlatPage() {
     onToggle: holatAlmashtir, onExtend: uzaytirishniOch, onDelete: setOchirish, onQarzKerak: qarzKerak, onOpen: ochish,
   };
 
+  useScrollLock(!!uzaytir || !!ochirish);
   const uzK = uzaytir ? holatOf(uzaytir, bugun) : null;
   const uzMijozmi = !!uzaytir && tr(uzaytir.Turi) === TURI_MIJOZ;
 
