@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMultipleSheets, getSheetData, deleteRow } from "@/lib/sheets";
 import webpush from "web-push";
+import { muhlatEslatmasi } from "@/lib/muhlat-eslatma";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -24,6 +25,18 @@ async function handle(req: NextRequest) {
     return NextResponse.json({ skipped: true, reason: "vaqt oynasidan tashqari (08:00-20:00)", hour });
   }
 
+  // "Bugun muhlati kelgan mijozlar" Telegram eslatmasi shu soatlik cron'ga ulangan (lib/muhlat-eslatma.ts):
+  // o'zi kuniga bir marta, 09:00 (Toshkent) dan keyin yuboradi. Push bilan bir-biriga ta'sir qilmaydi.
+  let muhlat: unknown;
+  try { muhlat = await muhlatEslatmasi(); }
+  catch (e) { muhlat = { ok: false, xato: e instanceof Error ? e.message : "xato" }; }
+
+  const res = await pushYubor(hour);
+  const body = await res.json().catch(() => ({}));
+  return NextResponse.json({ ...body, muhlat }, { status: res.status });
+}
+
+async function pushYubor(hour: number) {
   const pub = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const priv = process.env.VAPID_PRIVATE_KEY;
   const subj = process.env.VAPID_SUBJECT || "mailto:admin@musaffotea.uz";
