@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getMultipleSheets, getSheetData, deleteRow } from "@/lib/sheets";
 import webpush from "web-push";
-import { muhlatEslatmasi } from "@/lib/muhlat-eslatma";
+import { muhlatCron } from "@/lib/muhlat-eslatma";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -21,15 +21,17 @@ async function handle(req: NextRequest) {
   const force = url.searchParams.get("force") === "1";
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tashkent" }));
   const hour = now.getHours();
-  if (!force && (hour < 8 || hour >= 20)) {
-    return NextResponse.json({ skipped: true, reason: "vaqt oynasidan tashqari (08:00-20:00)", hour });
-  }
 
-  // "Bugun muhlati kelgan mijozlar" Telegram eslatmasi shu soatlik cron'ga ulangan (lib/muhlat-eslatma.ts):
-  // o'zi kuniga bir marta, 09:00 (Toshkent) dan keyin yuboradi. Push bilan bir-biriga ta'sir qilmaydi.
+  // Muhlat Telegram xabarlari shu soatlik cron'ga ulangan (lib/muhlat-eslatma.ts): ertalab 08:00 dan
+  // "bugun va'da qilganlar", 20:00 dan keyin "bugun va'dasini bajarmaganlar" — har biri o'z soatini
+  // o'zi tekshiradi. Shuning uchun push'ning 08:00–20:00 oynasidan OLDIN chaqiriladi (20:00 da ham).
   let muhlat: unknown;
-  try { muhlat = await muhlatEslatmasi(); }
+  try { muhlat = await muhlatCron(); }
   catch (e) { muhlat = { ok: false, xato: e instanceof Error ? e.message : "xato" }; }
+
+  if (!force && (hour < 8 || hour >= 20)) {
+    return NextResponse.json({ skipped: true, reason: "vaqt oynasidan tashqari (08:00-20:00)", hour, muhlat });
+  }
 
   const res = await pushYubor(hour);
   const body = await res.json().catch(() => ({}));

@@ -7,7 +7,7 @@ import { mijozlarQoldigi, type Qoldiq } from "@/lib/mijoz-ledger";
 import { statusOchirilgan } from "@/lib/taminotchi-nom";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import {
-  MUHLAT, MUHLAT_UZAYTIRISH, TURI_MIJOZ, TURI_FIRMA, BAJARILDI, ESLATMA_SOATI,
+  MUHLAT, MUHLAT_UZAYTIRISH, TURI_MIJOZ, TURI_FIRMA, BAJARILDI, ESLATMA_SOATI, KECH_SOATI,
   type Muhlat, type MuhlatUzaytirish, yangiMuhlat, yangiUzaytirish,
   sanaIso, isoSana, kunFarqi, isoQosh, toshkentHozir, uzaytirishSoni,
 } from "@/lib/muhlat";
@@ -17,7 +17,7 @@ import {
 // Forma: muhlat belgilangan sana, mijoz/ta'minotchi, va'da qilingan sana, izoh.
 // Mijoz va'da qilingan kunda to'lay olmasa — "Uzaytirish": yangi va'da sanasi + sabab
 // (har bir uzaytirish Muhlat_Uzaytirish jadvalida tarix bo'lib qoladi).
-// Bugun muhlati kelgan MIJOZLAR har kuni 09:00 da Telegramga yuboriladi (lib/muhlat-eslatma.ts).
+// Telegram (lib/muhlat-eslatma.ts): 08:00 da bugun va'da qilgan MIJOZLAR, 20:00 da va'dasini bajarmaganlar.
 
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon?: string }
 interface Taminotchi { Taminotchi_ID: string; Ism: string; Telefon?: string; Status?: string }
@@ -754,7 +754,7 @@ export default function MuhlatPage() {
           <div>
             <h1 className="header__title" style={{ paddingLeft: 4 }}>Muhlat belgilash</h1>
             <p style={{ fontSize: 12.5, color: "var(--text-3)", paddingLeft: 4, marginTop: 2 }}>
-              Mijoz va firma uchun to&apos;lov muddati · bugun muhlati kelgan mijozlar har kuni {String(ESLATMA_SOATI).padStart(2, "0")}:00 da Telegramga yuboriladi
+              Mijoz va firma uchun to&apos;lov muddati · Telegram: {String(ESLATMA_SOATI).padStart(2, "0")}:00 da bugun va&apos;da qilganlar, {String(KECH_SOATI).padStart(2, "0")}:00 da va&apos;dasini bajarmaganlar
             </p>
           </div>
         </div>

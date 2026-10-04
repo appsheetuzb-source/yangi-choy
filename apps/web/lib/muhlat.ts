@@ -10,11 +10,15 @@
 
 export const MUHLAT = "Muhlat";
 export const MUHLAT_UZAYTIRISH = "Muhlat_Uzaytirish";
+/** Kunlik Telegram xabarlari jurnali (kechki hisobot kuniga bir marta ketishi uchun) */
+export const MUHLAT_ESLATMA = "Muhlat_Eslatma";
 export const TURI_MIJOZ = "Mijoz";
 export const TURI_FIRMA = "Firma";
 export const BAJARILDI = "Bajarildi";
-/** Telegram eslatmasi shu soatdan (Toshkent) keyingi birinchi cron'da, kuniga bir marta yuboriladi */
-export const ESLATMA_SOATI = 9;
+/** Ertalabki xabar ("bugun va'da qilganlar") shu soatdan (Toshkent) keyingi birinchi cron'da yuboriladi */
+export const ESLATMA_SOATI = 8;
+/** Kechki hisobot ("bugun va'dasini bajarmaganlar") shu soatdan keyin, kuniga bir marta */
+export const KECH_SOATI = 20;
 
 export interface Muhlat {
   Muhlat_ID: string;
@@ -49,6 +53,19 @@ export interface MuhlatUzaytirish {
   Sana: string;              // uzaytirilgan kun
   Qoshdi: string;
   Qoshilgan_Vaqt: string;
+}
+
+export interface MuhlatEslatmaLog {
+  Eslatma_ID: string;
+  Sana: string;              // DD.MM.YYYY
+  Turi: string;              // "kechqurun" (yakunlandi) | "kechqurun-qisman" (bir qismi yetkazildi)
+  Soni: string;              // yetkazilgan muhlatlar soni
+  IDlar: string;             // yetkazilgan Muhlat_ID lar (vergul bilan) — qisman bo'lsa qolgani keyin yuboriladi
+  Vaqt: string;              // DD.MM.YYYY HH:MM:SS
+}
+
+export function yangiEslatmaLog(p: Partial<MuhlatEslatmaLog>): MuhlatEslatmaLog {
+  return { Eslatma_ID: "", Sana: "", Turi: "", Soni: "", IDlar: "", Vaqt: "", ...p };
 }
 
 export function yangiMuhlat(p: Partial<Muhlat>): Muhlat {
