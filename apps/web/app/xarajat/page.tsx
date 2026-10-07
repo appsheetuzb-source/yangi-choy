@@ -353,19 +353,17 @@ export default function XarajatPage() {
             <div className="modal__body">
               <p className="drawer__section-label">📋 Asosiy ma&apos;lumotlar</p>
 
+              <div className="field">
+                <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
+                <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
+              </div>
+
               <div className="grid-2">
                 <div className="field">
                   <label>Soni</label>
                   <input type="number" value={form.Soni} onChange={e => setForm(f => ({ ...f, Soni: e.target.value }))} placeholder="1" />
                 </div>
-              </div>
-
-              {isAdmin ? (
-                <div className="grid-2">
-                  <div className="field">
-                    <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
-                    <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
-                  </div>
+                {isAdmin && (
                   <div className="field">
                     <label>Agent</label>
                     <select value={form.Agent} onChange={e => setForm(f => ({ ...f, Agent: e.target.value, Gazna_ID: "", Gazna_dollar_ID: "" }))}>
@@ -376,13 +374,8 @@ export default function XarajatPage() {
                       )}
                     </select>
                   </div>
-                </div>
-              ) : (
-                <div className="field">
-                  <label>Nomi <span style={{ color:"var(--red)" }}>*</span></label>
-                  <input value={form.Nomi} onChange={e => setForm(f => ({ ...f, Nomi: e.target.value }))} placeholder="Xarajat nomi..." />
-                </div>
-              )}
+                )}
+              </div>
 
               <p className="drawer__section-label" style={{ marginTop:8 }}>💵 Xarajat to&apos;lov</p>
 
