@@ -22,7 +22,6 @@ interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; }
 
 const OY_NOMLARI = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentabr","Oktabr","Noyabr","Dekabr"];
-const KATEGORIYALAR = ["Maosh","Ijara","Kommunal","Transport","Soliq","Ta'mirlash","Reklama","Boshqa"];
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function num(v: string|number|undefined) {
@@ -64,7 +63,6 @@ export default function XarajatPage() {
   const [loading, setLoading]       = useState(true);
   const [filterOy, setFilterOy]     = usePersistedState("flt:xarajat:filterOy", nowStr().oy);
   const [filterYil, setFilterYil]   = usePersistedState("flt:xarajat:filterYil", "");
-  const [filterKat, setFilterKat]   = usePersistedState("flt:xarajat:filterKat", "");
   const [filterAgent, setFilterAgent] = usePersistedState("flt:xarajat:filterAgent", "");
   const [search, setSearch]         = usePersistedState("flt:xarajat:search", "");
 
@@ -181,7 +179,6 @@ export default function XarajatPage() {
     if (isSotuvchi && user?.id && x.Agent !== user.id) return false;
     if (filterYil && x.Yil !== filterYil) return false;
     if (filterOy !== "0" && String(Number(x.Oy)) !== filterOy) return false;
-    if (filterKat && x.Kategoriya !== filterKat) return false;
     if (isAdmin && filterAgent && x.Agent !== filterAgent) return false;
     if (search && !(`${x.Kategoriya} ${x.Nomi} ${x.Izoh}`).toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -241,10 +238,6 @@ export default function XarajatPage() {
           </select>
           <select value={filterYil} onChange={e => setFilterYil(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
             {yillar.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <select value={filterKat} onChange={e => setFilterKat(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
-            <option value="">Barcha kategoriya</option>
-            {KATEGORIYALAR.map(k => <option key={k} value={k}>{k}</option>)}
           </select>
           {isAdmin && (
             <select value={filterAgent} onChange={e => setFilterAgent(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
@@ -308,7 +301,7 @@ export default function XarajatPage() {
                           onMouseLeave={e => (e.currentTarget.style.background = "transparent")}>
                           <td style={{ padding: "12px 16px", fontSize: 13, fontWeight: 600 }}>{x.Sana || "—"}</td>
                           <td style={{ padding: "12px 16px" }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "var(--red-bg)", color: "var(--red)" }}>{x.Kategoriya || "—"}</span>
+                            {x.Kategoriya && <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: "var(--red-bg)", color: "var(--red)" }}>{x.Kategoriya}</span>}
                           </td>
                           <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--text-2)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{x.Nomi || "—"}</td>
                           <td style={{ padding: "12px 16px", fontSize: 12, color: "var(--text-3)", fontWeight: 600 }}>{x.Turi || "—"}</td>
@@ -361,13 +354,6 @@ export default function XarajatPage() {
               <p className="drawer__section-label">📋 Asosiy ma&apos;lumotlar</p>
 
               <div className="grid-2">
-                <div className="field">
-                  <label>Kategoriya</label>
-                  <select value={form.Kategoriya} onChange={e => setForm(f => ({ ...f, Kategoriya: e.target.value }))}>
-                    <option value="">Tanlang...</option>
-                    {KATEGORIYALAR.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
                 <div className="field">
                   <label>Soni</label>
                   <input type="number" value={form.Soni} onChange={e => setForm(f => ({ ...f, Soni: e.target.value }))} placeholder="1" />
@@ -469,7 +455,7 @@ export default function XarajatPage() {
               <svg width="22" height="22" fill="none" stroke="var(--red)" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             </div>
             <p className="confirm__title">Xarajatni o&apos;chirish</p>
-            <p className="confirm__text"><strong>{delTarget.Kategoriya}</strong> — {num(delTarget.Dollar) > 0 ? fmtUsd(num(delTarget.Dollar)) : fmtSom(num(delTarget.Som))}</p>
+            <p className="confirm__text"><strong>{delTarget.Nomi || delTarget.Kategoriya}</strong> — {num(delTarget.Dollar) > 0 ? fmtUsd(num(delTarget.Dollar)) : fmtSom(num(delTarget.Som))}</p>
             <div className="confirm__actions">
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setDelTarget(null)} disabled={deleting}>Bekor</button>
               <button className="btn btn--red" style={{ flex: 1 }} onClick={handleDelete} disabled={deleting}>{deleting ? "O'chirilmoqda..." : "O'chirish"}</button>

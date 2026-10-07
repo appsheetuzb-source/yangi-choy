@@ -71,7 +71,6 @@ export default function XarajatDetailPage() {
   const isDollar = dollar > 0;
 
   const rows: { label: string; value: string }[] = [
-    { label: "Kategoriya", value: xarajat.Kategoriya || "—" },
     { label: "Nomi", value: xarajat.Nomi || "—" },
     { label: "Soni", value: xarajat.Soni || "—" },
     { label: "Agent", value: agentMap[xarajat.Agent] || "—" },
@@ -111,7 +110,7 @@ export default function XarajatDetailPage() {
         {/* Summary */}
         <div style={{ background: "var(--white)", border: "1px solid var(--border)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: "20px 24px", marginBottom: 16 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20, background: "var(--red-bg)", color: "var(--red)" }}>{xarajat.Kategoriya || "—"}</span>
+            {xarajat.Kategoriya && <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 20, background: "var(--red-bg)", color: "var(--red)" }}>{xarajat.Kategoriya}</span>}
             <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}>{xarajat.Turi || "—"}</span>
           </div>
           <p style={{ fontSize: 16, fontWeight: 700, color: "var(--text)", marginBottom: 6 }}>{xarajat.Nomi || "—"}</p>
@@ -140,7 +139,7 @@ export default function XarajatDetailPage() {
               <svg width="22" height="22" fill="none" stroke="var(--red)" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
             </div>
             <p className="confirm__title">Xarajatni o&apos;chirish</p>
-            <p className="confirm__text"><strong>{xarajat.Kategoriya}</strong> — {isDollar ? fmtUsd(dollar) : fmtSom(som)}</p>
+            <p className="confirm__text"><strong>{xarajat.Nomi || xarajat.Kategoriya}</strong> — {isDollar ? fmtUsd(dollar) : fmtSom(som)}</p>
             <div className="confirm__actions">
               <button className="btn btn--outline" style={{ flex: 1 }} onClick={() => setDelOpen(false)} disabled={deleting}>Bekor</button>
               <button className="btn btn--red" style={{ flex: 1 }} onClick={handleDelete} disabled={deleting}>{deleting ? "O'chirilmoqda..." : "O'chirish"}</button>
