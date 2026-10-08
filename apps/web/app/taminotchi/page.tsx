@@ -5,6 +5,7 @@ import FabAdd from "@/components/FabAdd";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi } from "@/lib/mijoz-ledger";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { taminotchiChegirmasi, chegirmaMatn, type ChegirmaManbasi, type ChegirmaQator } from "@/lib/chegirma";
 import { statusOchirilgan, OCHIRILGAN_STATUS } from "@/lib/taminotchi-nom";
@@ -20,7 +21,7 @@ interface Taminotchi {
 interface Xarid { Xarid_ID: string; Taminotchi_ID: string; Sana?: string; Sotuv_Raqami?: string; }
 interface XaridSavat { Xarid_ID: string; Summa_Som: string; Jami_Summa: string;
   Narxi?: string; Narx_som?: string; Foiz?: string; Foizli_narx?: string; Foizli_narx_dollar?: string; }
-interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Summa: string; Summa_dollar: string; }
+interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Summa: string; Summa_dollar: string; Turi?: string; }
 
 const VALYUTALAR = ["So'm", "Dollar", "Dollar , So'm"];
 const EMPTY: Taminotchi = {
@@ -81,6 +82,8 @@ export default function TaminotchiPage() {
   const [taminotchilar, setTaminotchilar] = useState<Taminotchi[]>([]);
   const [xaridSavatByT, setXaridSavatByT] = useState<Record<string, { som: number; usd: number }>>({});
   const [tolovByT, setTolovByT]           = useState<Record<string, { som: number; usd: number }>>({});
+  // So'm ⇄ $ ayirboshlash ("to'lov" ishorasida) — TO'LOV ustuniga kirmaydi, qarzga ta'sir qiladi
+  const [abByT, setAbByT]                 = useState<Record<string, { som: number; usd: number }>>({});
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
   const [search, setSearch]               = usePersistedState("flt:taminotchi:search", "");
@@ -143,14 +146,17 @@ export default function TaminotchiPage() {
           setChegirmaByT(chMap);
         }
         const tlByT: Record<string, { som: number; usd: number }> = {};
+        const abT: Record<string, { som: number; usd: number }> = {};
         ((tolvR.data || []) as XTolov[]).forEach(t => {
           const tid = String(t.Taminotchi_ID || "").trim();
           if (!tid) return;
-          if (!tlByT[tid]) tlByT[tid] = { som: 0, usd: 0 };
-          tlByT[tid].som += num(t.Summa);
-          tlByT[tid].usd += num(t.Summa_dollar);
+          const m = ayirboshlashmi(t) ? abT : tlByT;
+          if (!m[tid]) m[tid] = { som: 0, usd: 0 };
+          m[tid].som += num(t.Summa);
+          m[tid].usd += num(t.Summa_dollar);
         });
         setTolovByT(tlByT);
+        setAbByT(abT);
       })
       .catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
       .finally(() => setLoading(false));
@@ -180,8 +186,9 @@ export default function TaminotchiPage() {
   const jamiQarz = filtered.reduce((acc, t) => {
     const xarid = xaridSavatByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
     const tolov = tolovByT[t.Taminotchi_ID]       || { som: 0, usd: 0 };
-    acc.som += num(t.Boshlangich_som) + xarid.som - tolov.som;
-    acc.usd += num(t.Boshlangich_Balans) + xarid.usd - tolov.usd;
+    const ab = abByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
+    acc.som += num(t.Boshlangich_som) + xarid.som - tolov.som - ab.som;
+    acc.usd += num(t.Boshlangich_Balans) + xarid.usd - tolov.usd - ab.usd;
     return acc;
   }, { som: 0, usd: 0 });
 
@@ -315,8 +322,9 @@ export default function TaminotchiPage() {
                   const bUsd = num(t.Boshlangich_Balans);
                   const xarid = xaridSavatByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
                   const tolov = tolovByT[t.Taminotchi_ID]       || { som: 0, usd: 0 };
-                  const qarzSom = bSom + xarid.som - tolov.som;
-                  const qarzUsd = bUsd + xarid.usd - tolov.usd;
+                  const ab = abByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
+                  const qarzSom = bSom + xarid.som - tolov.som - ab.som;
+                  const qarzUsd = bUsd + xarid.usd - tolov.usd - ab.usd;
                   return (
                     <div key={t.Taminotchi_ID}
                       onClick={() => router.push(`/taminotchi/${t.Taminotchi_ID}`)}
@@ -382,8 +390,9 @@ export default function TaminotchiPage() {
                   const bUsd = num(t.Boshlangich_Balans);
                   const xarid = xaridSavatByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
                   const tolov = tolovByT[t.Taminotchi_ID]       || { som: 0, usd: 0 };
-                  const qarzSom = bSom + xarid.som - tolov.som;
-                  const qarzUsd = bUsd + xarid.usd - tolov.usd;
+                  const ab = abByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
+                  const qarzSom = bSom + xarid.som - tolov.som - ab.som;
+                  const qarzUsd = bUsd + xarid.usd - tolov.usd - ab.usd;
                   return (
                     <div key={t.Taminotchi_ID || i}
                       onClick={() => router.push(`/taminotchi/${t.Taminotchi_ID}`)}

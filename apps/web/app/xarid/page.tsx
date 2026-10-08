@@ -178,6 +178,67 @@ function SearchSelect({ items, value, onChange, placeholder, clearable, onAddNew
   );
 }
 
+// Mobile product row for add/edit — MODUL darajasida: sahifa ichida e'lon qilinsa har tugma
+// bosilganda qayta yaratilib, input fokusni yo'qotardi (telefonda kursor keyingi maydonga sakrardi)
+function MobileProductRow({ s, idx, onUpdate, onRemove, mItems, chegirmaHa, narxError, onAddNew }: {
+  s: SavatItem;
+  idx?: number;
+  onUpdate: (id:string, field:keyof SavatItem, val:string)=>void;
+  onRemove: (id:string)=>void;
+  mItems: {id:string;label:string}[];
+  chegirmaHa: boolean;
+  narxError?: boolean;
+  onAddNew?: (id:string, query:string)=>void;
+}) {
+  const foiz = chegirmaHa ? num(s.Foiz) : 0;
+  const jamiS = num(s.Soni)*num(s.Narx_som)*(1 - foiz/100);
+  const jamiU = num(s.Soni)*num(s.Narxi)*(1 - foiz/100);
+  return (
+    <div style={{background:"var(--bg)",borderRadius:"var(--radius)",padding:"12px",marginBottom:10,border:"1px solid var(--border)"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+        <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)"}}>
+          {typeof idx === "number" ? `#${idx + 1} · MAHSULOT` : "MAHSULOT"}
+        </span>
+        <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot tanlang..." onAddNew={onAddNew?(name)=>onAddNew(s.id,name):undefined}/>
+      <div style={{marginTop:8}}>
+        <label style={{fontSize:10,fontWeight:600,color:"var(--text-3)",display:"block",marginBottom:4}}>MIQDOR</label>
+        <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
+          style={{width:"100%",padding:"9px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+      </div>
+      <div style={{marginTop:8}}>
+        <label style={{fontSize:10,fontWeight:600,color:"#2563eb",display:"block",marginBottom:4}}>NARX ($)</label>
+        <input value={s.Narxi} onChange={e=>onUpdate(s.id,"Narxi",e.target.value)} placeholder="0.00" inputMode="decimal"
+          style={{width:"100%",padding:"9px 10px",border:`1px solid ${narxError?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",color:"#2563eb",textAlign:"center",boxSizing:"border-box"}}/>
+        {jamiU!==0&&<div style={{fontSize:12,fontWeight:800,color:"#2563eb",textAlign:"right",marginTop:4}}>
+          Jami: ${jamiU.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}
+        </div>}
+      </div>
+      <div style={{marginTop:8}}>
+        <label style={{fontSize:10,fontWeight:600,color:narxError?"#ef4444":"var(--text-3)",display:"block",marginBottom:4}}>NARX (SO&apos;M)</label>
+        <input value={s.Narx_som} onChange={e=>onUpdate(s.id,"Narx_som",e.target.value)} placeholder="0" inputMode="numeric"
+          style={{width:"100%",padding:"9px 10px",border:`1px solid ${narxError?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
+        {jamiS!==0&&<div style={{fontSize:12,fontWeight:800,color:"var(--text)",textAlign:"right",marginTop:4}}>
+          Jami: {jamiS.toLocaleString("ru-RU")} so&apos;m
+        </div>}
+      </div>
+      {chegirmaHa&&(
+        <div style={{marginTop:8}}>
+          <label style={{fontSize:10,fontWeight:600,color:"#d97706",display:"block",marginBottom:4}}>CHEGIRMA (%)</label>
+          <input value={s.Foiz} onChange={e=>onUpdate(s.id,"Foiz",e.target.value)} placeholder="0" inputMode="decimal"
+            style={{width:"100%",padding:"9px 10px",border:"1px solid #fde68a",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",color:"#d97706",textAlign:"center",boxSizing:"border-box"}}/>
+        </div>
+      )}
+      {narxError&&!!num(s.Narxi)&&!!num(s.Narx_som)&&(
+        <p style={{fontSize:11,fontWeight:600,color:"#ef4444",marginTop:6}}>So&apos;m va dollar narxlardan birini tanlash kerak</p>
+      )}
+    </div>
+  );
+}
+
 export default function XaridPage() {
   const router = useRouter();
   const [xaridlar, setXaridlar]           = useState<Xarid[]>([]);
@@ -514,66 +575,6 @@ export default function XaridPage() {
     borderRadius:0, display:"flex", flexDirection:"column",
     height:"100dvh", maxHeight:"100dvh",
   };
-
-  // Mobile product row for add/edit
-  function MobileProductRow({ s, idx, onUpdate, onRemove, mItems, chegirmaHa, narxError, onAddNew }: {
-    s: SavatItem;
-    idx?: number;
-    onUpdate: (id:string, field:keyof SavatItem, val:string)=>void;
-    onRemove: (id:string)=>void;
-    mItems: {id:string;label:string}[];
-    chegirmaHa: boolean;
-    narxError?: boolean;
-    onAddNew?: (id:string, query:string)=>void;
-  }) {
-    const foiz = chegirmaHa ? num(s.Foiz) : 0;
-    const jamiS = num(s.Soni)*num(s.Narx_som)*(1 - foiz/100);
-    const jamiU = num(s.Soni)*num(s.Narxi)*(1 - foiz/100);
-    return (
-      <div style={{background:"var(--bg)",borderRadius:"var(--radius)",padding:"12px",marginBottom:10,border:"1px solid var(--border)"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
-          <span style={{fontSize:11,fontWeight:700,color:"var(--text-3)"}}>
-            {typeof idx === "number" ? `#${idx + 1} · MAHSULOT` : "MAHSULOT"}
-          </span>
-          <button onClick={()=>onRemove(s.id)} style={{width:28,height:28,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>
-            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot tanlang..." onAddNew={onAddNew?(name)=>onAddNew(s.id,name):undefined}/>
-        <div style={{marginTop:8}}>
-          <label style={{fontSize:10,fontWeight:600,color:"var(--text-3)",display:"block",marginBottom:4}}>MIQDOR</label>
-          <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder="0" type="number"
-            style={{width:"100%",padding:"9px 10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
-        </div>
-        <div style={{marginTop:8}}>
-          <label style={{fontSize:10,fontWeight:600,color:"#2563eb",display:"block",marginBottom:4}}>NARX ($)</label>
-          <input value={s.Narxi} onChange={e=>onUpdate(s.id,"Narxi",e.target.value)} placeholder="0.00" inputMode="decimal"
-            style={{width:"100%",padding:"9px 10px",border:`1px solid ${narxError?"#ef4444":"#bfdbfe"}`,borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",color:"#2563eb",textAlign:"center",boxSizing:"border-box"}}/>
-          {jamiU!==0&&<div style={{fontSize:12,fontWeight:800,color:"#2563eb",textAlign:"right",marginTop:4}}>
-            Jami: ${jamiU.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}
-          </div>}
-        </div>
-        <div style={{marginTop:8}}>
-          <label style={{fontSize:10,fontWeight:600,color:narxError?"#ef4444":"var(--text-3)",display:"block",marginBottom:4}}>NARX (SO&apos;M)</label>
-          <input value={s.Narx_som} onChange={e=>onUpdate(s.id,"Narx_som",e.target.value)} placeholder="0" inputMode="numeric"
-            style={{width:"100%",padding:"9px 10px",border:`1px solid ${narxError?"#ef4444":"var(--border)"}`,borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
-          {jamiS!==0&&<div style={{fontSize:12,fontWeight:800,color:"var(--text)",textAlign:"right",marginTop:4}}>
-            Jami: {jamiS.toLocaleString("ru-RU")} so&apos;m
-          </div>}
-        </div>
-        {chegirmaHa&&(
-          <div style={{marginTop:8}}>
-            <label style={{fontSize:10,fontWeight:600,color:"#d97706",display:"block",marginBottom:4}}>CHEGIRMA (%)</label>
-            <input value={s.Foiz} onChange={e=>onUpdate(s.id,"Foiz",e.target.value)} placeholder="0" inputMode="decimal"
-              style={{width:"100%",padding:"9px 10px",border:"1px solid #fde68a",borderRadius:"var(--radius)",fontSize:14,fontWeight:700,outline:"none",color:"#d97706",textAlign:"center",boxSizing:"border-box"}}/>
-          </div>
-        )}
-        {narxError&&!!num(s.Narxi)&&!!num(s.Narx_som)&&(
-          <p style={{fontSize:11,fontWeight:600,color:"#ef4444",marginTop:6}}>So&apos;m va dollar narxlardan birini tanlash kerak</p>
-        )}
-      </div>
-    );
-  }
 
   return (
     <>

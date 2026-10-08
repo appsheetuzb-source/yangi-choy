@@ -7,6 +7,8 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
+import AyirboshlashBolimi, { abGuruhlari, abMatni } from "@/components/AyirboshlashBolimi";
+import { ayirboshlashmi, ayirboshlashGuruhi } from "@/lib/mijoz-ledger";
 
 interface Taminotchi {
   Taminotchi_ID: string; Ism: string; Telefon: string; Valyuta: string;
@@ -156,8 +158,14 @@ export default function TaminotchiDetailPage() {
     s + (savatMap[x.Xarid_ID] || []).reduce((ss, r) => ss + num(r.Summa_Som), 0), 0), [xaridlar, savatMap]);
   const jamiXaridUsd = useMemo(() => xaridlar.reduce((s, x) =>
     s + (savatMap[x.Xarid_ID] || []).reduce((ss, r) => ss + num(r.Jami_Summa), 0), 0), [xaridlar, savatMap]);
-  const jamiTolovSom = useMemo(() => tolovlar.reduce((s, t) => s + num(t.Summa), 0), [tolovlar]);
-  const jamiTolovUsd = useMemo(() => tolovlar.reduce((s, t) => s + num(t.Summa_dollar), 0), [tolovlar]);
+  // So'm ⇄ $ ayirboshlash oyoqlari (Turi="Ayirboshlash") pul to'lovi emas: "To'langan" va to'lovlar
+  // ro'yxatiga kirmaydi, lekin qarzga ta'sir qiladi
+  const realTolov = useMemo(() => tolovlar.filter(t => !ayirboshlashmi(t)), [tolovlar]);
+  const abGuruh = useMemo(() => abGuruhlari(tolovlar as unknown as Record<string, string>[], "X_Tolov_ID"), [tolovlar]);
+  const abSom = abGuruh.reduce((s, g) => s + g.som, 0);
+  const abUsd = abGuruh.reduce((s, g) => s + g.usd, 0);
+  const jamiTolovSom = useMemo(() => realTolov.reduce((s, t) => s + num(t.Summa), 0), [realTolov]);
+  const jamiTolovUsd = useMemo(() => realTolov.reduce((s, t) => s + num(t.Summa_dollar), 0), [realTolov]);
 
   const fromKey = qFrom ? qFrom.replace(/-/g, "") : "";
   const toKey   = qTo ? qTo.replace(/-/g, "") : "";
@@ -177,15 +185,15 @@ export default function TaminotchiDetailPage() {
     });
   }, [xaridlar, savatMap, fromKey, toKey, sumQ, qActive]);
   const fTolov = useMemo(() => {
-    if (!qActive) return tolovlar;
-    return tolovlar.filter(t => {
+    if (!qActive) return realTolov;
+    return realTolov.filter(t => {
       if (fromKey || toKey) { const k = sanaKey(t.Sana); if ((fromKey && k < fromKey) || (toKey && k > toKey)) return false; }
       if (sumQ) {
         if (!`${Math.round(num(t.Som))} ${Math.round(num(t.Dollar))} ${Math.round(num(t.Summa))}`.includes(sumQ)) return false;
       }
       return true;
     });
-  }, [tolovlar, fromKey, toKey, sumQ, qActive]);
+  }, [realTolov, fromKey, toKey, sumQ, qActive]);
 
   // Ko'p tanlash — belgilangan to'lovlar yig'indisi (JAMI bo'yicha: so'm/dollar alohida)
   const [selectedT, setSelectedT] = useState<Set<string>>(new Set());
@@ -214,8 +222,8 @@ export default function TaminotchiDetailPage() {
 
   const bSom = num(taminotchi?.Boshlangich_som);
   const bUsd = num(taminotchi?.Boshlangich_Balans);
-  const qarzSom = bSom + jamiXaridSom - jamiTolovSom;
-  const qarzUsd = bUsd + jamiXaridUsd - jamiTolovUsd;
+  const qarzSom = bSom + jamiXaridSom - jamiTolovSom - abSom;
+  const qarzUsd = bUsd + jamiXaridUsd - jamiTolovUsd - abUsd;
 
   // ── Akt-sverka (so'm va $ alohida) ──────────────────────
   function aktSection(cur: "som" | "dollar", fromISO: string, toISO: string): ExportSection | null {
@@ -231,11 +239,18 @@ export default function TaminotchiDetailPage() {
       const amt = cur === "som"
         ? (savatMap[x.Xarid_ID] || []).reduce((a, r) => a + num(r.Summa_Som), 0)
         : (savatMap[x.Xarid_ID] || []).reduce((a, r) => a + num(r.Jami_Summa), 0);
-      if (amt > 0) events.push({ sana: x.Sana, vaqt: "", debit: amt, credit: 0, tavsif: `Xarid${x.Sotuv_Raqami ? " #" + x.Sotuv_Raqami : ""}` });
+      if (amt !== 0) events.push({ sana: x.Sana, vaqt: "", debit: amt > 0 ? amt : 0, credit: amt < 0 ? -amt : 0, tavsif: `Xarid${x.Sotuv_Raqami ? " #" + x.Sotuv_Raqami : ""}${amt < 0 ? " (qaytarish)" : ""}` });
     });
+    const abById: Record<string, (typeof abGuruh)[number]> = {};
+    abGuruh.forEach(g => { abById[g.id] = g; });
     tolovlar.forEach(t => {
       const amt = cur === "som" ? num(t.Summa) : num(t.Summa_dollar);
-      if (amt > 0) events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: 0, credit: amt, tavsif: `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}` });
+      if (amt === 0) return;
+      const tavsif = ayirboshlashmi(t)
+        ? abMatni(abById[ayirboshlashGuruhi(t.X_Tolov_ID) || String(t.X_Tolov_ID || "")], "->")
+        : `To'lov${t.Turi ? " (" + t.Turi + ")" : ""}`;
+      // Musbat — qarz kamayadi; manfiy (ayirboshlashning qarshi oyog'i) — qarz ortadi
+      events.push({ sana: t.Sana, vaqt: t.Vaqt || "", debit: amt < 0 ? -amt : 0, credit: amt > 0 ? amt : 0, tavsif });
     });
     events.sort((a, b) => (dkey(a.sana) + a.vaqt).localeCompare(dkey(b.sana) + b.vaqt));
     const boshlangich = cur === "som" ? bSom : bUsd;
@@ -594,6 +609,13 @@ export default function TaminotchiDetailPage() {
             {qarzSom === 0 && qarzUsd === 0 && <p style={{ fontSize: isMobile ? 14 : 17, fontWeight: 800, color: "#16a34a" }}>0</p>}
           </div>
         </div>
+
+        {/* So'm ⇄ $ ayirboshlash */}
+        <AyirboshlashBolimi sheet="X_Tolov" idField="X_Tolov_ID" ownerField="Taminotchi_ID" ownerId={id}
+          ownerNomi={taminotchi.Ism || ""} rows={tolovlar as unknown as Record<string, string>[]}
+          qarzSom={qarzSom} qarzDollar={qarzUsd} isMobile={isMobile}
+          qoshimcha={{ Xarid_ID: "", Qoshdi: "" }} telegramSarlavha="🔁 FIRMA: ayirboshlash"
+          onChanged={() => setTick(t => t + 1)}/>
 
         {/* Sana va summa bo'yicha qidiruv */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "10px 12px" : "12px 16px", marginBottom: isMobile ? 14 : 16 }}>

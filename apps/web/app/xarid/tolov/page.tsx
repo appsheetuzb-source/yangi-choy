@@ -14,6 +14,7 @@ import { taminotchiNomi, ochirilganmi } from "@/lib/taminotchi-nom";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi } from "@/lib/mijoz-ledger";
 
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Shakli?: string; }
 
@@ -584,6 +585,8 @@ export default function XaridTolovPage() {
 
   const filtered = useMemo(() => tolovlar.filter(t => {
     if (!t.X_Tolov_ID) return false;
+    // So'm ⇄ $ ayirboshlash pul to'lovi emas — firma sahifasida alohida ko'rinadi (qarz hisobida qoladi)
+    if (ayirboshlashmi(t)) return false;
     const matchOy  = !filterOy  || String(parseInt(t.Oy || "0")) === filterOy;
     const matchYil = !filterYil || t.Yil === filterYil;
     const matchT   = filterT.length === 0 || filterT.includes(t.Taminotchi_ID);

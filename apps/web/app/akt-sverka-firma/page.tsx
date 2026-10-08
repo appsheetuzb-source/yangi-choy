@@ -3,13 +3,16 @@ import { fetchSheets } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportSection } from "@/lib/export";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ayirboshlashmi, ayirboshlashGuruhi } from "@/lib/mijoz-ledger";
 
 const SAVE_KEY = "aktFirma_sel";
 
 interface Firma { Taminotchi_ID: string; Ism: string; Telefon: string; Boshlangich_Balans?: string; Boshlangich_som?: string; }
 interface Xarid { Xarid_ID: string; Taminotchi_ID: string; Sana: string; Vaqt?: string; Sotuv_Raqami?: string; Akt_sverka?: string; }
 interface XaridSavat { Xarid_ID: string; Summa_Som: string; Jami_Summa: string; }
-interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Sana: string; Vaqt?: string; Valyuta?: string; Turi?: string; Summa: string; Summa_dollar: string; Check?: string; }
+interface XTolov { X_Tolov_ID: string; Taminotchi_ID: string; Sana: string; Vaqt?: string; Valyuta?: string; Turi?: string; Summa: string; Summa_dollar: string; Check?: string; Dollar_Kursi?: string; }
+// So'm ⇄ $ ayirboshlash (ikki oyoq birlashtirilgan); som/usd "to'lov" ishorasida
+interface AbRow { id: string; sana: string; som: number; usd: number; kurs: number; k: string; }
 
 function num(v: string | number | undefined) { return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0; }
 function fmtSom(v: number) { return v.toLocaleString("ru-RU"); }
@@ -92,7 +95,8 @@ export default function AktSverkaFirmaPage() {
     });
 
     const myT = tolovlar.filter(t => String(t.Taminotchi_ID || "").trim() === sel);
-    let tolovSom = 0, tolovUsd = 0;
+    let tolovSom = 0, tolovUsd = 0, abSom = 0, abUsd = 0;   // ab*: qarzga ta'siri (+ ortdi, − kamaydi)
+    const abMap: Record<string, AbRow> = {};
     const payRows: { id: string; sana: string; turi: string; som: number; usd: number; chk: boolean; k: string }[] = [];
     myT.forEach(t => {
       const som = num(t.Summa), usd = num(t.Summa_dollar);
@@ -100,6 +104,13 @@ export default function AktSverkaFirmaPage() {
       const k = dkey(t.Sana);
       if (fromK && k < fromK) { eskiSom -= som; eskiUsd -= usd; return; }
       if (toK && k > toK) return;
+      if (ayirboshlashmi(t)) {
+        abSom -= som; abUsd -= usd;
+        const g = ayirboshlashGuruhi(t.X_Tolov_ID) || String(t.X_Tolov_ID || "").trim();
+        const e = abMap[g] || (abMap[g] = { id: g, sana: t.Sana, som: 0, usd: 0, kurs: num(t.Dollar_Kursi), k: k + (t.Vaqt || "") });
+        e.som += som; e.usd += usd;
+        return;
+      }
       tolovSom += som; tolovUsd += usd;
       payRows.push({ id: String(t.X_Tolov_ID || "").trim(), sana: t.Sana, turi: t.Turi || (usd > 0 ? "Dollar" : "So'm"), som, usd, chk, k: k + (t.Vaqt || "") });
     });
@@ -107,9 +118,10 @@ export default function AktSverkaFirmaPage() {
     buyList.sort((a, b) => b.k.localeCompare(a.k));
     payRows.sort((a, b) => b.k.localeCompare(a.k));
     return {
-      eskiSom, eskiUsd, xaridSom, xaridUsd, tolovSom, tolovUsd,
-      qoldiqSom: eskiSom + xaridSom - tolovSom, qoldiqUsd: eskiUsd + xaridUsd - tolovUsd,
-      buyList, payRows, buyCount: buyList.length, payCount: payRows.length,
+      eskiSom, eskiUsd, xaridSom, xaridUsd, tolovSom, tolovUsd, abSom, abUsd,
+      qoldiqSom: eskiSom + xaridSom - tolovSom + abSom, qoldiqUsd: eskiUsd + xaridUsd - tolovUsd + abUsd,
+      buyList, payRows, abRows: Object.values(abMap).sort((a, b) => b.k.localeCompare(a.k)),
+      buyCount: buyList.length, payCount: payRows.length + Object.keys(abMap).length,
     };
   }, [selected, sel, xaridlar, somByX, dolByX, tolovlar, fromISO, toISO]);
 
@@ -122,12 +134,14 @@ export default function AktSverkaFirmaPage() {
         ["Eski qarzdorlik", fmtSom(data.eskiSom) + " so'm"],
         ["Xarid summasi", fmtSom(data.xaridSom) + " so'm"],
         ["To'lov summasi", fmtSom(data.tolovSom) + " so'm"],
+        ...(data.abSom ? [["Ayirboshlash (so'm <-> $)", (data.abSom > 0 ? "+" : "") + fmtSom(data.abSom) + " so'm"]] : []),
       ], foot: ["Tugash qoldiq", fmtSom(data.qoldiqSom) + " so'm"] });
     if (data.eskiUsd || data.xaridUsd || data.tolovUsd || data.qoldiqUsd)
       secs.push({ heading: "DOLLAR ($)", headers: ["Ko'rsatkich", "Summa"], rows: [
         ["Eski qarzdorlik", fmtUsd(data.eskiUsd) + " $"],
         ["Xarid summasi", fmtUsd(data.xaridUsd) + " $"],
         ["To'lov summasi", fmtUsd(data.tolovUsd) + " $"],
+        ...(data.abUsd ? [["Ayirboshlash (so'm <-> $)", (data.abUsd > 0 ? "+" : "") + fmtUsd(data.abUsd) + " $"]] : []),
       ], foot: ["Tugash qoldiq", fmtUsd(data.qoldiqUsd) + " $"] });
     const opts = {
       title: `Akt-sverka (Firma) — ${selected.Ism || ""}`,
@@ -180,12 +194,14 @@ export default function AktSverkaFirmaPage() {
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Eski qarzdorlik</span><span style={{ fontSize: 14, fontWeight: 700 }}>{fmtSom(data.eskiSom)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Xarid summasi</span><span style={{ fontSize: 14, fontWeight: 700 }}>{fmtSom(data.xaridSom)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>To&apos;lov summasi</span><span style={{ fontSize: 14, fontWeight: 700, color: "#16a34a" }}>{fmtSom(data.tolovSom)}</span></div>
+                    {data.abSom !== 0 && <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Ayirboshlash (so&apos;m ⇄ $)</span><span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{data.abSom > 0 ? "+" : ""}{fmtSom(data.abSom)}</span></div>}
                     <div style={{ ...sumRow, borderBottom: "none", paddingTop: 12 }}><span style={{ fontSize: 13, fontWeight: 700 }}>Tugash qoldiq</span><span style={{ fontSize: 17, fontWeight: 800, color: data.qoldiqSom > 0 ? "#ef4444" : "#16a34a" }}>{fmtSom(data.qoldiqSom)}</span></div>
 
                     <p style={{ fontSize: 11, fontWeight: 700, color: "#2563eb", letterSpacing: ".05em", margin: "14px 0 2px" }}>DOLLAR ($)</p>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Eski qarzdorlik</span><span style={{ fontSize: 14, fontWeight: 700 }}>$ {fmtUsd(data.eskiUsd)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Xarid summasi</span><span style={{ fontSize: 14, fontWeight: 700 }}>$ {fmtUsd(data.xaridUsd)}</span></div>
                     <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>To&apos;lov summasi</span><span style={{ fontSize: 14, fontWeight: 700, color: "#2563eb" }}>$ {fmtUsd(data.tolovUsd)}</span></div>
+                    {data.abUsd !== 0 && <div style={sumRow}><span style={{ fontSize: 13, color: "var(--text-2)" }}>Ayirboshlash (so&apos;m ⇄ $)</span><span style={{ fontSize: 14, fontWeight: 700, color: "#7c3aed" }}>{data.abUsd > 0 ? "+" : "−"} $ {fmtUsd(Math.abs(data.abUsd))}</span></div>}
                     <div style={{ ...sumRow, borderBottom: "none", paddingTop: 12 }}><span style={{ fontSize: 13, fontWeight: 700 }}>Tugash qoldiq</span><span style={{ fontSize: 17, fontWeight: 800, color: data.qoldiqUsd > 0 ? "#ef4444" : "#2563eb" }}>$ {fmtUsd(data.qoldiqUsd)}</span></div>
                   </div>
                 )}
@@ -224,7 +240,20 @@ export default function AktSverkaFirmaPage() {
                   {["SANA", "TURI", "SUMMA"].map(h => <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".04em", textAlign: h === "SUMMA" ? "right" : "left" }}>{h}</span>)}
                   <span />
                 </div>
-                {!data || data.payRows.length === 0 ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>To&apos;lov yo&apos;q</div> :
+                {data && data.abRows.map(a => {
+                  const s2u = a.som > 0 || a.usd < 0;
+                  const somT = fmtSom(Math.abs(a.som)), usdT = "$" + fmtUsd(Math.abs(a.usd));
+                  return (
+                    <div key={"ab-" + a.id} title={`So'm ⇄ $ ayirboshlash${a.kurs ? " · kurs " + fmtSom(a.kurs) : ""} — kassaga pul kirmagan`}
+                      style={{ display: "grid", gridTemplateColumns: isMobile ? "76px 1fr 96px 14px" : "100px 1fr 130px 18px", padding: "10px 18px", borderBottom: "1px solid var(--border)", alignItems: "center", background: "#faf5ff" }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#7c3aed" }}>{a.sana}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "#7c3aed" }}>⇄ Ayirboshlash</span>
+                      <span style={{ fontSize: 12.5, fontWeight: 700, textAlign: "right", color: "#7c3aed" }}>{s2u ? `${somT} → ${usdT}` : `${usdT} → ${somT}`}</span>
+                      <span />
+                    </div>
+                  );
+                })}
+                {!data || (data.payRows.length === 0 && data.abRows.length === 0) ? <div style={{ padding: 24, textAlign: "center", color: "var(--text-3)", fontSize: 13 }}>To&apos;lov yo&apos;q</div> :
                   data.payRows.map((p, i) => {
                     const col = p.chk ? "#16a34a" : "#ef4444";
                     return (
