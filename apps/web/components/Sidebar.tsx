@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/AuthContext";
+import InstallAppButton from "@/components/InstallAppButton";
 
 // role: null = hammaga, "Admin" = faqat adminga
 const allNavItems = [
@@ -92,6 +93,8 @@ export default function Sidebar() {
           <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
           Parolni o&apos;zgartirish
         </button>
+
+        <InstallAppButton />
 
         <button onClick={handleLogout}
           style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderRadius: 9, fontSize: 12.5, fontWeight: 500, color: "var(--red)", cursor: "pointer", border: "none", background: "transparent", transition: "all .12s", textAlign: "left" }}
@@ -208,7 +211,7 @@ export default function Sidebar() {
             </ul>
           </nav>
 
-          <UserFooter />
+          {UserFooter()}
         </aside>
       </>
     );
@@ -262,7 +265,7 @@ export default function Sidebar() {
         </ul>
       </nav>
 
-      <UserFooter />
+      {UserFooter()}
 
       {/* Parol o'zgartirish modal */}
       {showChangePass && (
