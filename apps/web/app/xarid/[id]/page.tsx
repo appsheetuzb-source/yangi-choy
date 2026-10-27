@@ -33,6 +33,14 @@ interface SavatItem {
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+function sanaToIso(sana: string): string {
+  const m = String(sana || "").trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
+}
+function isoToSana(iso: string): string {
+  const m = String(iso || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : "";
+}
 function num(v: string | number | undefined) {
   return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0;
 }
@@ -125,6 +133,7 @@ export default function XaridDetailPage() {
   const [editOpen, setEditOpen]             = useState(false);
   const [editTaminotchi, setEditTaminotchi] = useState("");
   const [editIzoh, setEditIzoh]             = useState("");
+  const [editSana, setEditSana]             = useState("");   // ISO (YYYY-MM-DD)
   const [editSavat, setEditSavat]           = useState<SavatItem[]>([]);
   const [editSaving, setEditSaving]         = useState(false);
 
@@ -179,6 +188,7 @@ export default function XaridDetailPage() {
     }
     setEditTaminotchi(xarid.Taminotchi_ID);
     setEditIzoh(xarid.Izoh || "");
+    setEditSana(sanaToIso(xarid.Sana));
     setEditSavat(savat.map(s => ({ id: uid(), Mahsulot_ID: s.Mahsulot_ID, Soni: s.Soni, Narxi: s.Narxi, Narx_som: s.Narx_som, Foiz: qatorFoizi(s) > 0 ? String(qatorFoizi(s)) : "" })));
     setEditOpen(true);
   }
@@ -194,9 +204,11 @@ export default function XaridDetailPage() {
 
   async function handleUpdate() {
     if (!xarid || !editTaminotchi) return;
+    // Tahrirlashda sana o'zgartirilishi mumkin; qo'shish rejimida xaridning o'z sanasi
+    const sana = (!isAddMode && isoToSana(editSana)) || xarid.Sana;
     setEditSaving(true);
     try {
-      const [, mo, y] = xarid.Sana.split(".");
+      const [, mo, y] = sana.split(".");
       if (isAddMode) {
         // Faqat yangi qatorlarni qo'shish — eskilarni o'chirmaslik
         for (let i = 0; i < editSavat.length; i++) {
@@ -204,7 +216,7 @@ export default function XaridDetailPage() {
           const m = mMap[r.Mahsulot_ID];
           await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sheet: "Xarid_Savat", row: {
-              X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: xarid.Sana,
+              X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: sana,
               Raqam: String(savat.length + i + 1), Xarid_ID: xarid.Xarid_ID, Ombor_ID: m?.Ombor_ID || "",
               Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
               // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
@@ -216,14 +228,14 @@ export default function XaridDetailPage() {
                 Jami_Summa: String(num(r.Soni) * num(r.Narxi) * k),
                 Summa_Som: String(num(r.Soni) * num(r.Narx_som) * k),
               }; })(),
-              Vaqt: xarid.Sana,
+              Vaqt: sana,
             } }) });
         }
       } else {
         // Tahrirlash — xarid ma'lumotlarini yangilash + savatni to'liq almashtirish
         await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Xarid", idColumn: "Xarid_ID", idValue: xarid.Xarid_ID,
-            row: { ...xarid, Taminotchi_ID: editTaminotchi, Izoh: editIzoh } }) });
+            row: { ...xarid, Taminotchi_ID: editTaminotchi, Izoh: editIzoh, Sana: sana, Yil: y, Oy: mo.replace(/^0/, "") } }) });
         for (const s of savat) {
           await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sheet: "Xarid_Savat", idColumn: "X_Savat", idValue: s.X_Savat }) });
@@ -233,7 +245,7 @@ export default function XaridDetailPage() {
           const m = mMap[r.Mahsulot_ID];
           await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sheet: "Xarid_Savat", row: {
-              X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: xarid.Sana,
+              X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: sana,
               Raqam: String(i + 1), Xarid_ID: xarid.Xarid_ID, Ombor_ID: m?.Ombor_ID || "",
               Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
               // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
@@ -245,7 +257,7 @@ export default function XaridDetailPage() {
                 Jami_Summa: String(num(r.Soni) * num(r.Narxi) * k),
                 Summa_Som: String(num(r.Soni) * num(r.Narx_som) * k),
               }; })(),
-              Vaqt: xarid.Sana,
+              Vaqt: sana,
             } }) });
         }
       }
@@ -751,7 +763,7 @@ export default function XaridDetailPage() {
               <div style={{ display: "flex", gap: 8 }}>
                 <button className="btn btn--outline btn--sm" onClick={() => setEditOpen(false)}>Bekor</button>
                 <button className="btn btn--primary btn--sm" onClick={handleUpdate}
-                  disabled={editSaving || !editTaminotchi || editSavat.filter(s => s.Mahsulot_ID && s.Soni).length === 0}>
+                  disabled={editSaving || !editTaminotchi || !editSana || editSavat.filter(s => s.Mahsulot_ID && s.Soni).length === 0}>
                   {editSaving && <span className="spinner"/>} Saqlash
                 </button>
               </div>
@@ -760,6 +772,10 @@ export default function XaridDetailPage() {
               <div className="drawer__section">
                 <p className="drawer__section-label">Ta&apos;minotchi *</p>
                 <SearchSelect items={tItems} value={editTaminotchi} onChange={setEditTaminotchi} placeholder="Ta'minotchi tanlang..."/>
+              </div>
+              <div className="drawer__section">
+                <p className="drawer__section-label">Sana *</p>
+                <div className="field"><input type="date" value={editSana} onChange={e => setEditSana(e.target.value)} /></div>
               </div>
               <div className="drawer__section">
                 <p className="drawer__section-label">Izoh</p>
