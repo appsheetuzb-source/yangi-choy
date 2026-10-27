@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { AuthUser, getUser, setUser, clearUser, parseGaznaIds } from "./auth";
 import { fetchSheet } from "./sheet-cache";
+import { taklifniQaytaOch } from "./pwa-install";
 
 interface AuthCtx {
   user: AuthUser | null;
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
       setUser(u);
       setUserState(u);
+      taklifniQaytaOch();   // har kirishda "Ilovani o'rnatish" taklifi qayta ko'rsatiladi
       return null;
     } catch (e) {
       console.error("Login xato:", e);

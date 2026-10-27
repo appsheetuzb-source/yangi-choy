@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { canAccess } from "@/lib/auth";
 import Sidebar from "./Sidebar";
 import SaveToast from "./SaveToast";
+import InstallPromptToast from "./InstallPromptToast";
 import { useNoStepperScroll } from "@/lib/use-no-stepper-scroll";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div className="page-wrap">{children}</div>
       <SaveToast />
+      {/* "Ilovani o'rnatish" taklifi — tizimga kirgan foydalanuvchiga (o'ng pastda) */}
+      <InstallPromptToast key={user.id} userId={user.id} />
     </>
   );
 }
