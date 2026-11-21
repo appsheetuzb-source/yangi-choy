@@ -6,6 +6,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
+import OmborBiriktirilmagan from "@/components/OmborBiriktirilmagan";
 import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
@@ -233,6 +234,10 @@ export default function MahsulotPage() {
     .filter(o => o !== "__none__" && Math.round(invByOmbor[o]?.[mid] || 0) !== 0)
     .map(o => ({ nomi: omborNomi(o) || o, qty: invByOmbor[o][mid] }))
     .sort((a, b) => b.qty - a.qty);
+
+  // Admin bo'lmasa va ombor biriktirilmagan bo'lsa — hech qanday ombor ma'lumoti ko'rsatilmaydi
+  // (avval effOmbor "all" ga tushib, barcha omborlarning mahsulot va qoldiqlari ochilib qolardi)
+  if (user && !isAdmin && !myOmbor) return <OmborBiriktirilmagan sarlavha="Mahsulot va ombor"/>;
 
   return (
     <>

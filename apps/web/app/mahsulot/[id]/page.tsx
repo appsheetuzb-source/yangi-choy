@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { birlikOf } from "@/lib/birlik";
 import { useAuth } from "@/lib/AuthContext";
+import OmborBiriktirilmagan from "@/components/OmborBiriktirilmagan";
 import { readOmbor2, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
 interface Mahsulot {
@@ -335,6 +336,10 @@ export default function MahsulotDetailPage() {
       return [];                                                         // bu omborga aloqasiz
     });
   }, [txAll, viewOmbor, shopWH, omborNomi]);
+
+  // Admin bo'lmasa va ombor biriktirilmagan bo'lsa — barcha omborlarning harakati ochilib qolmasin
+  // (viewOmbor "" = GLOBAL ko'rinish faqat admin uchun)
+  if (user && !isAdmin && !myOmbor) return <OmborBiriktirilmagan sarlavha="Mahsulot"/>;
 
   if (loading) return (
     <div className="page-content" style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>

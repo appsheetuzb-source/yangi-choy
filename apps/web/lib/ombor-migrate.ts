@@ -26,6 +26,11 @@ const REQUIRED: { table: string; column: string }[] = [
   // Shunda eski xarid/to'lovlarda NOMI saqlanib qoladi (avval qator butunlay o'chib,
   // nom yo'qolardi va faqat "—" ko'rinardi).
   { table: "taminotchi", column: "Status" },
+  // Blok bilan sotish (lib/blok.ts): mahsulotning bir blokdagi dona soni va savat qatorida
+  // nechta blok kiritilgani. Bo'sh — blok yo'q (avvalgi holat), Soni har doim jami dona.
+  { table: "mahsulot", column: "Blokdagi_dona" },
+  { table: "sotuv_savat", column: "Blok" },
+  { table: "sotuv_savat_dollar", column: "Blok" },
 ];
 
 function q(name: string) { return '"' + String(name).replace(/"/g, '""') + '"'; }

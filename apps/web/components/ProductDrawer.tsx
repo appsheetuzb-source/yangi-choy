@@ -15,6 +15,8 @@ export interface ProductRow {
   Qoshilgan_sana: string;
   Kg: string;
   Birlik: string;
+  /** Bir blokdagi dona soni (masalan 15). Bo'sh yoki ≤ 1 — blok yo'q, faqat dona bilan sotiladi (lib/blok.ts) */
+  Blokdagi_dona?: string;
   Check: string;
 }
 export interface OmborRow { Ombor_ID: string; Nomi: string; }
@@ -26,7 +28,7 @@ const BIRLIKLAR = ["Dona", "Kg"] as const;
 const EMPTY: ProductRow = {
   Mahsulot_ID: "", Ombor_ID: "", Nomi: "", Rasm: "",
   Tan_som: "", Sotuv_som: "", Tan_dollar: "", Sotuv_dollar: "",
-  Qoshilgan_sana: "", Kg: "", Birlik: "Dona", Check: "TRUE",
+  Qoshilgan_sana: "", Kg: "", Birlik: "Dona", Blokdagi_dona: "", Check: "TRUE",
 };
 function uid() { return Math.random().toString(36).slice(2, 10); }
 function num(v: string) { return parseFloat(String(v || "0").replace(/\s/g, "").replace(",", ".")) || 0; }
@@ -86,8 +88,11 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
       fd.append("file", file);
       fd.append("mahsulotId", formData.Mahsulot_ID || uid());
       const res  = await fetch("/api/image", { method: "POST", body: fd });
-      const json = await res.json();
-      if (json.path) setFormData(p => ({ ...p, Rasm: json.path }));
+      const json = await res.json().catch(() => ({} as { path?: string; error?: string }));
+      if (res.ok && json.path) setFormData(p => ({ ...p, Rasm: json.path }));
+      else { setImgPreview(null); alert(json.error || "Rasm yuklanmadi. Hajmi 20MB dan kichik rasm tanlang va qayta urinib ko'ring."); }
+    } catch {
+      setImgPreview(null); alert("Tarmoq xatosi — rasm yuklanmadi.");
     } finally {
       setUploading(false);
       e.target.value = "";
@@ -199,6 +204,21 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
                   : "Miqdor dona bilan sanaladi (masalan 12 dona)"}
               </p>
             </div>
+
+            {/* Blok — faqat dona bilan sanaladigan mahsulotda */}
+            {(formData.Birlik || "Dona") !== "Kg" && (
+              <div className="field">
+                <label>Blokdagi dona soni</label>
+                <input value={formData.Blokdagi_dona || ""} inputMode="numeric"
+                  placeholder="Masalan: 15 (blok bo'lmasa bo'sh qoldiring)"
+                  onChange={e => setFormData(p => ({ ...p, Blokdagi_dona: e.target.value.replace(/[^0-9]/g, "") }))} />
+                <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 6 }}>
+                  {Number(formData.Blokdagi_dona || 0) > 1
+                    ? `Sotuvda blok bilan kiritiladi: 1 blok = ${Number(formData.Blokdagi_dona)} dona, narx esa bir dona uchun`
+                    : "Bo'sh bo'lsa, mahsulot faqat dona bilan sotiladi"}
+                </p>
+              </div>
+            )}
 
           </div>
 
