@@ -29,6 +29,11 @@ export function invalidateCache(sheetName?: string) {
   if (sheetName) { delete _cache[sheetCacheKey(sheetName)]; }
   else { for (const k of Object.keys(_cache)) delete _cache[k]; }
 }
+// Yozuvdan KEYIN ham kesh tozalanadi: yozuv davom etayotganda parallel so'rov eski qatorni o'qib keshga
+// qo'ygan bo'lsa, u 5 daqiqa qolib ketardi (masalan parol almashtirilgan/nofaol qilingan foydalanuvchi).
+async function yozibTozala<T>(sheetName: string, p: Promise<T>): Promise<T> {
+  try { return await p; } finally { invalidateCache(sheetName); }
+}
 // ─────────────────────────────────────────────────────
 
 // ══════════════════════════════════════════════════════
@@ -404,7 +409,7 @@ async function ensureSheetExists(sheetName: string, headers: string[]) {
 }
 
 export async function appendRow(sheetName: string, row: Record<string, string | number>) {
-  if (USE_POSTGRES) return pgAppendRow(sheetName, row);
+  if (USE_POSTGRES) return yozibTozala(sheetName, pgAppendRow(sheetName, row));
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -451,7 +456,7 @@ export async function appendRow(sheetName: string, row: Record<string, string | 
 // ── BATCH APPEND — bir nechta qatorni BITTA Google so'rovida qo'shish ──
 export async function appendRows(sheetName: string, rowsData: Record<string, string | number>[]) {
   if (!rowsData || rowsData.length === 0) return;
-  if (USE_POSTGRES) return pgAppendRows(sheetName, rowsData);
+  if (USE_POSTGRES) return yozibTozala(sheetName, pgAppendRows(sheetName, rowsData));
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -500,7 +505,7 @@ export async function updateCell(
   targetColumn: string,
   newValue: string
 ) {
-  if (USE_POSTGRES) return pgUpdateCell(sheetName, idColumn, idValue, targetColumn, newValue);
+  if (USE_POSTGRES) return yozibTozala(sheetName, pgUpdateCell(sheetName, idColumn, idValue, targetColumn, newValue));
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -547,7 +552,7 @@ export async function updateRow(
   idValue: string,
   updatedRow: Record<string, string>
 ) {
-  if (USE_POSTGRES) return pgUpdateRow(sheetName, idColumn, idValue, updatedRow);
+  if (USE_POSTGRES) return yozibTozala(sheetName, pgUpdateRow(sheetName, idColumn, idValue, updatedRow));
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 
@@ -588,7 +593,7 @@ export async function deleteRow(
   idColumn: string,
   idValue: string
 ) {
-  if (USE_POSTGRES) return pgDeleteRow(sheetName, idColumn, idValue);
+  if (USE_POSTGRES) return yozibTozala(sheetName, pgDeleteRow(sheetName, idColumn, idValue));
   invalidateCache(sheetName);
   const sheets = getSheetsClient();
 

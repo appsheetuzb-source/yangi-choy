@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessiyaTalab } from "@/lib/sessiya-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -38,6 +39,9 @@ function filterCatalog(trans: string, products: Prod[], cap = 70): Prod[] {
 }
 
 export async function POST(req: NextRequest) {
+  // Faqat tizimga kirgan foydalanuvchi (proxy.ts imzoni tekshiradi; bu yerda — faolligi ham)
+  const sessiya = await sessiyaTalab(req);
+  if ("javob" in sessiya) return sessiya.javob;
   const OPENAI = process.env.OPENAI_API_KEY;
   if (!OPENAI) return NextResponse.json({ error: "OPENAI_API_KEY sozlanmagan (server .env)" }, { status: 500 });
 

@@ -1,9 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { AuthUser, getUser, setUser, clearUser, parseGaznaIds } from "./auth";
-import { fetchSheet } from "./sheet-cache";
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
+import { AuthUser, getUser, setUser, clearUser } from "./auth";
+import { invalidateSheet } from "./sheet-cache";
 import { taklifniQaytaOch } from "./pwa-install";
+
+// Kirish SERVERDA tekshiriladi (/api/auth/login) — parollar brauzerga hech qachon kelmaydi.
+// Server httpOnly sessiya cookie'sini o'rnatadi; localStorage'dagi "yc_user" faqat interfeys
+// uchun (ism, rol, ombor). Haqiqiy ruxsatni har bir API so'rovida server cookie bo'yicha beradi.
 
 interface AuthCtx {
   user: AuthUser | null;
@@ -18,75 +22,84 @@ const Ctx = createContext<AuthCtx>({
   logout: () => {},
 });
 
+const bir = (a: AuthUser, b: AuthUser) =>
+  a.id === b.id && a.nomi === b.nomi && a.lavozim === b.lavozim && a.pochta === b.pochta
+  && (a.omborId || "") === (b.omborId || "")
+  && (a.gaznaIds || []).join(",") === (b.gaznaIds || []).join(",");
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  // Har muvaffaqiyatli kirishda oshadi. 401 javob faqat so'rov YUBORILGANDAN beri qayta kirilmagan bo'lsa
+  // chiqaradi — aks holda kirishdan oldin ketgan (cookie'siz) so'rovning kech 401'i yangi sessiyani buzardi.
+  const davr = useRef(0);
+
+  // Sessiya tugadi (cookie yo'q/eskirgan, foydalanuvchi nofaol qilingan yoki paroli almashtirilgan)
+  const sessiyaTugadi = useCallback(() => {
+    clearUser();
+    invalidateSheet();
+    setUserState(null);   // AppShell → /login
+  }, []);
+
+  // Har qanday /api/ so'rovi 401 qaytarsa — tizimdan chiqariladi (kirish sahifasiga).
+  // Ilovada yuzlab to'g'ridan-to'g'ri fetch() bor, shuning uchun bitta umumiy o'rash.
+  useEffect(() => {
+    const asl = window.fetch;
+    const orama: typeof window.fetch = async (input, init) => {
+      const boshDavr = davr.current;
+      const res = await asl.call(window, input, init);
+      if (res.status === 401 && boshDavr === davr.current) {
+        try {
+          const href = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+          const u = new URL(href, window.location.href);
+          if (u.origin === window.location.origin && u.pathname.startsWith("/api/") && !u.pathname.startsWith("/api/auth/login")) {
+            sessiyaTugadi();
+          }
+        } catch { /* URL aniqlanmadi — e'tiborsiz */ }
+      }
+      return res;
+    };
+    window.fetch = orama;
+    return () => { if (window.fetch === orama) window.fetch = asl; };
+  }, [sessiyaTugadi]);
 
   useEffect(() => {
     const stored = getUser();
     setUserState(stored);
     setLoading(false);
 
-    // Saqlangan sessiyani sheetdan yangilash — rol/ma'lumot o'zgargan bo'lsa
+    // Saqlangan sessiyani serverdan tekshirish/yangilash — rol/ombor o'zgargan bo'lsa yangilanadi,
+    // sessiya yaroqsiz bo'lsa (401) — chiqariladi. Server vaqtincha javob bermasa (503/tarmoq) — tegilmaydi.
     if (stored?.id) {
-      fetch("/api/sheets?range=Foydalanuvchi", { cache: "no-store" })
-        .then(r => r.json())
-        .then(json => {
-          const fresh = (json.data as Record<string,string>[] || []).find(u => u.Foydalanuvchi_ID === stored.id);
-          if (!fresh) return;
-          if (fresh.Status === "Nofaol") { clearUser(); setUserState(null); return; }
-          const freshGaznaIds = parseGaznaIds(fresh.Gazna_ID);
-          const updated: AuthUser = {
-            id: fresh.Foydalanuvchi_ID,
-            nomi: fresh.Nomi,
-            lavozim: fresh.Lavozim || "Sotuvchi",
-            pochta: fresh.Pochta || fresh.Telefon || stored.pochta,
-            omborId: fresh.Ombor_ID || "",
-            gaznaIds: freshGaznaIds,
-          };
-          if (updated.lavozim !== stored.lavozim || updated.nomi !== stored.nomi
-              || updated.omborId !== (stored.omborId || "")
-              || (freshGaznaIds.join(",") !== (stored.gaznaIds || []).join(","))) {
-            setUser(updated);
-            setUserState(updated);
-          }
+      fetch("/api/auth/me", { cache: "no-store" })
+        .then(async r => {
+          if (r.status === 401) { sessiyaTugadi(); return; }
+          if (!r.ok) return;
+          const j = await r.json().catch(() => null) as { user?: AuthUser } | null;
+          const fresh = j?.user;
+          if (!fresh?.id) return;
+          if (!bir(fresh, stored)) { setUser(fresh); setUserState(fresh); }
         })
         .catch(() => {});
     }
-  }, []);
+  }, [sessiyaTugadi]);
 
   const login = useCallback(async (pochta: string, parol: string): Promise<string | null> => {
     try {
-      // Cache bypass — har doim fresh data
-      const res = await fetch("/api/sheets?range=Foydalanuvchi", { cache: "no-store" });
-      const json = await res.json();
-      const list = (json.data || []) as Record<string, string>[];
-
-      if (list.length === 0) return "Foydalanuvchilar topilmadi";
-
-      const input = pochta.trim().toLowerCase();
-      const found = list.find(u => {
-        const pochtaMatch  = (u.Pochta  || "").trim().toLowerCase() === input;
-        const telefonMatch = (u.Telefon || "").trim() === pochta.trim();
-        const loginMatch   = (u.Login   || "").trim().toLowerCase() === input;
-        const parolMatch   = (u.Parol   || "").trim() === parol.trim();
-        const active       = u.Status !== "Nofaol";
-        return (pochtaMatch || telefonMatch || loginMatch) && parolMatch && active;
+      const res = await fetch("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+        body: JSON.stringify({ login: pochta, parol }),
       });
-
-      if (!found) return "Login yoki parol noto'g'ri";
-
-      const u: AuthUser = {
-        id:      found.Foydalanuvchi_ID,
-        nomi:    found.Nomi,
-        lavozim: found.Lavozim || "Sotuvchi",
-        pochta:  found.Pochta || found.Telefon || pochta,
-        omborId: found.Ombor_ID || "",
-        gaznaIds: parseGaznaIds(found.Gazna_ID),
-      };
-      setUser(u);
-      setUserState(u);
-      taklifniQaytaOch();   // har kirishda "Ilovani o'rnatish" taklifi qayta ko'rsatiladi
+      const j = await res.json().catch(() => null) as { user?: AuthUser; error?: string } | null;
+      if (!res.ok || !j?.user?.id) {
+        if (j?.error) return j.error;
+        return res.status >= 500 ? "Server bilan bog'lanib bo'lmadi. Qayta urinib ko'ring." : "Login yoki parol noto'g'ri";
+      }
+      davr.current++;
+      invalidateSheet();      // oldingi foydalanuvchining keshlangan ma'lumoti qolmasin
+      setUser(j.user);
+      setUserState(j.user);
+      taklifniQaytaOch();     // har kirishda "Ilovani o'rnatish" taklifi qayta ko'rsatiladi
       return null;
     } catch (e) {
       console.error("Login xato:", e);
@@ -95,7 +108,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
+    fetch("/api/auth/logout", { method: "POST", cache: "no-store", keepalive: true }).catch(() => {});
     clearUser();
+    invalidateSheet();
     setUserState(null);
   }, []);
 

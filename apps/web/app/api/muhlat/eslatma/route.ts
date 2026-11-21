@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { muhlatEslatmasi, kechkiHisobot } from "@/lib/muhlat-eslatma";
+import { tengmi } from "@/lib/sessiya";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,7 +13,8 @@ async function handle(req: NextRequest) {
   const url = new URL(req.url);
   const secret = process.env.PUSH_CRON_SECRET;
   const provided = req.headers.get("x-cron-secret") || url.searchParams.get("secret") || "";
-  if (secret && provided !== secret) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Sir sozlanmagan bo'lsa ham YOPIQ (avval sirsiz serverda hamma uchun ochiq edi)
+  if (!secret || !tengmi(provided, secret)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
   try {
     const opts = {
       force: url.searchParams.get("force") === "1",

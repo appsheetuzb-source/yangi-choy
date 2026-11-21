@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessiyaTalab } from "@/lib/sessiya-server";
 import { getDriveImage, uploadDriveImage } from "@/lib/sheets";
 import { Readable } from "stream";
 
 export async function POST(request: NextRequest) {
+  // Faqat tizimga kirgan foydalanuvchi (proxy.ts imzoni tekshiradi; bu yerda — faolligi ham)
+  const sessiya = await sessiyaTalab(request);
+  if ("javob" in sessiya) return sessiya.javob;
   try {
     const form = await request.formData();
     const file = form.get("file") as File | null;
@@ -24,6 +28,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  // Faqat tizimga kirgan foydalanuvchi (proxy.ts imzoni tekshiradi; bu yerda — faolligi ham)
+  const sessiya = await sessiyaTalab(request);
+  if ("javob" in sessiya) return sessiya.javob;
   const { searchParams } = new URL(request.url);
   const path = searchParams.get("path");
 

@@ -54,18 +54,22 @@ export default function Sidebar() {
     if (!passForm.old || !passForm.new1) { setPassErr("Barcha maydonlarni to'ldiring"); return; }
     if (passForm.new1 !== passForm.new2) { setPassErr("Yangi parollar mos emas"); return; }
     if (passForm.new1.length < 4) { setPassErr("Parol kamida 4 ta belgi bo'lsin"); return; }
+    if (passForm.new1.trim().length < 4) { setPassErr("Parol kamida 4 ta belgi bo'lsin"); return; }
     setPassSaving(true);
     try {
-      const res = await fetch("/api/sheets?range=Foydalanuvchi", { cache: "no-store" });
-      const json = await res.json();
-      const me = (json.data as Record<string,string>[]).find(u => u.Foydalanuvchi_ID === user?.id);
-      if (!me) { setPassErr("Foydalanuvchi topilmadi"); return; }
-      if ((me.Parol || "").trim() !== passForm.old.trim()) { setPassErr("Joriy parol noto'g'ri"); return; }
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "Foydalanuvchi", idColumn: "Foydalanuvchi_ID", idValue: user?.id, row: { ...me, Parol: passForm.new1 } }) });
+      // Joriy parol SERVERDA tekshiriladi (brauzer boshqalarning parolini ko'rmaydi)
+      const res = await fetch("/api/auth/parol", {
+        method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+        body: JSON.stringify({ eski: passForm.old, yangi: passForm.new1 }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({} as { error?: string }));
+        setPassErr((j && typeof j.error === "string" && j.error) || "Xatolik yuz berdi");
+        return;
+      }
       setShowChangePass(false);
       setPassForm({ old: "", new1: "", new2: "" });
-    } catch { setPassErr("Xatolik yuz berdi"); }
+    } catch { setPassErr("Tarmoq xatosi. Qayta urinib ko'ring."); }
     finally { setPassSaving(false); }
   }
 

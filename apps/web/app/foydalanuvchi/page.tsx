@@ -15,6 +15,7 @@ interface Foydalanuvchi {
   Ombor_ID: string;
   Gazna_ID: string;
   Status: string;
+  // Server parolni HECH QACHON qaytarmaydi — bu maydon faqat formada (yangi parol kiritish uchun)
   Parol: string;
 }
 
@@ -61,6 +62,7 @@ export default function FoydalanuvchiPage() {
   const [form, setForm]                 = useState<Foydalanuvchi>(EMPTY);
   const [showParol, setShowParol]       = useState(false);
   const [saving, setSaving]             = useState(false);
+  const [saveErr, setSaveErr]           = useState("");
   const [deleteTarget, setDeleteTarget] = useState<Foydalanuvchi | null>(null);
   const [detailTarget, setDetailTarget] = useState<Foydalanuvchi | null>(null);
   const [isMobile, setIsMobile]         = useState(false);
@@ -101,34 +103,52 @@ export default function FoydalanuvchiPage() {
     setEditTarget(null);
     setForm({ ...EMPTY, Foydalanuvchi_ID: uid() });
     setShowParol(false);
+    setSaveErr("");
     setDrawerOpen(true);
   }
 
   function openEdit(u: Foydalanuvchi) {
     setEditTarget(u);
-    setForm({ ...u });
+    // Joriy parol ko'rsatilmaydi (server bermaydi): bo'sh qoldirilsa — o'zgarmaydi
+    setForm({ ...EMPTY, ...u, Parol: "" });
     setShowParol(false);
+    setSaveErr("");
     setDrawerOpen(true);
   }
 
+  // Yangi foydalanuvchiga parol majburiy; tahrirlashda — ixtiyoriy (bo'sh = o'zgarmaydi)
+  const parolKiritilgan = String(form.Parol || "").trim();
   function isValid() {
-    return form.Nomi.trim() !== "" && form.Lavozim !== "" && form.Parol.trim() !== "";
+    if (String(form.Nomi || "").trim() === "" || form.Lavozim === "") return false;
+    if (parolKiritilgan && parolKiritilgan.length < 4) return false;
+    return editTarget ? true : parolKiritilgan !== "";
+  }
+
+  // Server javobini tekshirish — xato bo'lsa matnini qaytaradi
+  async function javobXatosi(res: Response, standart: string): Promise<string> {
+    if (res.ok) return "";
+    const j = await res.json().catch(() => ({} as { error?: string }));
+    return (j && typeof j.error === "string" && j.error) || standart;
   }
 
   async function handleSave() {
     if (!isValid()) return;
-    setSaving(true);
+    setSaving(true); setSaveErr("");
     try {
-      if (editTarget) {
-        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheet: "Foydalanuvchi", idColumn: "Foydalanuvchi_ID", idValue: editTarget.Foydalanuvchi_ID, row: form }) });
-      } else {
-        await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheet: "Foydalanuvchi", row: form }) });
-      }
+      const { Parol, ...qolgani } = form;
+      const row = String(Parol || "").trim() ? { ...qolgani, Parol: String(Parol).trim() } : qolgani;
+      const res = editTarget
+        ? await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sheet: "Foydalanuvchi", idColumn: "Foydalanuvchi_ID", idValue: editTarget.Foydalanuvchi_ID, row }) })
+        : await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sheet: "Foydalanuvchi", row }) });
+      const xato = await javobXatosi(res, "Saqlanmadi. Qayta urinib ko'ring.");
+      if (xato) { setSaveErr(xato); return; }
       afterWrite("Foydalanuvchi");
       setDrawerOpen(false);
       loadData(800);
+    } catch {
+      setSaveErr("Tarmoq xatosi. Qayta urinib ko'ring.");
     } finally { setSaving(false); }
   }
 
@@ -136,11 +156,15 @@ export default function FoydalanuvchiPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Foydalanuvchi", idColumn: "Foydalanuvchi_ID", idValue: deleteTarget.Foydalanuvchi_ID }) });
+      const xato = await javobXatosi(res, "O'chirilmadi. Qayta urinib ko'ring.");
+      if (xato) { alert(xato); return; }
       afterWrite("Foydalanuvchi");
       setDeleteTarget(null);
       loadData(800);
+    } catch {
+      alert("Tarmoq xatosi. Qayta urinib ko'ring.");
     } finally { setDeleting(false); }
   }
 
@@ -327,15 +351,16 @@ export default function FoydalanuvchiPage() {
 
               {/* Parol */}
               <div className="drawer__section">
-                <p className="drawer__section-label">Kirish paroli *</p>
+                <p className="drawer__section-label">{editTarget ? "Kirish paroli" : "Kirish paroli *"}</p>
                 <div className="field">
-                  <label>Parol</label>
+                  <label>{editTarget ? "Yangi parol" : "Parol"}</label>
                   <div style={{ position: "relative" }}>
                     <input
                       type={showParol ? "text" : "password"}
                       value={form.Parol}
                       onChange={e => setForm(p => ({ ...p, Parol: e.target.value }))}
-                      placeholder="Kamida 4 ta belgi"
+                      placeholder={editTarget ? "O'zgartirmaslik uchun bo'sh qoldiring" : "Kamida 4 ta belgi"}
+                      autoComplete="new-password"
                       style={{ paddingRight: 40 }}
                     />
                     <button type="button"
@@ -356,8 +381,21 @@ export default function FoydalanuvchiPage() {
                       )}
                     </button>
                   </div>
+                  {editTarget && (
+                    <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 6 }}>
+                      Joriy parol xavfsizlik uchun ko&apos;rsatilmaydi. Yangisini yozsangiz — almashtiriladi.
+                    </p>
+                  )}
+                  {parolKiritilgan !== "" && parolKiritilgan.length < 4 && (
+                    <p style={{ fontSize: 12, color: "var(--red, #dc2626)", marginTop: 6 }}>Parol kamida 4 ta belgi bo&apos;lsin</p>
+                  )}
                 </div>
               </div>
+              {saveErr && (
+                <div style={{ margin: "4px 0 8px", padding: "10px 12px", borderRadius: 10, background: "#fef2f2", color: "#dc2626", fontSize: 13, fontWeight: 600 }}>
+                  {saveErr}
+                </div>
+              )}
             </div>
 
             <div className="drawer__footer">

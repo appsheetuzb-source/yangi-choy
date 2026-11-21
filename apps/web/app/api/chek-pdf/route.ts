@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessiyaTalab } from "@/lib/sessiya-server";
 import { PDFDocument, StandardFonts, rgb, PDFFont } from "pdf-lib";
 
 export const dynamic = "force-dynamic";
@@ -183,6 +184,9 @@ function build(d0: Payload, font: PDFFont, bold: PDFFont): { ops: Op[]; height: 
 }
 
 export async function POST(req: NextRequest) {
+  // Faqat tizimga kirgan foydalanuvchi (proxy.ts imzoni tekshiradi; bu yerda — faolligi ham)
+  const sessiya = await sessiyaTalab(req);
+  if ("javob" in sessiya) return sessiya.javob;
   try {
     const d = (await req.json()) as Payload;
     const pdf = await PDFDocument.create();

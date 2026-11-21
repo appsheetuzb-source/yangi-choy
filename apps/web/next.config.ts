@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
   // Bundle analyzer off by default
   experimental: {
     optimizePackageImports: ["recharts"],
+    // proxy.ts /api/* ga ishlaydi va so'rov tanasini xotirada nusxalaydi (standart 10MB — undan katta
+    // rasm yuklash kesilib, buzilib qolardi). nginx client_max_body_size bilan bir xil: 20MB.
+    proxyClientMaxBodySize: "20mb",
   },
 
   // Static assets long-term cache

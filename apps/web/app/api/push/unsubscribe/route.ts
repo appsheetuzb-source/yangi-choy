@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { sessiyaTalab } from "@/lib/sessiya-server";
 import { getSheetData, deleteRow } from "@/lib/sheets";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
+  // Faqat tizimga kirgan foydalanuvchi (proxy.ts imzoni tekshiradi; bu yerda — faolligi ham)
+  const sessiya = await sessiyaTalab(req);
+  if ("javob" in sessiya) return sessiya.javob;
   try {
     const { endpoint } = await req.json();
     if (!endpoint) return NextResponse.json({ error: "endpoint kerak" }, { status: 400 });

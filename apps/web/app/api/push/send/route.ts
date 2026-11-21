@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMultipleSheets, getSheetData, deleteRow } from "@/lib/sheets";
 import webpush from "web-push";
 import { muhlatCron } from "@/lib/muhlat-eslatma";
+import { tengmi } from "@/lib/sessiya";
+import { foydalanuvchilar } from "@/lib/sessiya-server";
+
+// Push_Subscriptions.User: yangi yozuvlarda {"id":...} JSON, eskilarida localStorage'dagi yc_user JSON yoki bo'sh
+function obunaEgasi(v: unknown): string {
+  const t = String(v ?? "").trim();
+  if (!t) return "";
+  try { const j = JSON.parse(t) as { id?: unknown }; return String(j?.id ?? "").trim(); } catch { return t; }
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -16,7 +25,8 @@ async function handle(req: NextRequest) {
   const url = new URL(req.url);
   const secret = process.env.PUSH_CRON_SECRET;
   const provided = req.headers.get("x-cron-secret") || url.searchParams.get("secret") || "";
-  if (secret && provided !== secret) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  // Sir sozlanmagan bo'lsa ham YOPIQ (avval sirsiz serverda hamma uchun ochiq edi)
+  if (!secret || !tengmi(provided, secret)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const force = url.searchParams.get("force") === "1";
   const now = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Tashkent" }));
@@ -104,7 +114,13 @@ async function pushYubor(hour: number) {
   });
 
   // ── Yuborish ──
-  const subs = (await getSheetData("Push_Subscriptions")).data || [];
+  const barchaObuna = (await getSheetData("Push_Subscriptions")).data || [];
+  // Qarzdorlar ro'yxati faqat FAOL foydalanuvchilarning qurilmalariga: nofaol qilingan / o'chirilgan xodim
+  // yoki egasiz (login'siz yozilgan) obuna olmaydi. Foydalanuvchilarni o'qib bo'lmasa — hech kimga (yopiq).
+  const fRows = await foydalanuvchilar();
+  const faol = new Set((fRows || []).filter(u => String(u.Status || "").trim() !== "Nofaol").map(u => String(u.Foydalanuvchi_ID || "").trim()));
+  const subs = barchaObuna.filter(s => faol.has(obunaEgasi(s.User)));
+  const otkazildi = barchaObuna.length - subs.length;
   let sent = 0, removed = 0, failed = 0;
   await Promise.all(subs.map(async (s) => {
     if (!s.Endpoint) return;
@@ -119,7 +135,7 @@ async function pushYubor(hour: number) {
     }
   }));
 
-  return NextResponse.json({ sent, removed, failed, debtors: debtors.length, subs: subs.length, hour });
+  return NextResponse.json({ sent, removed, failed, otkazildi, debtors: debtors.length, subs: subs.length, hour });
 }
 
 export async function GET(req: NextRequest) { return handle(req); }
