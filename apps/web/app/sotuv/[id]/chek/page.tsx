@@ -16,6 +16,9 @@ interface SotuvSavatDollarRow {
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
 
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
+// Chekdagi soni: avvalgi ko'rinish ("2.0", "12.5"), kasr esa 3 xonagacha ANIQ — blok o'lchami kasr bo'lsa
+// (3 × 12,25 = 36,75) "36.8" bo'lib yaxlitlanmasin
+function fmtChekSoni(v: number) { return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 3, useGrouping: false }); }
 function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
 function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4})+" $"; }
 // Balans xulosasi uchun — aniq 2 xona (jami summalar pul ko'rinishida)
@@ -538,7 +541,7 @@ function ChekContent() {
                     <tr key={r.Savat_ID}>
                       <td style={{fontWeight:700}}>{i+1}</td>
                       <td className="name" style={{fontWeight:800}}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
-                      <td style={{fontWeight:700}}>{num(r.Soni).toFixed(1)}</td>
+                      <td style={{fontWeight:700}}>{fmtChekSoni(num(r.Soni))}</td>
                       <td style={{fontWeight:700}}>{fmtSom(num(r.Som_Narx))}</td>
                       <td className="amount" style={{fontWeight:800}}>{fmtSom(num(r.Summa_som))}</td>
                       <td className="left" style={{color:"#7a80a0",fontWeight:700}}>{r.Izoh||""}</td>
@@ -579,7 +582,7 @@ function ChekContent() {
                     <tr key={r.Savat_ID}>
                       <td style={{fontWeight:700}}>{i+1}</td>
                       <td className="name" style={{fontWeight:800}}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
-                      <td style={{fontWeight:700}}>{num(r.Soni).toFixed(1)}</td>
+                      <td style={{fontWeight:700}}>{fmtChekSoni(num(r.Soni))}</td>
                       <td style={{fontWeight:700}}>{fmtUsd(num(r.Narx))}</td>
                       <td className="amount" style={{fontWeight:800}}>{fmtUsd(num(r.Summa))}</td>
                       <td className="left" style={{color:"#7a80a0",fontWeight:700}}>{r.Izoh||""}</td>

@@ -8,8 +8,9 @@ import ProductDrawer, { type ProductRow } from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { birlikOf } from "@/lib/birlik";
+import { birlikOf, fmtSon } from "@/lib/birlik";
 import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokMatn } from "@/lib/blok";
+import { somSumma } from "@/lib/summa";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
@@ -286,8 +287,8 @@ function BlokIzoh({s,mMap}:{s:SavatItem; mMap:Record<string,Mahsulot>}) {
   const d=num(s.Dona);
   return (
     <div style={{gridColumn:"2 / -1",justifySelf:"start",fontSize:11.5,fontWeight:500,color:"var(--text-2)",background:"var(--bg)",borderRadius:8,padding:"5px 10px",lineHeight:1.4}}>
-      Blok: <b style={blokSonStyle}>{s.Blok||0}</b> × <b style={blokSonStyle}>{n}</b>
-      {d!==0&&<> {d>0?"+":"−"} <b style={blokSonStyle}>{Math.abs(d)}</b> dona</>} = <b style={blokSonStyle}>{s.Soni||0}</b> dona
+      Blok: <b style={blokSonStyle}>{s.Blok||0}</b> × <b style={blokSonStyle}>{fmtSon(n)}</b>
+      {d!==0&&<> {d>0?"+":"−"} <b style={blokSonStyle}>{fmtSon(Math.abs(d))}</b> dona</>} = <b style={blokSonStyle}>{fmtSon(num(s.Soni))}</b> dona
     </div>
   );
 }
@@ -318,7 +319,7 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           </div>
         )}
         {somRows.map((s,idx)=>{
-          const jS=num(s.Soni)*num(s.Som_Narx);
+          const jS=somSumma(num(s.Soni),num(s.Som_Narx));
           const bc=isBelowCost(s,kursVal,mMap);
           if(isMobile) return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:savatGridM(somBlok),gap:5,alignItems:"center",marginBottom:6}}>
@@ -685,7 +686,7 @@ export default function SotuvPage() {
           const somTanNarx=tanSom!==0?tanSom:tanDollar*num(kurs);
           const foyda=num(r.Som_Narx)-somTanNarx;
           const foydaSumma=num(r.Soni)*foyda;
-          const summa=String(num(r.Soni)*num(r.Som_Narx));
+          const summa=String(somSumma(num(r.Soni),num(r.Som_Narx)));
           somSheetRows.push({
             Savat_ID:savatId,Yil:yil,Oy:oy,Sana:snStr,Sotuv_ID:sotuvId,Agent:addAgent,
             Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blokSaqla(r),Som_Narx:r.Som_Narx,Kurs:kurs,
@@ -885,7 +886,7 @@ export default function SotuvPage() {
               Savat_ID:uid(),Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,
               Sotuv_ID:detailSotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,
               Soni:r.Soni,Blok:blokSaqla(r),Som_Narx:String(Math.round(num(r.Som_Narx))),Kurs:kurs,
-              Summa_som:String(Math.round(num(r.Soni)*num(r.Som_Narx))),
+              Summa_som:String(somSumma(num(r.Soni),num(r.Som_Narx))),
               Som_tan_narx:String(Math.round(somTanNarx)),Foyda:String(Math.round(foyda)),Foyda_summasi_som:String(Math.round(foydaSumma)),
               Ombor_ID:manbaOmbor(agentOmbor,shopSet,m?.Ombor_ID||""),Ombor_2:dokonDest,Raqam:String(savatIdx++),Vaqt:vaqt,Check:r.Check||"TRUE",Izoh:"",Mijoz_ID:editMijoz,
             }})});
@@ -1064,9 +1065,9 @@ export default function SotuvPage() {
   const berSomSoniW    = allUndeliveredSom.some(r=>blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]))?"100px":"70px";
   const berDollarSoniW = allUndeliveredDollar.some(r=>blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]))?"100px":"70px";
 
-  const jamiSom   = useMemo(()=>savat.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0),[savat]);
+  const jamiSom   = useMemo(()=>savat.reduce((s,r)=>s+somSumma(num(r.Soni),num(r.Som_Narx)),0),[savat]);
   const jamiDollar= useMemo(()=>savat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0),[savat]);
-  const editJamiSom   = useMemo(()=>editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0),[editSavat]);
+  const editJamiSom   = useMemo(()=>editSavat.reduce((s,r)=>s+somSumma(num(r.Soni),num(r.Som_Narx)),0),[editSavat]);
   const editJamiDollar= useMemo(()=>editSavat.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0),[editSavat]);
 
   // Tanlangan mijozning eski qarzi (boshlang'ich + jami sotuv - jami to'lov)
@@ -1304,7 +1305,7 @@ export default function SotuvPage() {
                               <span style={{fontSize:13,fontWeight:700}}>{mNomi}</span>
                               <span style={{fontSize:12,color:"var(--text-2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{mjNomi}</span>
                               <div style={{minWidth:0}}>
-                                <span style={{fontSize:13,fontWeight:600}}>{r.Soni}</span>
+                                <span style={{fontSize:13,fontWeight:600}}>{fmtSon(num(r.Soni))}</span>
                                 {bm&&<p title={bm} style={{fontSize:10.5,fontWeight:600,color:"var(--text-3)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bm}</p>}
                               </div>
                               <span style={{fontSize:13,fontWeight:600}}>{num(r.Som_Narx).toLocaleString("ru-RU")} so&apos;m</span>
@@ -1344,7 +1345,7 @@ export default function SotuvPage() {
                               <span style={{fontSize:13,fontWeight:700}}>{mNomi}</span>
                               <span style={{fontSize:12,color:"var(--text-2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{mjNomi}</span>
                               <div style={{minWidth:0}}>
-                                <span style={{fontSize:13,fontWeight:600}}>{r.Soni}</span>
+                                <span style={{fontSize:13,fontWeight:600}}>{fmtSon(num(r.Soni))}</span>
                                 {bm&&<p title={bm} style={{fontSize:10.5,fontWeight:600,color:"var(--text-3)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{bm}</p>}
                               </div>
                               <span style={{fontSize:13,fontWeight:600,color:"#2563eb"}}>{fmtUsd(num(r.Narx))}</span>

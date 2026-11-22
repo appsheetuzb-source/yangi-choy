@@ -12,6 +12,9 @@ interface XaridSavatRow {
 interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
 
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
+// Chekdagi soni: avvalgi ko'rinish ("2.0", "12.5"), kasr esa 3 xonagacha ANIQ — blok o'lchami kasr bo'lsa
+// (3 × 12,25 = 36,75) "36.8" bo'lib yaxlitlanmasin
+function fmtChekSoni(v: number) { return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 3, useGrouping: false }); }
 function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
 function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4})+" $"; }
 // Balans xulosasi uchun — aniq 2 xona
@@ -329,7 +332,7 @@ function ChekContent() {
                   <tr key={r.X_Savat||i}>
                     <td>{i+1}</td>
                     <td className="name">{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
-                    <td>{num(r.Soni).toFixed(1)}</td>
+                    <td>{fmtChekSoni(num(r.Soni))}</td>
                     <td>{fmtSom(num(r.Narx_som))}</td>
                     <td className="amount">{fmtSom(num(r.Summa_Som))}</td>
                   </tr>
@@ -365,7 +368,7 @@ function ChekContent() {
                   <tr key={r.X_Savat||i}>
                     <td>{i+1}</td>
                     <td className="name">{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
-                    <td>{num(r.Soni).toFixed(1)}</td>
+                    <td>{fmtChekSoni(num(r.Soni))}</td>
                     <td>{fmtUsd(num(r.Narxi))}</td>
                     <td className="amount">{fmtUsd(num(r.Jami_Summa))}</td>
                   </tr>

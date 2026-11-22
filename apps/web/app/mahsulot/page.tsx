@@ -3,6 +3,7 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
+import { useSkrollTiklash } from "@/lib/use-skroll-tiklash";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
@@ -55,11 +56,12 @@ export default function MahsulotPage() {
   const [mijMahMap, setMijMahMap]   = useState<Record<string, Set<string>>>({});
   const [mijItems, setMijItems]     = useState<{ id: string; label: string }[]>([]);
   const [filterMijoz, setFilterMijoz] = usePersistedState("flt:mahsulot:filterMijoz", "");
-  const [sortCol, setSortCol]   = useState<string | null>(null);
-  const [sortDir, setSortDir]   = useState<"asc" | "desc">("asc");
+  // Saralash va ko'rinish ham eslab qolinadi — detaildan qaytganda tartib o'zgarmasin (skroll joyi to'g'ri tiklansin)
+  const [sortCol, setSortCol]   = usePersistedState<string | null>("flt:mahsulot:sortCol", null);
+  const [sortDir, setSortDir]   = usePersistedState<"asc" | "desc">("flt:mahsulot:sortDir", "asc");
 
   const [currency, setCurrency]       = usePersistedState<"barchasi" | "som" | "dollar">("flt:mahsulot:currency", "barchasi");
-  const [view, setView]               = useState<"grid" | "list">("grid");
+  const [view, setView]               = usePersistedState<"grid" | "list">("flt:mahsulot:view", "grid");
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [editTarget, setEditTarget]   = useState<Mahsulot | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Mahsulot | null>(null);
@@ -186,6 +188,8 @@ export default function MahsulotPage() {
     const io = new IntersectionObserver(es => { if (es[0].isIntersecting) setShown(n => n + 60); });
     io.observe(el); return () => io.disconnect();
   }, [filtered.length, view]);
+  // Detailga kirib "Orqaga" qaytilganda ro'yxat o'sha joyda qoladi (tepaga sakramaydi)
+  useSkrollTiklash("skroll:mahsulot", !loading, shown, setShown);
 
   // ── Yuklash: mahsulot nomi + qoldiq (o'z birligida) + chiqarilgan sana ──
   function buildMahsulotExport(): ExportOpts {
@@ -231,7 +235,8 @@ export default function MahsulotPage() {
   const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
   // "Barchasi" ko'rinishida mahsulotning ombor bo'yicha taqsimoti (qaysi omborda qancha qoldiq bor)
   const omborBreakdown = (mid: string) => Object.keys(invByOmbor)
-    .filter(o => o !== "__none__" && Math.round(invByOmbor[o]?.[mid] || 0) !== 0)
+    // kasr qoldiq ham ko'rinadi (0,5 dona) — faqat 3 xonada nolga teng bo'lganlar yashiriladi
+    .filter(o => o !== "__none__" && Math.abs(invByOmbor[o]?.[mid] || 0) >= 0.0005)
     .map(o => ({ nomi: omborNomi(o) || o, qty: invByOmbor[o][mid] }))
     .sort((a, b) => b.qty - a.qty);
 

@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ayirboshlashmi } from "@/lib/mijoz-ledger";
+import { birlikOf, fmtMiqdor, type Birlik } from "@/lib/birlik";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -16,7 +17,7 @@ interface SavatDol { Sotuv_ID: string; Mahsulot_ID: string; Soni: string; Summa:
 interface STolov { Tolov_ID: string; Agent: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Summa: string; Summa_dollar: string; Vaqt: string; Turi?: string; }
 interface XTolov { Gazna_ID: string; Gazna_dollar_ID: string; Sana: string; Summa: string; Summa_dollar: string; }
 interface Xarajat { Gazna_ID: string; Gazna_dollar_ID: string; Sana: string; Som: string; Dollar: string; }
-interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; Kg: string; }
+interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; Kg: string; Birlik?: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; Agent: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Boshlangich_balans: string; }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Gazna_ID: string; }
@@ -200,7 +201,8 @@ export default function Home() {
   // ── Top mijoz / mahsulot (davr bo'yicha) ──
   const { topMijoz, topMahsulot } = useMemo(()=>{
     const mj: Record<string, { nomi:string; summa:number }> = {};
-    const mh: Record<string, { id:string; nomi:string; kg:number }> = {};
+    // kg — sotilgan MIQDOR yig'indisi (Soni); mahsulotning o'z birligida ko'rsatiladi (dona yoki kg)
+    const mh: Record<string, { id:string; nomi:string; kg:number; birlik:Birlik }> = {};
     const addMj=(s:Sotuv|undefined, som:number, dol:number)=>{
       if(!s) return; const raw=s.Mijoz_ID||""; const id=raw.includes(".")?raw.split(".")[1]:raw;
       if(!mj[id]) mj[id]={ nomi: mijMap[id]||mijMap[raw]||"Mijoz", summa:0 };
@@ -210,14 +212,14 @@ export default function Home() {
       if(isSotuvchi && !mySotuvIds.has(r.Sotuv_ID)) return;
       const s=sotuvMap[r.Sotuv_ID]; if(!s||!inRange(s.Sana, dateFrom, dateTo)) return;
       addMj(s, num(r.Summa_som), 0);
-      if(!mh[r.Mahsulot_ID]) mh[r.Mahsulot_ID]={ id:r.Mahsulot_ID, nomi: mahMap[r.Mahsulot_ID]?.Nomi||"?", kg:0 };
+      if(!mh[r.Mahsulot_ID]) mh[r.Mahsulot_ID]={ id:r.Mahsulot_ID, nomi: mahMap[r.Mahsulot_ID]?.Nomi||"?", kg:0, birlik: birlikOf(mahMap[r.Mahsulot_ID]) };
       mh[r.Mahsulot_ID].kg += num(r.Soni);
     });
     savatD.forEach(r=>{
       if(isSotuvchi && !mySotuvIds.has(r.Sotuv_ID)) return;
       const s=sotuvMap[r.Sotuv_ID]; if(!s||!inRange(s.Sana, dateFrom, dateTo)) return;
       addMj(s, 0, num(r.Summa));
-      if(!mh[r.Mahsulot_ID]) mh[r.Mahsulot_ID]={ id:r.Mahsulot_ID, nomi: mahMap[r.Mahsulot_ID]?.Nomi||"?", kg:0 };
+      if(!mh[r.Mahsulot_ID]) mh[r.Mahsulot_ID]={ id:r.Mahsulot_ID, nomi: mahMap[r.Mahsulot_ID]?.Nomi||"?", kg:0, birlik: birlikOf(mahMap[r.Mahsulot_ID]) };
       mh[r.Mahsulot_ID].kg += num(r.Soni);
     });
     return {
@@ -380,7 +382,7 @@ export default function Home() {
                     onMouseEnter={e=>e.currentTarget.style.background="var(--bg-2)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                     <span style={{ width:22, height:22, borderRadius:"50%", background: i===0?"#3fb950":"var(--bg-2)", color: i===0?"#fff":"var(--text-2)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:800, flexShrink:0 }}>{i+1}</span>
                     <span style={{ flex:1, fontSize:13, fontWeight:600, color:"var(--text)", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.nomi}</span>
-                    <span style={{ fontSize:12, fontWeight:700, color:"#58a6ff" }}>{fmtS(m.kg)} kg</span>
+                    <span style={{ fontSize:12, fontWeight:700, color:"#58a6ff" }}>{fmtMiqdor(m.kg, m.birlik)}</span>
                   </div>
                 ))}
             </div>

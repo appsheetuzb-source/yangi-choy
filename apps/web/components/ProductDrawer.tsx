@@ -2,6 +2,17 @@
 import { useEffect, useState, useRef } from "react";
 import { afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
+import { blokdagiDona } from "@/lib/blok";
+import { fmtSon } from "@/lib/birlik";
+
+// "Blokdagi dona soni" maydoni: raqamlar + bitta ajratgich (vergul yoki nuqta) + 3 xonagacha kasr.
+// Noto'g'ri belgi (harf, ikkinchi ajratgich) e'tiborsiz qoldiriladi — qiymat qayta yozilmaydi.
+// Saqlashda "12,5" → "12.5" ko'rinishiga keltiriladi (handleSave).
+function blokKiritish(v: string): string | null {
+  const m = v.replace(/\s/g, "").match(/^(\d*)([.,]\d*)?$/);
+  if (!m) return null;
+  return m[1] + (m[2] ? m[2].slice(0, 4) : "");
+}
 
 export interface ProductRow {
   Mahsulot_ID: string;
@@ -70,7 +81,11 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
     if (!open) return;
     if (editTarget) {
       // Eski mahsulotlarda Birlik bo'sh — "Dona" deb ochiladi va saqlanganda aniq yoziladi
-      setFormData({ ...editTarget, Birlik: editTarget.Birlik || "Dona" });
+      const f: ProductRow = { ...editTarget, Birlik: editTarget.Birlik || "Dona" };
+      // Avvalgi forma "0"/"1" ni ham saqlagan (≤ 1 = blok yo'q) — bo'sh deb ochiladi; aks holda blokXato
+      // Saqlashni o'chirib qo'yardi (faqat narxni o'zgartirmoqchi bo'lgan admin ham saqlay olmasdi)
+      if (f.Birlik !== "Kg" && String(f.Blokdagi_dona ?? "").trim() !== "" && !blokdagiDona(f)) f.Blokdagi_dona = "";
+      setFormData(f);
     } else {
       setFormData({ ...EMPTY, Mahsulot_ID: uid(), Ombor_ID: defaultOmborId || omborlar[0]?.Ombor_ID || "", Nomi: initialNomi || "" });
     }
@@ -99,28 +114,39 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
     }
   }
 
+  // Blok o'lchami (lib/blok.ts bilan bir xil o'qiladi: "12,5" ham, "12.5" ham → 12.5)
+  const blokN = blokdagiDona(formData);
+  const blokXato = (formData.Birlik || "Dona") !== "Kg" && String(formData.Blokdagi_dona || "").trim() !== "" && !blokN;
+
   function isValid() {
     if (!formData.Nomi.trim()) return false;
     // Sotuv narxi: so'm yoki $ dan kamida bittasi
     if (num(formData.Sotuv_som) <= 0 && num(formData.Sotuv_dollar) <= 0) return false;
     // Tan narxi: so'm yoki $ dan kamida bittasi
     if (num(formData.Tan_som) <= 0 && num(formData.Tan_dollar) <= 0) return false;
+    // Blokdagi dona soni yozilgan bo'lsa — 1 dan katta bo'lishi shart (aks holda blok ishlamaydi, xato ko'rsatiladi)
+    if (blokXato) return false;
     return true;
   }
 
   async function handleSave() {
     if (!isValid()) return;
     setSaving(true);
+    // Blok o'lchami bir xil ko'rinishda saqlanadi: "12,5" → "12.5", "12." → "12"; Kg mahsulotda — bo'sh
+    const bn = blokdagiDona(formData);
+    const row: ProductRow = formData.Blokdagi_dona !== undefined || bn
+      ? { ...formData, Blokdagi_dona: bn ? String(bn) : "" }
+      : formData;
     try {
       if (editTarget) {
         await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheet: "Mahsulot", idColumn: "Mahsulot_ID", idValue: editTarget.Mahsulot_ID, row: formData }) });
+          body: JSON.stringify({ sheet: "Mahsulot", idColumn: "Mahsulot_ID", idValue: editTarget.Mahsulot_ID, row }) });
       } else {
         await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sheet: "Mahsulot", row: formData }) });
+          body: JSON.stringify({ sheet: "Mahsulot", row }) });
       }
       afterWrite("Mahsulot");
-      onSaved(formData);
+      onSaved(row);
       onClose();
     } finally { setSaving(false); }
   }
@@ -209,13 +235,17 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
             {(formData.Birlik || "Dona") !== "Kg" && (
               <div className="field">
                 <label>Blokdagi dona soni</label>
-                <input value={formData.Blokdagi_dona || ""} inputMode="numeric"
-                  placeholder="Masalan: 15 (blok bo'lmasa bo'sh qoldiring)"
-                  onChange={e => setFormData(p => ({ ...p, Blokdagi_dona: e.target.value.replace(/[^0-9]/g, "") }))} />
-                <p style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)", marginTop: 6 }}>
-                  {Number(formData.Blokdagi_dona || 0) > 1
-                    ? `Sotuvda blok bilan kiritiladi: 1 blok = ${Number(formData.Blokdagi_dona)} dona, narx esa bir dona uchun`
-                    : "Bo'sh bo'lsa, mahsulot faqat dona bilan sotiladi"}
+                {/* inputMode="decimal": telefonda vergul/nuqtali raqam klaviaturasi (iPhone "numeric"da ajratgich yo'q) */}
+                <input value={formData.Blokdagi_dona || ""} inputMode="decimal"
+                  placeholder="Masalan: 15 yoki 12,5 (blok bo'lmasa bo'sh qoldiring)"
+                  style={blokXato ? { borderColor: "#ef4444" } : undefined}
+                  onChange={e => { const v = blokKiritish(e.target.value); if (v !== null) setFormData(p => ({ ...p, Blokdagi_dona: v })); }} />
+                <p style={{ fontSize: 11, fontWeight: 600, color: blokXato ? "#ef4444" : "var(--text-3)", marginTop: 6 }}>
+                  {blokN
+                    ? `Sotuvda blok bilan kiritiladi: 1 blok = ${fmtSon(blokN)} dona, narx esa bir dona uchun`
+                    : blokXato
+                      ? "Blokdagi dona soni 1 dan katta bo'lishi kerak (masalan 15 yoki 12,5). Blok kerak bo'lmasa — bo'sh qoldiring"
+                      : "Bo'sh bo'lsa, mahsulot faqat dona bilan sotiladi"}
                 </p>
               </div>
             )}

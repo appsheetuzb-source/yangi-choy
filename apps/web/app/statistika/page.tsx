@@ -4,6 +4,7 @@ import { fetchSheets } from "@/lib/sheet-cache";
 import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ayirboshlashmi } from "@/lib/mijoz-ledger";
+import { birlikOf, fmtMiqdor } from "@/lib/birlik";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
@@ -16,7 +17,7 @@ interface SotuvSavatDollar { Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: st
 interface STolov { Tolov_ID: string; Sotuv_ID: string; Mijoz_ID: string; Yil: string; Oy: string; Sana: string; Valyuta: string; Summa: string; Summa_dollar: string; Turi?: string; }
 interface Xarid { Xarid_ID: string; Yil: string; Oy: string; Sana: string; Taminotchi_ID: string; }
 interface XaridSavat { X_Savat: string; Xarid_ID: string; Mahsulot_ID: string; Soni: string; Narx_som: string; Narxi: string; Summa_Som: string; }
-interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; }
+interface Mahsulot { Mahsulot_ID: string; Nomi: string; Tan_som: string; Tan_dollar: string; Birlik?: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; }
 interface Taminotchi { Taminotchi_ID: string; Ism: string; }
 
@@ -46,7 +47,7 @@ function ChartTooltip({ active, payload, label }: { active?: boolean; payload?: 
       <p style={{ fontSize: 12, fontWeight: 700, marginBottom: 6, color: "var(--text)" }}>{label}</p>
       {payload.map((p, i) => (
         <p key={i} style={{ fontSize: 12, color: p.color, fontWeight: 600 }}>
-          {p.name}: {typeof p.value === "number" && p.value > 1000 ? fmtS(p.value) : p.value}
+          {p.name}: {typeof p.value === "number" ? fmtS(p.value) : p.value}
         </p>
       ))}
     </div>
@@ -524,7 +525,7 @@ export default function StatistikaPage() {
 
             {/* Top 5 lists */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-              <Section title="Top 5 mahsulot (kg)">
+              <Section title="Top 5 mahsulot (miqdor)">
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {topMahsulotlar.slice(0, 5).map((m, i) => (
                     <div key={m.id} onClick={() => router.push(`/mahsulot/${m.id}`)}
@@ -533,7 +534,7 @@ export default function StatistikaPage() {
                       onMouseLeave={e => (e.currentTarget.style.opacity = "1")}>
                       <span style={{ width: 22, height: 22, borderRadius: "50%", background: COLORS[i], color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{i+1}</span>
                       <span style={{ flex: 1, fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.nomi}</span>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{fmtS(m.kg)} kg</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{fmtMiqdor(m.kg, birlikOf(mahsulotMap[m.id]))}</span>
                     </div>
                   ))}
                 </div>
@@ -792,7 +793,7 @@ export default function StatistikaPage() {
         {/* ═══ MAHSULOTLAR ════════════════════════ */}
         {tab === "mahsulotlar" && (
           <>
-            <Section title={`Top ${topMahsulotlar.length} sotilgan mahsulot (kg)`}>
+            <Section title={`Top ${topMahsulotlar.length} sotilgan mahsulot (miqdor)`}>
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={topMahsulotlar.map(m => ({ name: m.nomi?.slice(0, 14) || "", kg: m.kg, som: m.somSumma, dollar: m.dollarSumma }))}
                   layout="vertical" margin={{ top: 5, right: 20, left: 120, bottom: 5 }}>
@@ -800,7 +801,7 @@ export default function StatistikaPage() {
                   <XAxis type="number" tick={{ fontSize: 10, fill: "var(--text-3)" }} tickFormatter={v => fmtS(v)} />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: "var(--text-2)" }} width={120} />
                   <Tooltip content={<ChartTooltip />} />
-                  <Bar dataKey="kg" name="Kg" fill="#16a34a" radius={[0,4,4,0]} />
+                  <Bar dataKey="kg" name="Miqdor" fill="#16a34a" radius={[0,4,4,0]} />
                 </BarChart>
               </ResponsiveContainer>
             </Section>
@@ -809,7 +810,7 @@ export default function StatistikaPage() {
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr style={{ background: "var(--bg)" }}>
-                      {["#","MAHSULOT","SOTILGAN (KG)","SOTUV SO'M","SOTUV $"].map(h => (
+                      {["#","MAHSULOT","SOTILGAN MIQDOR","SOTUV SO'M","SOTUV $"].map(h => (
                         <th key={h} style={{ padding: "9px 14px", fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em", textAlign: "left", borderBottom: "1px solid var(--border)" }}>{h}</th>
                       ))}
                     </tr>
@@ -824,7 +825,7 @@ export default function StatistikaPage() {
                           <span style={{ width: 24, height: 24, borderRadius: "50%", background: COLORS[i % COLORS.length], color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800 }}>{i+1}</span>
                         </td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "var(--primary)" }}>{m.nomi}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{fmtS(m.kg)} kg</td>
+                        <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#16a34a" }}>{fmtMiqdor(m.kg, birlikOf(mahsulotMap[m.id]))}</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700 }}>{fmtS(m.somSumma)} so'm</td>
                         <td style={{ padding: "10px 14px", fontSize: 13, fontWeight: 700, color: "#2563eb" }}>{fmtU(m.dollarSumma)}</td>
                       </tr>

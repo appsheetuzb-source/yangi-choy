@@ -3,7 +3,7 @@
 import { fetchSheet, fetchSheetWhere, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { birlikOf } from "@/lib/birlik";
+import { birlikOf, miqdor3 } from "@/lib/birlik";
 import { useAuth } from "@/lib/AuthContext";
 import OmborBiriktirilmagan from "@/components/OmborBiriktirilmagan";
 import { readOmbor2, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
@@ -362,18 +362,20 @@ export default function MahsulotDetailPage() {
 
   const inRangeTx = viewTxAll.filter(t => inRange(t.sana, dateFrom, dateTo));
 
-  const davrKirim  = inRangeTx.reduce((s, t) => s + t.kirim, 0);
-  const davrChiqim = inRangeTx.reduce((s, t) => s + t.chiqim, 0);
-  const davrSof    = davrKirim - davrChiqim;
-  const joriyBalans = viewTxAll.reduce((s, t) => s + t.kirim - t.chiqim, 0);
+  // Kasr miqdorlar (blok o'lchami 12,5 / 13,3) yig'ilganda suzuvchi nuqta qoldig'i qolmasin: har yig'indi
+  // 3 xonaga keltiriladi (39,9 − 3×13,3 = −3,5e-15 → 0; "−0" yoki qizil "0" chiqmaydi)
+  const davrKirim  = miqdor3(inRangeTx.reduce((s, t) => s + t.kirim, 0));
+  const davrChiqim = miqdor3(inRangeTx.reduce((s, t) => s + t.chiqim, 0));
+  const davrSof    = miqdor3(davrKirim - davrChiqim);
+  const joriyBalans = miqdor3(viewTxAll.reduce((s, t) => s + t.kirim - t.chiqim, 0));
 
   // Running balance (oldest→newest, then display newest on top)
   let running = 0;
   const withBalance = [...viewTxAll]
     .sort((a, b) => a.sortKey.localeCompare(b.sortKey))
     .map(t => {
-      running += t.kirim - t.chiqim;
-      return { ...t, balans: running };
+      running += t.kirim - t.chiqim;                  // aniq yig'indi (joriyBalans bilan bir xil tartib)
+      return { ...t, balans: miqdor3(running) };      // faqat ko'rsatish uchun: -3,5e-15 / -0 → 0
     })
     .reverse();
 
@@ -384,7 +386,9 @@ export default function MahsulotDetailPage() {
       // Matn (mijoz nomi, izoh, sana) yoki raqam (summa, narx — bo'shliqlarsiz) bo'yicha
       const textHay = `${t.manba} ${t.izoh} ${t.sana}`.toLowerCase();
       const qDigits = qLower.replace(/\D/g, "");
-      const nums = [t.summaSom, t.summaDollar, t.narxSom, t.narxDollar, t.kirim, t.chiqim].map(n => String(Math.round(n)));
+      // butun ko'rinish (12,5 → "13") ham, aniq kasr raqamlari (12,5 → "125") ham — "12,5" deb qidirilsa topilsin
+      const nums = [t.summaSom, t.summaDollar, t.narxSom, t.narxDollar, t.kirim, t.chiqim]
+        .flatMap(n => [String(Math.round(n)), String(miqdor3(Math.abs(n))).replace(/\D/g, "")]);
       const textOk = textHay.includes(qLower);
       const numOk = qDigits.length > 0 && nums.some(n => n.includes(qDigits));
       if (!textOk && !numOk) return false;

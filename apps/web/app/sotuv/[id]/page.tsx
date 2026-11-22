@@ -7,6 +7,7 @@ import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/om
 import { useEffect, useState, useRef, useMemo, type CSSProperties } from "react";
 import { birlikOf } from "@/lib/birlik";
 import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokTahrir, blokMatn, soniIzoh } from "@/lib/blok";
+import { somSumma, usdSumma } from "@/lib/summa";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni } from "@/lib/mijoz-ledger";
 import { sotuvTasdiqXabari } from "@/lib/telegram-xabar";
@@ -24,10 +25,12 @@ interface Sotuv {
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
   Soni: string; Som_Narx: string; Summa_som: string; Kurs: string; Ombor_ID: string; Check: string; Izoh?: string; Vaqt?: string; Blok?: string;
+  Foyda_summasi_som?: string;   // sotuv paytida saqlangan foyda (so'mda) — foyda bloki shuni o'qiydi (app/foyda bilan bir xil)
 }
 interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
   Soni: string; Narx: string; Summa: string; Kurs: string; Ombor_ID: string; Check: string; Izoh?: string; Vaqt?: string; Blok?: string;
+  Tan_narx?: string; Foyda?: string;   // sotuv paytidagi tan narx snapshot'i ($)
 }
 interface Foydalanuvchi { Foydalanuvchi_ID: string; Nomi: string; Ombor_ID?: string; Lavozim?: string; }
 interface Mijoz { Mijoz_ID: string; Ism: string; Telefon: string; Agent?: string; Dokon_Ombor_ID?: string; Boshlangich_Balans_som?: string; Boshlangich_Balans_dollar?: string; }
@@ -179,7 +182,7 @@ function BlokInfo({q,n,style}:{q:{Soni:string;Blok?:string;Dona?:string};n:numbe
   const b=(v:string|number)=><b style={{color:"var(--text)",fontWeight:700}}>{v}</b>;
   return (
     <div style={{fontSize:12,color:"var(--text-2)",background:"var(--bg)",borderRadius:8,padding:"5px 10px",...style}}>
-      Blok: {b(q.Blok||0)} × {b(n)}{num(q.Dona)!==0?<> {num(q.Dona)>0?"+":"−"} {b(Math.abs(num(q.Dona)))} dona</>:null} = {b(fmt(q.Soni))} dona
+      Blok: {b(q.Blok||0)} × {b(fmt(n))}{num(q.Dona)!==0?<> {num(q.Dona)>0?"+":"−"} {b(fmt(Math.abs(num(q.Dona))))} dona</>:null} = {b(fmt(q.Soni))} dona
     </div>
   );
 }
@@ -194,7 +197,7 @@ function BlokDonaInput({blok,dona,n,onBlok,onDona,inputStyle,gap=4,onGroupFocus,
   return (
     <div style={{display:"flex",gap,minWidth:0}} onFocus={onGroupFocus}
       onBlur={e=>{ if(onGroupBlur&&!e.currentTarget.contains(e.relatedTarget)) onGroupBlur(); }}>
-      <input value={blok??""} onChange={e=>onBlok(e.target.value)} placeholder="blok" type="number" title={`Blok soni (1 blok = ${n} dona)`} style={st}/>
+      <input value={blok??""} onChange={e=>onBlok(e.target.value)} placeholder="blok" type="number" title={`Blok soni (1 blok = ${fmt(n)} dona)`} style={st}/>
       <input value={dona??""} onChange={e=>onDona(e.target.value)} placeholder="dona" type="number" title="Qo'shimcha dona" style={st}/>
     </div>
   );
@@ -713,20 +716,20 @@ export default function SotuvDetailPage() {
           const m=mMap[r.Mahsulot_ID];
           const blok=blokSaqla(r); // nechta blok bilan kiritilgani ("" — oddiy dona); Soni baribir jami dona
           if(num(r.Som_Narx)>0){
-            const sid=uid(); const summa=String(num(r.Soni)*num(r.Som_Narx));
+            const sid=uid(); const summa=String(somSumma(num(r.Soni),num(r.Som_Narx)));
             const tanS=tanSnapSom(m,kurs); const fS=num(r.Som_Narx)-tanS;
             const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blok,Som_Narx:r.Som_Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:String(Math.round(tanS)),Foyda:String(Math.round(fS)),Foyda_summasi_som:String(Math.round(num(r.Soni)*fS)),Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",row})});
             somSheet.push(row);
-            newSom.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blok,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||""});
+            newSom.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blok,Som_Narx:r.Som_Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||"",Foyda_summasi_som:row.Foyda_summasi_som});
           }
           if(num(r.Narx)>0){
-            const sid=uid(); const summa=String(num(r.Soni)*num(r.Narx));
+            const sid=uid(); const summa=String(usdSumma(num(r.Soni),num(r.Narx)));
             const tanD=tanSnapUsd(m,kurs); const fD=num(r.Narx)-tanD;
             const row={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blok,Narx:r.Narx,Kurs:kurs,Summa:summa,Tan_narx:tanD.toFixed(2),Foyda:fD.toFixed(2),Foyda_summasi_som:(fD*num(r.Soni)).toFixed(2),Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:r.Izoh||"",Mijoz_ID:editMijoz};
             await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",row})});
             dollarSheet.push(row);
-            newDollar.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blok,Narx:r.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||""});
+            newDollar.push({Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Blok:blok,Narx:r.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:r.Izoh||"",Tan_narx:row.Tan_narx,Foyda:row.Foyda});
           }
         }
         setSavatSom(p=>[...p,...newSom]);
@@ -791,7 +794,7 @@ export default function SotuvDetailPage() {
                 Savat_ID:uid(),Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,
                 Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,
                 Soni:r.Soni,Blok:blok,Som_Narx:r.Som_Narx,Kurs:kurs,
-                Summa_som:String(num(r.Soni)*num(r.Som_Narx)),
+                Summa_som:String(somSumma(num(r.Soni),num(r.Som_Narx))),
                 Som_tan_narx:String(Math.round(tanS)),Foyda:String(Math.round(fS)),Foyda_summasi_som:String(Math.round(num(r.Soni)*fS)),
                 Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
               }})});
@@ -802,7 +805,7 @@ export default function SotuvDetailPage() {
               body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:{
                 Savat_ID:uid(),Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:snRow,
                 Sotuv_ID:sotuv.Sotuv_ID,Agent:editAgent,Mahsulot_ID:r.Mahsulot_ID,
-                Soni:r.Soni,Blok:blok,Narx:r.Narx,Kurs:kurs,Summa:String(num(r.Soni)*num(r.Narx)),
+                Soni:r.Soni,Blok:blok,Narx:r.Narx,Kurs:kurs,Summa:String(usdSumma(num(r.Soni),num(r.Narx))),
                 Tan_narx:tanD.toFixed(2),Foyda:fD.toFixed(2),Foyda_summasi_som:(fD*num(r.Soni)).toFixed(2),
                 Ombor_ID:ombSrc(editAgent,m?.Ombor_ID||""),Ombor_2:ombDest(editMijoz),Raqam:"",Vaqt:vaqt,Check:"",Izoh:"",Mijoz_ID:editMijoz,
               }})});
@@ -824,7 +827,7 @@ export default function SotuvDetailPage() {
     if(num(editSomSoni)===0){ showToast("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan)", false); return; }
     if(priceBelowCost(somMid,editSomNarx,"som")){ showToast((mMap[somMid]?.Nomi||"Mahsulot")+" - tan narxidan past, saqlanmadi", false); return; }
     setEditSomSaving(true);
-    const newSumma=num(editSomSoni)*num(editSomNarx);
+    const newSumma=somSumma(num(editSomSoni),num(editSomNarx));
     const newId=uid();
     const somKurs=rowKurs(editSomRow.Kurs);
     const somTan=tanSnapSom(mMap[somMid],somKurs); const somFoyda=num(editSomNarx)-somTan;
@@ -846,7 +849,7 @@ export default function SotuvDetailPage() {
       await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv_Savat",row:newRow})});
       setSavatSom(p=>p.map(r=>r.Savat_ID===editSomRow.Savat_ID
-        ?{...r,Savat_ID:newId,Mahsulot_ID:editSomMahsulot||editSomRow.Mahsulot_ID,Soni:editSomSoni,Blok:somBlok,Som_Narx:editSomNarx,Summa_som:String(newSumma),Izoh:editSomIzoh}:r));
+        ?{...r,Savat_ID:newId,Mahsulot_ID:editSomMahsulot||editSomRow.Mahsulot_ID,Soni:editSomSoni,Blok:somBlok,Som_Narx:editSomNarx,Summa_som:String(newSumma),Izoh:editSomIzoh,Foyda_summasi_som:newRow.Foyda_summasi_som}:r));
       replaceSheetRows("Sotuv_Savat","Savat_ID",[editSomRow.Savat_ID],[newRow]);
       setEditSomRow(null);
     } finally { setEditSomSaving(false); }
@@ -859,7 +862,7 @@ export default function SotuvDetailPage() {
     if(num(editDollarSoni)===0){ showToast("Soni 0 bo'lmasligi kerak (qaytarish uchun minus bilan)", false); return; }
     if(priceBelowCost(usdMid,editDollarNarx,"dollar")){ showToast((mMap[usdMid]?.Nomi||"Mahsulot")+" - tan narxidan past, saqlanmadi", false); return; }
     setEditDollarSaving(true);
-    const newSumma=num(editDollarSoni)*num(editDollarNarx);
+    const newSumma=usdSumma(num(editDollarSoni),num(editDollarNarx));
     const newId=uid();
     const usdKurs=rowKurs(editDollarRow.Kurs);
     const usdTan=tanSnapUsd(mMap[usdMid],usdKurs); const usdFoyda=num(editDollarNarx)-usdTan;
@@ -881,7 +884,7 @@ export default function SotuvDetailPage() {
       await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:newRow})});
       setSavatDollar(p=>p.map(r=>r.Savat_ID===editDollarRow.Savat_ID
-        ?{...r,Savat_ID:newId,Mahsulot_ID:editDollarMahsulot||editDollarRow.Mahsulot_ID,Soni:editDollarSoni,Blok:usdBlok,Narx:editDollarNarx,Summa:String(newSumma),Izoh:editDollarIzoh}:r));
+        ?{...r,Savat_ID:newId,Mahsulot_ID:editDollarMahsulot||editDollarRow.Mahsulot_ID,Soni:editDollarSoni,Blok:usdBlok,Narx:editDollarNarx,Summa:String(newSumma),Izoh:editDollarIzoh,Tan_narx:newRow.Tan_narx,Foyda:newRow.Foyda}:r));
       replaceSheetRows("Sotuv_savat_dollar","Savat_ID",[editDollarRow.Savat_ID],[newRow]);
       setEditDollarRow(null);
     } finally { setEditDollarSaving(false); }
@@ -939,26 +942,30 @@ export default function SotuvDetailPage() {
     setBulkSaving(true);
     // Ommaviy tahrirda faqat jami Soni o'zgaradi: Soni/mahsulot o'zgarsa Blok qayta hisoblanadi, aks holda eski Blok
     const bBlok=(r:{Soni:string;Blok?:string;Mahsulot_ID:string},e:{Soni:string;Mahsulot?:string})=>blokTahrir(r,e.Soni,e.Mahsulot||r.Mahsulot_ID,mMap[e.Mahsulot||r.Mahsulot_ID]);
+    // Foyda snapshot'i (sotuv paytidagi tan narx) — PUT va lokal holat (foyda bloki) uchun bir xil
+    type BE={Soni:string;Narx:string;Mahsulot?:string};
+    const somSnap=(r:SotuvSavatRow,e:BE)=>{ const t=tanSnapSom(mMap[e.Mahsulot||r.Mahsulot_ID],rowKurs(r.Kurs)); const f=num(e.Narx)-t;
+      return {Som_tan_narx:String(Math.round(t)),Foyda:String(Math.round(f)),Foyda_summasi_som:String(Math.round(num(e.Soni)*f))}; };
+    const usdSnap=(r:SotuvSavatDollarRow,e:BE)=>{ const t=tanSnapUsd(mMap[e.Mahsulot||r.Mahsulot_ID],rowKurs(r.Kurs)); const f=num(e.Narx)-t;
+      return {Tan_narx:t.toFixed(2),Foyda:f.toFixed(2),Foyda_summasi_som:(f*num(e.Soni)).toFixed(2)}; };
     try {
       for(const r of savatSom){
         if(!bulkSel.has(r.Savat_ID)) continue;
         const e=bulkEdits[r.Savat_ID]; if(!e) continue;
         await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx)),
-            ...(()=>{ const t=tanSnapSom(mMap[e.Mahsulot||r.Mahsulot_ID],rowKurs(r.Kurs)); const f=num(e.Narx)-t;
-              return {Som_tan_narx:String(Math.round(t)),Foyda:String(Math.round(f)),Foyda_summasi_som:String(Math.round(num(e.Soni)*f))}; })()}})});
+          body:JSON.stringify({sheet:"Sotuv_Savat",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Som_Narx:e.Narx,Summa_som:String(somSumma(num(e.Soni),num(e.Narx))),
+            ...somSnap(r,e)}})});
       }
       for(const r of savatDollar){
         if(!bulkSel.has(r.Savat_ID)) continue;
         const e=bulkEdits[r.Savat_ID]; if(!e) continue;
         await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Narx:e.Narx,Summa:String(num(e.Soni)*num(e.Narx)),
-            ...(()=>{ const t=tanSnapUsd(mMap[e.Mahsulot||r.Mahsulot_ID],rowKurs(r.Kurs)); const f=num(e.Narx)-t;
-              return {Tan_narx:t.toFixed(2),Foyda:f.toFixed(2),Foyda_summasi_som:(f*num(e.Soni)).toFixed(2)}; })()}})});
+          body:JSON.stringify({sheet:"Sotuv_savat_dollar",idColumn:"Savat_ID",idValue:r.Savat_ID,updates:{Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Narx:e.Narx,Summa:String(usdSumma(num(e.Soni),num(e.Narx))),
+            ...usdSnap(r,e)}})});
       }
       afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
-      setSavatSom(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Som_Narx:e.Narx,Summa_som:String(num(e.Soni)*num(e.Narx))}:r; }));
-      setSavatDollar(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Narx:e.Narx,Summa:String(num(e.Soni)*num(e.Narx))}:r; }));
+      setSavatSom(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Som_Narx:e.Narx,Summa_som:String(somSumma(num(e.Soni),num(e.Narx))),Foyda_summasi_som:somSnap(r,e).Foyda_summasi_som}:r; }));
+      setSavatDollar(p=>p.map(r=>{ const e=bulkSel.has(r.Savat_ID)?bulkEdits[r.Savat_ID]:null; return e?{...r,Mahsulot_ID:e.Mahsulot||r.Mahsulot_ID,Soni:e.Soni,Blok:bBlok(r,e),Narx:e.Narx,Summa:String(usdSumma(num(e.Soni),num(e.Narx))),...(({Tan_narx,Foyda})=>({Tan_narx,Foyda}))(usdSnap(r,e))}:r; }));
       exitBulk();
     } finally { setBulkSaving(false); }
   }
@@ -980,19 +987,19 @@ export default function SotuvDetailPage() {
     const blok=blokSaqla(row); // nechta blok bilan kiritilgani ("" — oddiy dona); Soni baribir jami dona
     try {
       if(valyuta==="som"){
-        const summa=String(num(row.Soni)*num(row.Narx));
+        const summa=String(somSumma(num(row.Soni),num(row.Narx)));
         const tanS=tanSnapSom(m,kurs); const fS=num(row.Narx)-tanS;
         const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Blok:blok,Som_Narx:row.Narx,Kurs:kurs,Summa_som:summa,Som_tan_narx:String(Math.round(tanS)),Foyda:String(Math.round(fS)),Foyda_summasi_som:String(Math.round(num(row.Soni)*fS)),Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_Savat",row:newRow})});
-        setSavatSom(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Blok:blok,Som_Narx:row.Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||""}]);
+        setSavatSom(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Blok:blok,Som_Narx:row.Narx,Summa_som:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||"",Foyda_summasi_som:newRow.Foyda_summasi_som}]);
         appendSheetRows("Sotuv_Savat",[newRow]);
         setAddSomRows(p=>p.filter(x=>x.id!==row.id));
       } else {
-        const summa=String(num(row.Soni)*num(row.Narx));
+        const summa=String(usdSumma(num(row.Soni),num(row.Narx)));
         const tanD=tanSnapUsd(m,kurs); const fD=num(row.Narx)-tanD;
         const newRow={Savat_ID:sid,Yil:yRow,Oy:moRow.replace(/^0/,""),Sana:sotuv.Sana,Sotuv_ID:sotuv.Sotuv_ID,Agent:sotuv.Agent,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Blok:blok,Narx:row.Narx,Kurs:kurs,Summa:summa,Tan_narx:tanD.toFixed(2),Foyda:fD.toFixed(2),Foyda_summasi_som:(fD*num(row.Soni)).toFixed(2),Ombor_ID:ombSrc(sotuv.Agent,m?.Ombor_ID||""),Ombor_2:ombDest(sotuv.Mijoz_ID),Raqam:"",Vaqt:vaqt,Check:"TRUE",Izoh:row.Izoh||"",Mijoz_ID:sotuv.Mijoz_ID};
         await fetch("/api/sheets",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sheet:"Sotuv_savat_dollar",row:newRow})});
-        setSavatDollar(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Blok:blok,Narx:row.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||""}]);
+        setSavatDollar(p=>[...p,{Savat_ID:sid,Sotuv_ID:sotuv.Sotuv_ID,Mahsulot_ID:row.Mahsulot_ID,Soni:row.Soni,Blok:blok,Narx:row.Narx,Summa:summa,Kurs:kurs,Ombor_ID:m?.Ombor_ID||"",Check:"TRUE",Izoh:row.Izoh||"",Tan_narx:newRow.Tan_narx,Foyda:newRow.Foyda}]);
         appendSheetRows("Sotuv_savat_dollar",[newRow]);
         setAddDollarRows(p=>p.filter(x=>x.id!==row.id));
       }
@@ -1136,8 +1143,33 @@ export default function SotuvDetailPage() {
 
   const jamiSom    = useMemo(()=>savatSom.reduce((s,r)=>s+num(r.Summa_som),0),[savatSom]);
   const jamiDollar = useMemo(()=>savatDollar.reduce((s,r)=>s+num(r.Summa),0),[savatDollar]);
-  const editJamiSom    = useMemo(()=>editItems.reduce((s,r)=>s+num(r.Soni)*num(r.Som_Narx),0),[editItems]);
-  const editJamiDollar = useMemo(()=>editItems.reduce((s,r)=>s+num(r.Soni)*num(r.Narx),0),[editItems]);
+  // Shu sotuvning foydasi: Summa − Tan×Soni (Tan_som bo'sh bo'lsa Tan_dollar×kurs, va aksincha)
+  // Shu sotuvning foydasi — Foyda bo'limi (app/foyda/page.tsx) bilan AYNAN bir xil qoida:
+  //  • so'm qatori: sotuv paytida saqlangan Foyda_summasi_som (Som_tan_narx aralash birlikda — ishlatilmaydi);
+  //  • dollar qatori: saqlangan Tan_narx (Foyda to'la va Tan_narx > 0 bo'lsa);
+  //  • snapshot'i yo'q eski qatorlar — joriy tan narx bilan (Tan_som bo'sh bo'lsa Tan_dollar×kurs, va aksincha).
+  // Mahsulot tan narxi keyin o'zgartirilsa ham eski sotuv foydasi o'zgarmaydi.
+  const sotuvFoyda = useMemo(()=>{
+    const k0 = num(savatSom[0]?.Kurs||savatDollar[0]?.Kurs||centralKurs||"0");
+    let som=0, usd=0;
+    savatSom.forEach(r=>{
+      const snap=String(r.Foyda_summasi_som??"").trim();
+      if(snap!==""){ som+=num(snap); return; }
+      const m=mMap[r.Mahsulot_ID]; const rk=num(r.Kurs)||k0;
+      const tanS=num(m?.Tan_som)>0?num(m?.Tan_som):num(m?.Tan_dollar)*rk;
+      som += num(r.Summa_som) - tanS*num(r.Soni);
+    });
+    savatDollar.forEach(r=>{
+      const m=mMap[r.Mahsulot_ID]; const rk=num(r.Kurs)||k0;
+      const snapOk=String(r.Foyda??"").trim()!=="" && num(r.Tan_narx)>0;
+      const tanD=snapOk?num(r.Tan_narx):(num(m?.Tan_dollar)>0?num(m?.Tan_dollar):(rk>0?num(m?.Tan_som)/rk:0));
+      usd += num(r.Summa) - tanD*num(r.Soni);
+    });
+    // Ko'rsatish aniqligida: so'm — butun, $ — sent ("-0 so'm" / "$-0,00" chiqmasin)
+    return {som: Math.round(som)||0, usd: Math.round(usd*100)/100||0};
+  },[savatSom,savatDollar,mMap,centralKurs]);
+  const editJamiSom    = useMemo(()=>editItems.reduce((s,r)=>s+somSumma(num(r.Soni),num(r.Som_Narx)),0),[editItems]);
+  const editJamiDollar = useMemo(()=>editItems.reduce((s,r)=>s+usdSumma(num(r.Soni),num(r.Narx)),0),[editItems]);
   const tolovJamiSom    = useMemo(()=>stolovlar.reduce((s,t)=>s+(t.Valyuta!=="Dollar"?num(t.Summa):0),0),[stolovlar]);
   const tolovJamiDollar = useMemo(()=>stolovlar.reduce((s,t)=>s+(t.Valyuta==="Dollar"?num(t.Summa_dollar):0),0),[stolovlar]);
 
@@ -1152,6 +1184,9 @@ export default function SotuvDetailPage() {
 
   const mjNomi = mijozlar.find(m=>m.Mijoz_ID===sotuv.Mijoz_ID)?.Ism||"—";
   const agNomi = aMap[sotuv.Agent]||"—";
+  // Foyda: Admin har doim; boshqa rollar faqat O'ZI sotgan (Agent === user.id) sotuvda ko'radi
+  const isOwnSale = !!user?.id && String(sotuv.Agent||"") === String(user.id);
+  const canSeeFoyda = isAdmin || isOwnSale;
   // SONI ustuni odatda 56px. Jadvalda blok izohi ("1 blok + 3 dona") yoki [blok][dona] kataklari bo'lsa 84px;
   // bloksiz savatda joylashuv avvalgidek qoladi (admin ikki jadvalni yonma-yon ko'radi — joy tor).
   // SONI ustuni faqat [blok][dona] kataklari kiritilayotganda kengayadi. Saqlangan blok qatorida izoh
@@ -1228,6 +1263,32 @@ export default function SotuvDetailPage() {
                 ); })()}
                 </div>
               </div>
+            {/* Shu sotuvdan foyda — sarlavhasiz (foydalanuvchi so'rovi), faqat So'm / Dollar va summa */}
+            {/* Dollar ma'lumotlari hamma joyda faqat Admin'ga ochiq — sotuvchi o'z sotuvida faqat so'm foydasini ko'radi */}
+            {canSeeFoyda && (savatSom.length>0||(isAdmin&&savatDollar.length>0)) && (
+              <div title="Shu sotuvdan foyda" style={{marginTop:14,paddingTop:14,borderTop:"1px solid var(--border)"}}>
+                <div style={{display:"flex",gap:20,flexWrap:"wrap"}}>
+                  {sotuvFoyda.som!==0 && (
+                    <div>
+                      <p style={{fontSize:11,fontWeight:600,color:"var(--text-3)",marginBottom:2}}>So&apos;m</p>
+                      <p style={{fontSize:15,fontWeight:800,color:sotuvFoyda.som>=0?"#16a34a":"#ef4444"}}>{Math.round(sotuvFoyda.som).toLocaleString("ru-RU")} <span style={{fontSize:10,fontWeight:600}}>so&apos;m</span></p>
+                    </div>
+                  )}
+                  {isAdmin && sotuvFoyda.usd!==0 && (
+                    <div>
+                      <p style={{fontSize:11,fontWeight:600,color:"var(--text-3)",marginBottom:2}}>Dollar</p>
+                      <p style={{fontSize:15,fontWeight:800,color:sotuvFoyda.usd>=0?"#16a34a":"#ef4444"}}>${sotuvFoyda.usd.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2})}</p>
+                    </div>
+                  )}
+                  {sotuvFoyda.som===0 && (!isAdmin||sotuvFoyda.usd===0) && (
+                    <div>
+                      <p style={{fontSize:11,fontWeight:600,color:"var(--text-3)",marginBottom:2}}>{savatSom.length>0?"So'm":"Dollar"}</p>
+                      <p style={{fontSize:15,fontWeight:800,color:"var(--text-3)"}}>{savatSom.length>0?<>0 <span style={{fontSize:10,fontWeight:600}}>so&apos;m</span></>:"$0,00"}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
           {/* SO'M */}
           <div style={{background:"var(--white)",borderRadius:"var(--radius-xl)",boxShadow:"var(--shadow-sm)",padding:isMobile?"13px 13px":"16px 20px",minWidth:0}}>
@@ -1304,7 +1365,7 @@ export default function SotuvDetailPage() {
               if(bulkMode){
                 const sel=bulkSel.has(s.Savat_ID);
                 const e=bulkEdits[s.Savat_ID]||{Soni:s.Soni,Narx:s.Som_Narx,Mahsulot:s.Mahsulot_ID};
-                const jami=sel?num(e.Soni)*num(e.Narx):num(s.Summa_som);
+                const jami=sel?somSumma(num(e.Soni),num(e.Narx)):num(s.Summa_som);
                 if(isMobile) return (
                   <div key={s.Savat_ID||i} style={{padding:"10px 16px",borderBottom:i<savatSom.length-1?"1px solid var(--border)":"none",background:sel?"#f0f9ff":"transparent",display:"flex",alignItems:"center",gap:10}}>
                     <input type="checkbox" checked={sel} onChange={()=>toggleBulkRow(s.Savat_ID,s.Soni,s.Som_Narx)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
@@ -1368,7 +1429,7 @@ export default function SotuvDetailPage() {
                         <input autoFocus value={editSomSoni} onChange={e=>setEditSomSoni(e.target.value)} type="number" style={{width:60,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                         <span style={{color:"var(--text-3)"}}>×</span>
                         <input value={editSomNarx} onChange={e=>setEditSomNarx(e.target.value)} inputMode="decimal" style={{width:84,padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
-                        <span style={{fontSize:13,fontWeight:800,color:(num(editSomSoni)*num(editSomNarx))<0?"#ec4899":"var(--primary)"}}>= {fmtSom(num(editSomSoni)*num(editSomNarx))}</span>
+                        <span style={{fontSize:13,fontWeight:800,color:(somSumma(num(editSomSoni),num(editSomNarx)))<0?"#ec4899":"var(--primary)"}}>= {fmtSom(somSumma(num(editSomSoni),num(editSomNarx)))}</span>
                         <BlokHint soni={editSomSoni} eski={s} mid={editSomMahsulot||s.Mahsulot_ID} m={mMap[editSomMahsulot||s.Mahsulot_ID]} style={{flexBasis:"100%",marginTop:0}}/>
                       </span>
                     ):(
@@ -1395,8 +1456,8 @@ export default function SotuvDetailPage() {
                     : <SoniKatak soni={s.Soni} blok={s.Blok} m={m}/>}
                   {isEdit?<input value={editSomNarx} onChange={e=>setEditSomNarx(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                     :<span style={{fontSize:14,fontWeight:700}}>{fmt(s.Som_Narx)}</span>}
-                  <span style={{fontSize:14,fontWeight:800,color:(isEdit?(num(editSomSoni)*num(editSomNarx)):num(s.Summa_som))<0?"#ec4899":(isEdit?"var(--primary)":"var(--text)")}}>
-                    {isEdit?fmtSom(num(editSomSoni)*num(editSomNarx)):fmtSom(s.Summa_som)}
+                  <span style={{fontSize:14,fontWeight:800,color:(isEdit?(somSumma(num(editSomSoni),num(editSomNarx))):num(s.Summa_som))<0?"#ec4899":(isEdit?"var(--primary)":"var(--text)")}}>
+                    {isEdit?fmtSom(somSumma(num(editSomSoni),num(editSomNarx))):fmtSom(s.Summa_som)}
                   </span>
                   {isEdit
                     ? <input value={editSomIzoh} onChange={e=>setEditSomIzoh(e.target.value)} placeholder="Izoh" style={{padding:"6px 8px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:12,outline:"none",minWidth:0}}/>
@@ -1454,8 +1515,8 @@ export default function SotuvDetailPage() {
                         style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid var(--primary)",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>}
                   <input value={row.Narx} onChange={e=>updSomRow(row.id,"Narx",e.target.value)} placeholder="Narx" inputMode="decimal"
                     style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid var(--primary)",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>
-                  {(num(row.Soni)*num(row.Narx))
-                    ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:"var(--primary)",whiteSpace:"nowrap"}}>{(num(row.Soni)*num(row.Narx)).toLocaleString("ru-RU")}</span>
+                  {(somSumma(num(row.Soni),num(row.Narx)))
+                    ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:"var(--primary)",whiteSpace:"nowrap"}}>{(somSumma(num(row.Soni),num(row.Narx))).toLocaleString("ru-RU")}</span>
                     : <button onClick={()=>rmSomRow(row.id)} title="Qatorni o'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
                 </div>
                 {blokRejim&&<BlokInfo q={row} n={bn} style={{marginTop:6}}/>}
@@ -1473,7 +1534,7 @@ export default function SotuvDetailPage() {
                         style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>}
                   <input value={row.Narx} onChange={e=>updSomRow(row.id,"Narx",e.target.value)} placeholder="Narx"
                     style={{padding:"6px 10px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
-                  <span style={{fontSize:14,fontWeight:800,color:"var(--primary)"}}>{fmtSom(num(row.Soni)*num(row.Narx))}</span>
+                  <span style={{fontSize:14,fontWeight:800,color:"var(--primary)"}}>{fmtSom(somSumma(num(row.Soni),num(row.Narx)))}</span>
                   <input value={row.Izoh} onChange={e=>updSomRow(row.id,"Izoh",e.target.value)} placeholder="Izoh"
                     style={{padding:"6px 8px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:12,outline:"none",minWidth:0}}/>
                   <div/>
@@ -1532,7 +1593,7 @@ export default function SotuvDetailPage() {
             if(bulkMode){
               const sel=bulkSel.has(s.Savat_ID);
               const e=bulkEdits[s.Savat_ID]||{Soni:s.Soni,Narx:s.Narx,Mahsulot:s.Mahsulot_ID};
-              const jami=sel?num(e.Soni)*num(e.Narx):num(s.Summa);
+              const jami=sel?usdSumma(num(e.Soni),num(e.Narx)):num(s.Summa);
               if(isMobile) return (
                 <div key={s.Savat_ID||i} style={{padding:"10px 16px",borderBottom:i<savatDollar.length-1?"1px solid var(--border)":"none",background:sel?"#eff6ff":"transparent",display:"flex",alignItems:"center",gap:10}}>
                   <input type="checkbox" checked={sel} onChange={()=>toggleBulkRow(s.Savat_ID,s.Soni,s.Narx)} style={{width:18,height:18,cursor:"pointer",flexShrink:0}}/>
@@ -1596,7 +1657,7 @@ export default function SotuvDetailPage() {
                       <input autoFocus value={editDollarSoni} onChange={e=>setEditDollarSoni(e.target.value)} type="number" style={{width:60,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>
                       <span style={{color:"var(--text-3)"}}>×</span>
                       <input value={editDollarNarx} onChange={e=>setEditDollarNarx(e.target.value)} inputMode="decimal" style={{width:84,padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
-                      <span style={{fontSize:13,fontWeight:800,color:(num(editDollarSoni)*num(editDollarNarx))<0?"#ec4899":"#2563eb"}}>= {fmtUsd(num(editDollarSoni)*num(editDollarNarx))}</span>
+                      <span style={{fontSize:13,fontWeight:800,color:(usdSumma(num(editDollarSoni),num(editDollarNarx)))<0?"#ec4899":"#2563eb"}}>= {fmtUsd(usdSumma(num(editDollarSoni),num(editDollarNarx)))}</span>
                       <BlokHint soni={editDollarSoni} eski={s} mid={editDollarMahsulot||s.Mahsulot_ID} m={mMap[editDollarMahsulot||s.Mahsulot_ID]} style={{flexBasis:"100%",marginTop:0}}/>
                     </span>
                   ):(
@@ -1623,8 +1684,8 @@ export default function SotuvDetailPage() {
                   : <SoniKatak soni={s.Soni} blok={s.Blok} m={m}/>}
                 {isEdit?<input value={editDollarNarx} onChange={e=>setEditDollarNarx(e.target.value)} style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb"}}/>
                   :<span style={{fontSize:14,fontWeight:700,color:"#2563eb"}}>{fmtUsd(s.Narx)}</span>}
-                <span style={{fontSize:14,fontWeight:800,color:(isEdit?(num(editDollarSoni)*num(editDollarNarx)):num(s.Summa))<0?"#ec4899":(isEdit?"#2563eb":"var(--text)")}}>
-                  {isEdit?fmtUsd(num(editDollarSoni)*num(editDollarNarx)):fmtUsd(s.Summa)}
+                <span style={{fontSize:14,fontWeight:800,color:(isEdit?(usdSumma(num(editDollarSoni),num(editDollarNarx))):num(s.Summa))<0?"#ec4899":(isEdit?"#2563eb":"var(--text)")}}>
+                  {isEdit?fmtUsd(usdSumma(num(editDollarSoni),num(editDollarNarx))):fmtUsd(s.Summa)}
                 </span>
                 {isEdit
                   ? <input value={editDollarIzoh} onChange={e=>setEditDollarIzoh(e.target.value)} placeholder="Izoh" style={{padding:"6px 8px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:12,outline:"none",minWidth:0}}/>
@@ -1682,8 +1743,8 @@ export default function SotuvDetailPage() {
                       style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid #2563eb",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",boxSizing:"border-box"}}/>}
                 <input value={row.Narx} onChange={e=>updDollarRow(row.id,"Narx",e.target.value)} placeholder="$" inputMode="decimal"
                   style={{minWidth:0,width:"100%",padding:"9px 2px",border:"1.5px solid #2563eb",borderRadius:8,fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:"#2563eb",boxSizing:"border-box"}}/>
-                {(num(row.Soni)*num(row.Narx))
-                  ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:"#2563eb",whiteSpace:"nowrap"}}>{fmtUsd(num(row.Soni)*num(row.Narx))}</span>
+                {(usdSumma(num(row.Soni),num(row.Narx)))
+                  ? <span style={{minWidth:0,fontSize:13,fontWeight:800,textAlign:"right",color:"#2563eb",whiteSpace:"nowrap"}}>{fmtUsd(usdSumma(num(row.Soni),num(row.Narx)))}</span>
                   : <button onClick={()=>rmDollarRow(row.id)} title="Qatorni o'chirish" style={{justifySelf:"end",width:30,height:28,borderRadius:6,border:"1px solid #fecaca",background:"#fef2f2",color:"#ef4444",cursor:"pointer",fontSize:18,fontWeight:700,lineHeight:1,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>−</button>}
               </div>
               {blokRejim&&<BlokInfo q={row} n={bn} style={{marginTop:6}}/>}
@@ -1701,7 +1762,7 @@ export default function SotuvDetailPage() {
                       style={{padding:"6px 10px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"}}/>}
                 <input value={row.Narx} onChange={e=>updDollarRow(row.id,"Narx",e.target.value)} placeholder="Narx ($)" inputMode="decimal"
                   style={{padding:"6px 10px",border:`1.5px solid ${priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}`,borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center",color:priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}}/>
-                <span style={{fontSize:14,fontWeight:800,color:priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}}>{priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"Tan narxidan past!":fmtUsd(num(row.Soni)*num(row.Narx))}</span>
+                <span style={{fontSize:14,fontWeight:800,color:priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"#ef4444":"#2563eb"}}>{priceBelowCost(row.Mahsulot_ID,row.Narx,"dollar")?"Tan narxidan past!":fmtUsd(usdSumma(num(row.Soni),num(row.Narx)))}</span>
                 <input value={row.Izoh} onChange={e=>updDollarRow(row.id,"Izoh",e.target.value)} placeholder="Izoh"
                   style={{padding:"6px 8px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:12,outline:"none",minWidth:0}}/>
                 <div/>
@@ -1732,8 +1793,8 @@ export default function SotuvDetailPage() {
 
         {/* Ommaviy tahrirlash — pastki saqlash paneli (jonli jami summa bilan) */}
         {bulkMode&&(()=>{
-          const bSom = savatSom.filter(r=>bulkSel.has(r.Savat_ID)).reduce((t,r)=>{const e=bulkEdits[r.Savat_ID]; return t+(e?num(e.Soni)*num(e.Narx):num(r.Summa_som));},0);
-          const bDol = savatDollar.filter(r=>bulkSel.has(r.Savat_ID)).reduce((t,r)=>{const e=bulkEdits[r.Savat_ID]; return t+(e?num(e.Soni)*num(e.Narx):num(r.Summa));},0);
+          const bSom = savatSom.filter(r=>bulkSel.has(r.Savat_ID)).reduce((t,r)=>{const e=bulkEdits[r.Savat_ID]; return t+(e?somSumma(num(e.Soni),num(e.Narx)):num(r.Summa_som));},0);
+          const bDol = savatDollar.filter(r=>bulkSel.has(r.Savat_ID)).reduce((t,r)=>{const e=bulkEdits[r.Savat_ID]; return t+(e?usdSumma(num(e.Soni),num(e.Narx)):num(r.Summa));},0);
           return (
           <div style={{position:"fixed",bottom:0,left:0,right:0,zIndex:60,background:"var(--white)",borderTop:"1px solid var(--border)",boxShadow:"0 -4px 20px rgba(30,64,124,.14)",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"center",gap:14,flexWrap:"wrap"}}>
             <span style={{fontSize:13,fontWeight:700,color:"var(--text-2)"}}>{bulkSel.size} ta tanlandi</span>

@@ -104,8 +104,14 @@ export function computeInvByOmbor(
   };
   (sotuvSom || []).forEach(sale);
   (sotuvDollar || []).forEach(sale);
+  // Kasr miqdorlar (blok o'lchami 12,5 / 13,3, kg) yig'ilganda suzuvchi nuqta qoldig'i qoladi: 39,9 − 3×13,3 =
+  // −3,5e-15 — "0" o'rniga manfiy/nol bo'lmagan qoldiq bo'lib ko'rinmasin. Natija 6 xonaga keltiriladi
+  // (miqdorlar 3 xonagacha yoziladi — hech narsa yo'qolmaydi), −0 → 0.
+  const r6 = (x: number) => Math.round(x * 1e6) / 1e6 || 0;
+  for (const o of Object.keys(inv)) for (const mid of Object.keys(inv[o])) inv[o][mid] = r6(inv[o][mid]);
   const global: Record<string, number> = {};
   for (const o of Object.keys(inv)) for (const mid of Object.keys(inv[o])) global[mid] = (global[mid] || 0) + inv[o][mid];
+  for (const mid of Object.keys(global)) global[mid] = r6(global[mid]);
   return { inv, global };
 }
 
