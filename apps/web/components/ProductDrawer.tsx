@@ -237,7 +237,7 @@ export default function ProductDrawer({ open, onClose, omborlar, editTarget = nu
                 <label>Blokdagi dona soni</label>
                 {/* inputMode="decimal": telefonda vergul/nuqtali raqam klaviaturasi (iPhone "numeric"da ajratgich yo'q) */}
                 <input value={formData.Blokdagi_dona || ""} inputMode="decimal"
-                  placeholder="Masalan: 15 yoki 12,5 (blok bo'lmasa bo'sh qoldiring)"
+                  placeholder="Masalan: 15 yoki 12,5"
                   style={blokXato ? { borderColor: "#ef4444" } : undefined}
                   onChange={e => { const v = blokKiritish(e.target.value); if (v !== null) setFormData(p => ({ ...p, Blokdagi_dona: v })); }} />
                 <p style={{ fontSize: 11, fontWeight: 600, color: blokXato ? "#ef4444" : "var(--text-3)", marginTop: 6 }}>

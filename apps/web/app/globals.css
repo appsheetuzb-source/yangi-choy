@@ -431,7 +431,7 @@ select option { background: var(--white-2); color: var(--text); }
   position: relative; background: var(--white);
   border: 1px solid var(--border-2);
   border-radius: 20px; box-shadow: var(--shadow-lg);
-  width: 100%; max-width: 440px; max-height: 90vh;
+  width: 100%; max-width: 440px; max-height: 90vh; max-height: 90dvh; /* dvh — .drawer izohiga qarang */
   overflow-y: auto;
   animation: modalIn .2s cubic-bezier(.4,0,.2,1);
 }
@@ -553,8 +553,11 @@ select option { background: var(--white-2); color: var(--text); }
   position: fixed; inset: 0; z-index: 40;
   background: rgba(15,42,76,.38); backdrop-filter: blur(4px);
 }
+/* height: 100dvh — telefonda haqiqiy ko'rinadigan balandlik. 100vh brauzer manzil satri yashiringandagi
+   (eng katta) balandlikka teng: satr ko'rinib turganda pastki qism (Saqlash tugmasi) ekrandan chiqib ketardi.
+   100vh — dvh'ni bilmaydigan eski brauzerlar uchun zaxira. */
 .drawer {
-  position: fixed; top: 0; right: 0; height: 100vh; z-index: 41;
+  position: fixed; top: 0; right: 0; height: 100vh; height: 100dvh; z-index: 41;
   width: 480px; max-width: calc(100vw - 40px);
   background: var(--bg-2);
   border-left: 1px solid var(--border-2);
