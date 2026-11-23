@@ -76,16 +76,19 @@ export default function MahsulotPage() {
   }, []);
   useScrollLock(!!deleteTarget);
 
-  const loadData = useCallback((delay = 0) => {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (skeleton ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay = 0, jim = false) => {
+    if (!jim) setLoading(true);
     setTimeout(() => {
       fetchSheet("Mahsulot")
         .then(json => {
           if ((json as {error?:string}).error) throw new Error((json as {error:string}).error);
           setMahsulotlar(json.data as Mahsulot[]);
         })
-        .catch(e => setError(e.message))
-        .finally(() => setLoading(false));
+        .catch(e => { if (!jim) setError(e.message); })
+        .finally(() => { if (!jim) setLoading(false); });
     }, delay);
   }, []);
 
@@ -227,8 +230,11 @@ export default function MahsulotPage() {
     try {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Mahsulot", idColumn: "Mahsulot_ID", idValue: deleteTarget.Mahsulot_ID }) });
+      // Ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = deleteTarget.Mahsulot_ID;
+      setMahsulotlar(p => p.filter(m => m.Mahsulot_ID !== ochirildi));
       setDeleteTarget(null);
-      afterWrite("Mahsulot"); loadData(800);
+      afterWrite("Mahsulot"); loadData(800, true);
     } finally { setDeleting(false); }
   }
 
@@ -515,7 +521,14 @@ export default function MahsulotPage() {
         omborlar={isAdmin || !myOmbor ? omborlar : omborlar.filter(o => o.Ombor_ID === myOmbor)}
         defaultOmborId={myOmbor || undefined}
         editTarget={editTarget}
-        onSaved={() => loadData(800)}
+        onSaved={saved => {
+          // Saqlangan mahsulot ro'yxatda darhol yangilanadi (yangisi oxiriga qo'shiladi), keyin bazadan
+          // jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+          setMahsulotlar(p => p.some(m => m.Mahsulot_ID === saved.Mahsulot_ID)
+            ? p.map(m => m.Mahsulot_ID === saved.Mahsulot_ID ? { ...m, ...saved } : m)
+            : [...p, { ...saved, Birlik: saved.Birlik || "Dona" }]);
+          loadData(800, true);
+        }}
       />
 
       {/* Delete confirm */}
