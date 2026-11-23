@@ -133,8 +133,11 @@ export default function MijozlarPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadData = useCallback((delay = 0) => {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay = 0, jim = false) => {
+    if (!jim) setLoading(true);
     setTimeout(() => {
       Promise.all([
         fetchSheet("Mijozlar"),
@@ -209,8 +212,8 @@ export default function MijozlarPage() {
         setAbSomMap(aSom);
         setAbUsdMap(aUsd);
       })
-      .catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
+      .catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
     }, delay);
   }, []);
 
@@ -272,7 +275,13 @@ export default function MijozlarPage() {
         await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Mijozlar", row: form }) });
       }
-      setDrawerOpen(false); afterWrite("Mijozlar"); loadData(800);
+      // Saqlangan mijoz ro'yxatda darhol yangilanadi (yangisi oxiriga qo'shiladi), keyin bazadan
+      // jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      const tahrir = editTarget;
+      setMijozlar(p => tahrir
+        ? p.map(m => m.Mijoz_ID === tahrir.Mijoz_ID ? { ...m, ...form } : m)
+        : [...p, form]);
+      setDrawerOpen(false); afterWrite("Mijozlar"); loadData(800, true);
     } finally { setSaving(false); }
   }
 
@@ -282,7 +291,10 @@ export default function MijozlarPage() {
     try {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Mijozlar", idColumn: "Mijoz_ID", idValue: deleteTarget.Mijoz_ID }) });
-      afterWrite("Mijozlar"); setDeleteTarget(null); loadData(800);
+      // Ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = deleteTarget.Mijoz_ID;
+      setMijozlar(p => p.filter(m => m.Mijoz_ID !== ochirildi));
+      afterWrite("Mijozlar"); setDeleteTarget(null); loadData(800, true);
     } finally { setDeleting(false); }
   }
 

@@ -515,8 +515,13 @@ export default function SotuvDetailPage() {
     const toliq = rows.filter(x => x.Mahsulot_ID && num(x.Soni)!==0 && num(x.Narx)>0 && !savingRowIds.current.has(x.id));
     return toliq.find(x => !blokKutadi(x)) || toliq[0];   // kutmayotgan qator birinchi saqlanadi
   };
-  useEffect(() => { if (addSomRows.length) setTimeout(() => addSomRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }, [addSomRows.length]);
-  useEffect(() => { if (addDollarRows.length) setTimeout(() => addDollarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }, [addDollarRows.length]);
+  // Faqat YANGI qator qo'shilganda unga skroll qilinadi. Qator saqlanib ro'yxatdan chiqqanda (soni kamayganda)
+  // sahifa joyidan qimirlamaydi — foydalanuvchi qayerda bo'lsa, o'sha joyda qoladi.
+  const addSomSoniRef = useRef(0), addDollarSoniRef = useRef(0);
+  useEffect(() => { const oldin = addSomSoniRef.current; addSomSoniRef.current = addSomRows.length;
+    if (addSomRows.length > oldin) setTimeout(() => addSomRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }, [addSomRows.length]);
+  useEffect(() => { const oldin = addDollarSoniRef.current; addDollarSoniRef.current = addDollarRows.length;
+    if (addDollarRows.length > oldin) setTimeout(() => addDollarRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }, [addDollarRows.length]);
   // To'liq qator (mahsulot+soni+narx) topilsa — debounce bilan avtomat saqlanadi (✓ bosish shart emas)
   useEffect(() => {
     if (bulkMode) return;
@@ -535,8 +540,10 @@ export default function SotuvDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addDollarRows, bulkMode, blokFokusId]);
 
-  function loadData() {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: sahifa ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda butun sahifa spinner bilan almashib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  function loadData(jim = false) {
+    if(!jim) setLoading(true);
     Promise.all([
       fetchSheetWhere("Sotuv", "Sotuv_ID", id),
       fetchSheetWhere("Sotuv_Savat", "Sotuv_ID", id),
@@ -611,7 +618,7 @@ export default function SotuvDetailPage() {
         })();
 
       }
-    }).finally(()=>setLoading(false));
+    }).finally(()=>{ if(!jim) setLoading(false); });
   }
 
   useEffect(()=>{ if(id) loadData(); },[id]); // eslint-disable-line
@@ -816,7 +823,7 @@ export default function SotuvDetailPage() {
       afterWrite("Sotuv_Savat");
       afterWrite("Sotuv_savat_dollar");
       setEditOpen(false);
-      setTimeout(()=>loadData(),600);
+      setTimeout(()=>loadData(true),600);   // jim — skroll joyi saqlanadi
     } finally { setEditSaving(false); }
   }
 
@@ -1073,7 +1080,7 @@ export default function SotuvDetailPage() {
       if(!saveRes.ok){ const je=await saveRes.json().catch(()=>({})); throw new Error(je.error||"Server bilan bog'lanishda xatolik"); }
       afterWrite("S_tolov");
       setAddTolovOpen(false);
-      setTimeout(()=>loadData(),600);
+      setTimeout(()=>loadData(true),600);   // jim — skroll joyi saqlanadi
     } catch(e) {
       alert("To'lov saqlanmadi: "+(e instanceof Error?e.message:"noma'lum")+".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setAddTolovSaving(false); }
@@ -1111,7 +1118,7 @@ export default function SotuvDetailPage() {
             Gazna_ID:editTolovGazna,Gazna_dollar_ID:editTolovGaznaDollar}})});
       afterWrite("S_tolov");
       setEditTolov(null);
-      setTimeout(()=>loadData(),600);
+      setTimeout(()=>loadData(true),600);   // jim — skroll joyi saqlanadi
     } finally { setEditTolovSaving(false); }
   }
 
@@ -1123,7 +1130,7 @@ export default function SotuvDetailPage() {
         body:JSON.stringify({sheet:"S_tolov",idColumn:"Tolov_ID",idValue:deleteTolov.Tolov_ID})});
       afterWrite("S_tolov");
       setDeleteTolov(null);
-      setTimeout(()=>loadData(),600);
+      setTimeout(()=>loadData(true),600);   // jim — skroll joyi saqlanadi
     } finally { setDeletingTolov(false); }
   }
 

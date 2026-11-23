@@ -281,8 +281,11 @@ export default function XaridTolovPage() {
   }, []);
   useEffect(() => { getCurrentKurs().then(setCentralKurs).catch(() => {}); }, []);
 
-  const loadData = useCallback(() => {
-    setLoading(true);
+  // jim=true — qo'shish/tahrir/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((jim = false) => {
+    if (!jim) setLoading(true);
     Promise.all([
       fetchSheet("X_Tolov"),
       fetchSheet("Taminotchi"),
@@ -291,6 +294,8 @@ export default function XaridTolovPage() {
       fetchSheet("Gazna"),
     ]).then(([tolvR, tmR, xR, xsR, gzR]) => {
       if (tolvR.error) throw new Error(tolvR.error);
+      // Jim yangilashda o'qish xatosi (headers: []) — ro'yxat bo'shatilmaydi, o'z holicha qoladi
+      if (jim && !tolvR.headers?.length) return;
       const sorted = [...(tolvR.data as XTolov[])].sort((a, b) => {
         const p = (s: string) => {
           const parts = (s || "").split(".");
@@ -324,8 +329,8 @@ export default function XaridTolovPage() {
       });
       setSavatMap(sm);
       setGaznalar(((gzR.data || []) as Gazna[]).filter(g => g.Gazna_ID));
-    }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
+    }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -440,7 +445,7 @@ export default function XaridTolovPage() {
       afterWrite("X_Tolov");
       afterWrite("Taminotchi");
       setAddOpen(false);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);  // jim — skroll joyi o'zgarmaydi
     } finally { setSaving(false); }
   }
 
@@ -460,8 +465,11 @@ export default function XaridTolovPage() {
       }
       afterWrite("X_Tolov");
       afterWrite("Taminotchi");
+      // Ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = deleteTarget.X_Tolov_ID;
+      setTolovlar(p => p.filter(r => r.X_Tolov_ID !== ochirildi));
       setDeleteTarget(null);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);
     } finally { setDeleting(false); }
   }
 
@@ -579,7 +587,7 @@ export default function XaridTolovPage() {
       afterWrite("X_Tolov");
       afterWrite("Taminotchi");
       setEditTarget(null);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);  // jim — skroll joyi o'zgarmaydi
     } finally { setEditSaving(false); }
   }
 

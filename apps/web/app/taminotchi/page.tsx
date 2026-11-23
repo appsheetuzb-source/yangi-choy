@@ -108,8 +108,11 @@ export default function TaminotchiPage() {
 
   const [chegirmaByT, setChegirmaByT] = useState<Record<string, ChegirmaManbasi>>({});
 
-  const loadData = useCallback((delay = 0) => {
-    setLoading(true);
+  // jim=true — saqlash/o'chirish/tiklashdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay = 0, jim = false) => {
+    if (!jim) setLoading(true);
     setTimeout(() => {
       Promise.all([
         fetchSheet("Taminotchi"),
@@ -158,8 +161,8 @@ export default function TaminotchiPage() {
         setTolovByT(tlByT);
         setAbByT(abT);
       })
-      .catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
+      .catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
     }, delay);
   }, []);
 
@@ -168,10 +171,12 @@ export default function TaminotchiPage() {
   async function handleTiklash(t: Taminotchi) {
     setTiklanmoqda(t.Taminotchi_ID);
     try {
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: t.Taminotchi_ID,
           row: { ...t, Status: "" } }) });
-      afterWrite("Taminotchi"); loadData(800);
+      // Ro'yxatda darhol tiklanadi (faqat server saqlagan bo'lsa), bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      if (res.ok) setTaminotchilar(p => p.map(x => x.Taminotchi_ID === t.Taminotchi_ID ? { ...x, Status: "" } : x));
+      afterWrite("Taminotchi"); loadData(800, true);
     } finally { setTiklanmoqda(""); }
   }
 
@@ -202,14 +207,21 @@ export default function TaminotchiPage() {
     if (!form.Ism.trim()) return;
     setSaving(true);
     try {
+      let res: Response;
       if (editTarget) {
-        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+        res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: editTarget.Taminotchi_ID, row: form }) });
       } else {
-        await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
+        res = await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Taminotchi", row: form }) });
       }
-      setDrawerOpen(false); afterWrite("Taminotchi"); loadData(800);
+      // Saqlangan ta'minotchi ro'yxatda darhol yangilanadi (yangisi oxiriga qo'shiladi), keyin bazadan
+      // jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi.
+      // Server rad etsa (res.ok emas) ro'yxat o'zgarmaydi — saqlanmagan narsa saqlangandek ko'rinmasin
+      if (res.ok) setTaminotchilar(p => editTarget
+        ? p.map(t => t.Taminotchi_ID === editTarget.Taminotchi_ID ? { ...t, ...form } : t)
+        : [...p, form]);
+      setDrawerOpen(false); afterWrite("Taminotchi"); loadData(800, true);
     } finally { setSaving(false); }
   }
 
@@ -220,10 +232,13 @@ export default function TaminotchiPage() {
       // YUMSHOQ o'chirish: qator o'chirilmaydi, Status = "O'chirilgan" bo'ladi.
       // Avval DELETE qilinardi va ta'minotchining NOMI butunlay yo'qolib, eski
       // xarid/to'lovlarda faqat "—" ko'rinardi (BETA TEA va AXMET BEY shu holatda).
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: deleteTarget.Taminotchi_ID,
           row: { ...deleteTarget, Status: OCHIRILGAN_STATUS } }) });
-      afterWrite("Taminotchi"); setDeleteTarget(null); loadData(800);
+      // Ro'yxatdan darhol olinadi ("O'chirilganlar"ga o'tadi; faqat server saqlagan bo'lsa), bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = deleteTarget.Taminotchi_ID;
+      if (res.ok) setTaminotchilar(p => p.map(t => t.Taminotchi_ID === ochirildi ? { ...t, Status: OCHIRILGAN_STATUS } : t));
+      afterWrite("Taminotchi"); setDeleteTarget(null); loadData(800, true);
     } finally { setDeleting(false); }
   }
 

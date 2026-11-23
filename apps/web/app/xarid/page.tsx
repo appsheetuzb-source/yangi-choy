@@ -291,8 +291,11 @@ export default function XaridPage() {
     return ()=>window.removeEventListener("resize",check);
   },[]);
 
-  const loadData = useCallback((delay=0)=>{
-    setLoading(true);
+  // jim=true — saqlash/tahrirlash/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay=0, jim=false)=>{
+    if(!jim) setLoading(true);
     setTimeout(()=>{
       // Faza 1 — yengil (list DARHOL ko'rinadi)
       Promise.all([
@@ -320,9 +323,9 @@ export default function XaridPage() {
         setMMap(mm);
         const oArr=((oR.data as {Ombor_ID:string;Nomi:string}[])||[]).filter(o=>o.Ombor_ID);
         setOmborlar(oArr);
-      }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
+      }).catch(e=>{ if(!jim) setError(e instanceof Error?e.message:"Xatolik"); })
         .finally(()=>{
-          setLoading(false);
+          if(!jim) setLoading(false);
           // Faza 2 — og'ir Xarid_Savat + X_Tolov FONDA (jami/qoldiq ~1-2s da to'ladi)
           // Sovuq server / tarmoq uzilishida bo'sh/xato javobda QAYTA urinadi (refresh kerak bo'lmasin)
           const loadHeavy = (attempt:number)=>{
@@ -468,7 +471,8 @@ export default function XaridPage() {
           body:JSON.stringify({sheet:"Xarid_Savat",row:{X_Savat:uid(),Yil:y,Oy:mo.replace(/^0/,""),Sana:s,Raqam:String(i+1),Xarid_ID:xaridId,Ombor_ID:m?.Ombor_ID||"",Mahsulot_ID:r.Mahsulot_ID,Soni:r.Soni,Narxi:r.Narxi,Narx_som:r.Narx_som,Foiz:chegirmaHa?(r.Foiz||""):"",Foizli_narx:chegirmaHa&&num(r.Foiz)>0?s15(num(r.Narx_som)*(1-num(r.Foiz)/100)):"0",Foizli_narx_dollar:chegirmaHa&&num(r.Foiz)>0?s15(num(r.Narxi)*(1-num(r.Foiz)/100)):r.Narxi,Jami_Summa:s15(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narxi)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narxi)),Summa_Som:s15(chegirmaHa&&num(r.Foiz)>0?num(r.Soni)*num(r.Narx_som)*(1-num(r.Foiz)/100):num(r.Soni)*num(r.Narx_som)),Vaqt:`${s} ${v}`}})});
       }
       setAddOpen(false); setIzoh(""); setSavat([]); setChegirmaHa(false);
-      afterWrite("Xarid"); afterWrite("Xarid_Savat"); loadData(1000);
+      // Jim yangilash — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      afterWrite("Xarid"); afterWrite("Xarid_Savat"); loadData(1000, true);
     } finally{setSaving(false);}
   }
 
@@ -512,7 +516,8 @@ export default function XaridPage() {
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
           body:JSON.stringify({sheet:"Xarid_Savat",idColumn:"X_Savat",idValue:existing[i].X_Savat})});
       }
-      afterWrite("Xarid"); afterWrite("Xarid_Savat"); setDetailXarid(null); loadData(1000);
+      // Jim yangilash — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      afterWrite("Xarid"); afterWrite("Xarid_Savat"); setDetailXarid(null); loadData(1000, true);
     } finally{setEditSaving(false);}
   }
 
@@ -526,7 +531,10 @@ export default function XaridPage() {
       }
       await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Xarid",idColumn:"Xarid_ID",idValue:deleteTarget.Xarid_ID})});
-      afterWrite("Xarid"); afterWrite("Xarid_Savat"); setDeleteTarget(null); loadData(800);
+      // Ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi=deleteTarget.Xarid_ID;
+      setXaridlar(p=>p.filter(r=>r.Xarid_ID!==ochirildi));
+      afterWrite("Xarid"); afterWrite("Xarid_Savat"); setDeleteTarget(null); loadData(800, true);
     } finally{setDeleting(false);}
   }
 

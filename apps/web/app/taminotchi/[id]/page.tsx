@@ -5,7 +5,7 @@ import { useAuth } from "@/lib/AuthContext";
 import { gaznaForUser } from "@/lib/auth";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import AyirboshlashBolimi, { abGuruhlari, abMatni } from "@/components/AyirboshlashBolimi";
 import { ayirboshlashmi, ayirboshlashGuruhi } from "@/lib/mijoz-ledger";
@@ -67,7 +67,6 @@ export default function TaminotchiDetailPage() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState<string | null>(null);
   const [isMobile, setIsMobile]     = useState(false);
-  const [tick, setTick]             = useState(0);
   const [aktOpen, setAktOpen]       = useState(false);
   const [tgOpen, setTgOpen]         = useState(false);
   const _y = new Date().getFullYear();
@@ -116,9 +115,12 @@ export default function TaminotchiDetailPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  useEffect(() => {
+  // jim=true — tahrir/to'lov/ayirboshlashdan keyingi yangilash: sahifa ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((jim = false) => {
     if (!id) return;
-    setLoading(true);
+    if (!jim) setLoading(true);
     Promise.all([
       fetchSheetWhere("Taminotchi", "Taminotchi_ID", id),
       fetchSheetWhere("Xarid", "Taminotchi_ID", id),
@@ -150,9 +152,11 @@ export default function TaminotchiDetailPage() {
         return p(b.Sana) - p(a.Sana);
       });
       setTolovlar(myTolov);
-    }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
-  }, [id, tick]);
+    }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
+  }, [id]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const jamiXaridSom = useMemo(() => xaridlar.reduce((s, x) =>
     s + (savatMap[x.Xarid_ID] || []).reduce((ss, r) => ss + num(r.Summa_Som), 0), 0), [xaridlar, savatMap]);
@@ -375,11 +379,14 @@ export default function TaminotchiDetailPage() {
     if (!taminotchi || !form.Ism?.trim()) return;
     setSaving(true);
     try {
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Taminotchi", idColumn: "Taminotchi_ID", idValue: taminotchi.Taminotchi_ID, row: { ...taminotchi, ...form } }) });
       afterWrite("Taminotchi");
+      // Tahrir sahifada darhol ko'rinadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi.
+      // Server rad etsa (res.ok emas) o'zgarmaydi — saqlanmagan balans saqlangandek ko'rinmasin
+      if (res.ok) setTaminotchi(p => p ? { ...p, ...form } : p);
       setEditOpen(false);
-      setTimeout(() => setTick(t => t + 1), 800);
+      setTimeout(() => loadData(true), 800);
     } finally { setSaving(false); }
   }
 
@@ -452,7 +459,7 @@ export default function TaminotchiDetailPage() {
       fetch("/api/telegram", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: tgMsg }) }).catch(() => {});
       afterWrite("X_Tolov"); afterWrite("Taminotchi");
       setTOpen(false);
-      setTimeout(() => setTick(t => t + 1), 800);
+      setTimeout(() => loadData(true), 800);  // jim — skroll joyi o'zgarmaydi
     } catch (e) {
       alert("To'lov saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setTSaving(false); }
@@ -615,7 +622,7 @@ export default function TaminotchiDetailPage() {
           ownerNomi={taminotchi.Ism || ""} rows={tolovlar as unknown as Record<string, string>[]}
           qarzSom={qarzSom} qarzDollar={qarzUsd} isMobile={isMobile}
           qoshimcha={{ Xarid_ID: "", Qoshdi: "" }} telegramSarlavha="🔁 FIRMA: ayirboshlash"
-          onChanged={() => setTick(t => t + 1)}/>
+          onChanged={() => loadData(true)}/>
 
         {/* Sana va summa bo'yicha qidiruv */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", background: "var(--white)", borderRadius: "var(--radius-xl)", boxShadow: "var(--shadow-sm)", padding: isMobile ? "10px 12px" : "12px 16px", marginBottom: isMobile ? 14 : 16 }}>

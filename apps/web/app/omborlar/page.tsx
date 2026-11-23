@@ -39,8 +39,11 @@ export default function OmborlarPage() {
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
-  const loadData = useCallback((delay = 0) => {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: kartalar ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay = 0, jim = false) => {
+    if (!jim) setLoading(true);
     setTimeout(() => {
       Promise.all([
         fetchSheet("Ombor"),
@@ -49,8 +52,8 @@ export default function OmborlarPage() {
         if ((oR as { error?: string }).error) throw new Error((oR as { error: string }).error);
         setOmborlar((oR.data as Ombor[]).filter(o => o.Ombor_ID));
         setUsers((fR.data as Foydalanuvchi[]).filter(f => f.Foydalanuvchi_ID));
-      }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-        .finally(() => setLoading(false));
+      }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+        .finally(() => { if (!jim) setLoading(false); });
     }, delay);
   }, []);
 
@@ -110,7 +113,12 @@ export default function OmborlarPage() {
           body: JSON.stringify({ sheet: "Ombor", row: form }) });
       }
       if (!res.ok) { alert("Ombor saqlanmadi — qayta urinib ko'ring"); return; }
-      setDrawerOpen(false); afterWrite("Ombor"); loadData(600);
+      // Saqlangan ombor ro'yxatda darhol yangilanadi (yangisi oxiriga qo'shiladi), keyin bazadan
+      // jim yangilanadi — kartalar ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      setOmborlar(p => editTarget
+        ? p.map(o => o.Ombor_ID === editTarget.Ombor_ID ? { ...o, ...form } : o)
+        : [...p, form]);
+      setDrawerOpen(false); afterWrite("Ombor"); loadData(600, true);
     } catch { alert("Ombor saqlanmadi — tarmoq xatosi"); }
     finally { setSaving(false); }
   }
@@ -122,7 +130,10 @@ export default function OmborlarPage() {
       const res = await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Ombor", idColumn: "Ombor_ID", idValue: deleteTarget.Ombor_ID }) });
       if (!res.ok) { alert("O'chirilmadi"); return; }
-      afterWrite("Ombor"); setDeleteTarget(null); loadData(600);
+      // Ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = deleteTarget.Ombor_ID;
+      setOmborlar(p => p.filter(o => o.Ombor_ID !== ochirildi));
+      afterWrite("Ombor"); setDeleteTarget(null); loadData(600, true);
     } finally { setDeleting(false); }
   }
 

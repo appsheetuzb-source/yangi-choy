@@ -77,13 +77,17 @@ export default function XarajatPage() {
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useScrollLock(open || !!delTarget);
 
-  const loadData = useCallback(() => {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: jadval ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  const loadData = useCallback((jim = false) => {
+    if (!jim) setLoading(true);
     Promise.all([
       fetchSheet("Xarajat"),
       fetchSheet("Gazna"),
       fetchSheet("Foydalanuvchi"),
     ]).then(([xR, gR, fR]) => {
+      // Jim yangilash xato bersa ({error} yoki o'qilmadi → headers: []) — joriy jadval o'z holicha qoladi
+      if (jim && (xR.error || !xR.headers?.length)) return;
       const list = (xR.data as Xarajat[]) || [];
       // Sana bo'yicha (kamayish), bir xil sanada — Qo'shilgan_Vaqt bo'yicha (oxirgi qo'shilgani birinchi)
       const sortKey = (x: Xarajat) => {
@@ -104,7 +108,7 @@ export default function XarajatPage() {
       setAgentGaznaMap(agm);
       const yillar = [...new Set(list.map(x => x.Yil).filter(Boolean))].sort((a,b) => Number(b)-Number(a));
       setFilterYil(prev => prev || yillar[0] || nowStr().yil);
-    }).finally(() => setLoading(false));
+    }).finally(() => { if (!jim) setLoading(false); });
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -156,7 +160,7 @@ export default function XarajatPage() {
       }
       afterWrite("Xarajat");
       setOpen(false);
-      loadData();
+      loadData(true);  // jim — skroll joyi o'zgarmaydi
     } finally { setSaving(false); }
   }
 
@@ -167,8 +171,11 @@ export default function XarajatPage() {
       await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Xarajat", idColumn: "Xarajat_ID", idValue: delTarget.Xarajat_ID }) });
       afterWrite("Xarajat");
+      // Jadvaldan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = delTarget.Xarajat_ID;
+      setXarajatlar(p => p.filter(x => x.Xarajat_ID !== ochirildi));
       setDelTarget(null);
-      loadData();
+      loadData(true);
     } finally { setDeleting(false); }
   }
 

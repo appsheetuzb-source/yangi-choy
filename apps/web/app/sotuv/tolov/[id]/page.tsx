@@ -79,12 +79,15 @@ export default function SotuvTolovDetailPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadData = useCallback(() => {
-    setLoading(true);
+  // jim=true — tahrirlab saqlashdan keyingi yangilash: sahifa ekranda QOLADI (spinner bilan almashtirilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((jim = false) => {
+    if (!jim) setLoading(true);
     fetchSheetWhere("S_tolov", "Tolov_ID", id)
     .then(async (tR) => {
       const found = (tR.data as STolov[])[0];
-      if (!found) { setError("To'lov topilmadi"); return; }
+      if (!found) { if (!jim) setError("To'lov topilmadi"); return; }
       const [mR, fR, sR, gzR] = await Promise.all([
         found.Mijoz_ID ? fetchSheetWhere("Mijozlar", "Mijoz_ID", found.Mijoz_ID) : Promise.resolve({ headers: [], data: [] }),
         found.Agent ? fetchSheetWhere("Foydalanuvchi", "Foydalanuvchi_ID", found.Agent) : Promise.resolve({ headers: [], data: [] }),
@@ -105,8 +108,8 @@ export default function SotuvTolovDetailPage() {
         setEditIzoh(found.Izoh || "");
         setEditing(true);
       }
-    }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
+    }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -155,16 +158,16 @@ export default function SotuvTolovDetailPage() {
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
     const _sp = editSana ? isoToParts(editSana) : { sana: tolov.Sana, oy: tolov.Oy, yil: tolov.Yil };
     try {
+      // Bazaga yoziladigan qator — saqlansa sahifada ham darhol aynan shu ko'rinadi (pastda)
+      const yangiRow: STolov = { ...tolov, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
+        Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Vaqt: editVaqt || tolov.Vaqt,
+        Som: String(somVal), Dollar: String(usdVal),
+        Summa: summa, Summa_dollar: summaDollar,
+        Dollar_Kursi: editKurs, Izoh: editIzoh,
+        Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
+      };
       const putRes = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: tolov.Tolov_ID,
-          row: { ...tolov, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
-            Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Vaqt: editVaqt || tolov.Vaqt,
-            Som: String(somVal), Dollar: String(usdVal),
-            Summa: summa, Summa_dollar: summaDollar,
-            Dollar_Kursi: editKurs, Izoh: editIzoh,
-            Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
-          }
-        })
+        body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: tolov.Tolov_ID, row: yangiRow })
       });
 
       // Telegram — Sotuvga to'lov tahrirlandi. Qoldiqlar saqlangandan keyin YAGONA ledgerdan
@@ -178,8 +181,12 @@ export default function SotuvTolovDetailPage() {
       });
 
       afterWrite("S_tolov");
+      // Jim yangilash kelguncha eski qator qolsa, shu oraliqda Akt sverka (butun qatorni yozadi) yoki
+      // qayta tahrir tahrirni bazada eskisiga qaytarib yuborardi — saqlangan qator darhol qo'yiladi
+      if (putRes.ok) setTolov(yangiRow);
       setEditing(false);
-      setTimeout(() => loadData(), 600);
+      // Bazadan jim yangilanadi — sahifa ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      setTimeout(() => loadData(true), 600);
     } finally { setSaving(false); }
   }
 

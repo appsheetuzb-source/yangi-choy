@@ -124,8 +124,11 @@ export default function GaznaPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadData = useCallback(() => {
-    setLoading(true); setError(null);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: kartalar ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((jim = false) => {
+    if (!jim) { setLoading(true); setError(null); }
     Promise.all([
       fetchSheet("Gazna"),
       fetchSheet("S_tolov"),
@@ -149,9 +152,10 @@ export default function GaznaPage() {
       setStolov((sR.data as STolov[]) || []);
       setXtolov((xR.data as XTolov[]) || []);
       setXarajatlar((xrR.data as Xarajat[]) || []);
+      if (jim) setError(null); // jim yangilash muvaffaqiyatli — eski xato (bo'lsa) olib tashlanadi
     })
-    .catch((e: unknown) => setError(e instanceof Error ? e.message : "Xatolik"))
-    .finally(() => setLoading(false));
+    .catch((e: unknown) => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+    .finally(() => { if (!jim) setLoading(false); });
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -197,8 +201,10 @@ export default function GaznaPage() {
           Boshlangich_balans: form.Boshlangich_balans,
           Boshlanish_Sana: sana, Tugash_Sana: sana,
         };
-        await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+        const res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Gazna", idColumn: "Gazna_ID", idValue: editItem.Gazna_ID, row }) });
+        // Saqlangan bo'lsa karta darhol yangilanadi (jim yangilash kelguncha eski qiymat bilan qayta tahrirlanmasin)
+        if (res.ok) setGaznalar(p => p.map(x => x.Gazna_ID === editItem.Gazna_ID ? { ...x, ...row } as Gazna : x));
       } else {
         const row: Partial<Gazna> = {
           Gazna_ID: uid(), Nomi: form.Nomi, Turi: form.Turi, Shakli: form.Shakli,
@@ -209,7 +215,7 @@ export default function GaznaPage() {
         await fetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ sheet: "Gazna", row }) });
       }
-      afterWrite("Gazna"); closeForm(); loadData();
+      afterWrite("Gazna"); closeForm(); loadData(true);
     } finally { setSaving(false); }
   }
 
@@ -217,9 +223,11 @@ export default function GaznaPage() {
     if (!confirm(`"${g.Nomi}" hisobni o'chirmoqchimisiz?`)) return;
     setDeleting(g.Gazna_ID);
     try {
-      await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Gazna", idColumn: "Gazna_ID", idValue: g.Gazna_ID }) });
-      afterWrite("Gazna"); loadData();
+      // O'chirilgan bo'lsa ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi
+      if (res.ok) setGaznalar(p => p.filter(x => x.Gazna_ID !== g.Gazna_ID));
+      afterWrite("Gazna"); loadData(true);
     } finally { setDeleting(null); }
   }
 
@@ -260,7 +268,7 @@ export default function GaznaPage() {
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
             style={{ fontSize: 12, border: "1px solid var(--border)", borderRadius: "var(--radius)", padding: "5px 8px",
               background: "var(--white)", color: "var(--text)", cursor: "pointer" }}/>
-          <button onClick={loadData} title="Yangilash" style={{
+          <button onClick={() => loadData()} title="Yangilash" style={{
             width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
             border: "1px solid var(--border)", borderRadius: "var(--radius)",
             background: "var(--white)", cursor: "pointer", color: "var(--text-2)", flexShrink: 0,

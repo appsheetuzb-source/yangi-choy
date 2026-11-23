@@ -22,11 +22,15 @@ export default function DollarKursiPage() {
 
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
 
-  function load() {
-    setLoading(true);
+  // jim=true — saqlashdan keyingi yangilash: kurs kartasi, kiritish maydoni va tarix ekranda QOLADI
+  // (spinnerga almashtirilmaydi) — sahifa qisqarib, skroll tepaga sakramaydi.
+  // Jim yangilashda xato kelsa — joriy kurs va tarix o'z holicha qoladi.
+  function load(jim = false) {
+    if (!jim) setLoading(true);
     fetchSheet("Kurs").then(r => {
+      if (jim && r.error) return;
       setRows(((r.data || []) as KursRow[]).filter(k => k.Kurs && n(k.Kurs) > 0));
-    }).finally(() => setLoading(false));
+    }).finally(() => { if (!jim) setLoading(false); });
   }
   useEffect(() => { load(); }, []);
 
@@ -54,7 +58,7 @@ export default function DollarKursiPage() {
       }
       afterWrite("Kurs");
       setVal("");
-      setTimeout(load, 500);
+      setTimeout(() => load(true), 500);
     } finally { setSaving(false); }
   }
 

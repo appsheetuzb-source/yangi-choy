@@ -429,8 +429,11 @@ export default function SotuvTolovPage() {
   }, []);
   useEffect(() => { getCurrentKurs().then(setCentralKurs).catch(() => {}); }, []);
 
-  const loadData = useCallback(() => {
-    setLoading(true);
+  // jim=true — saqlash/tahrirlash/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((jim = false) => {
+    if (!jim) setLoading(true);
     Promise.all([
       fetchSheet("S_tolov"),
       fetchSheet("Mijozlar"),
@@ -464,8 +467,8 @@ export default function SotuvTolovPage() {
       setAgentMap(am);
       setSotuvlar((sR.data || []) as Sotuv[]);
       setGaznalar(((gzR.data||[]) as Gazna[]).filter(g=>g.Gazna_ID));
-    }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
+    }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -579,7 +582,8 @@ export default function SotuvTolovPage() {
       afterWrite("S_tolov");
       afterWrite("MijozBalans");
       setAddOpen(false);
-      setTimeout(() => loadData(), 800);
+      // Bazadan jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      setTimeout(() => loadData(true), 800);
     } catch (e) {
       alert("To'lov saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setSaving(false); }
@@ -601,8 +605,11 @@ export default function SotuvTolovPage() {
       }
       afterWrite("S_tolov");
       afterWrite("MijozBalans");
+      // Ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+      const ochirildi = deleteTarget.Tolov_ID;
+      setTolovlar(p => p.filter(r => r.Tolov_ID !== ochirildi));
       setDeleteTarget(null);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);
     } finally { setDeleting(false); }
   }
 
@@ -644,15 +651,16 @@ export default function SotuvTolovPage() {
     const summaDollar = !isSom ? String(usdVal + (kurs > 0 ? somVal / kurs : 0)) : "";
     const _sp = editSana ? isoToParts(editSana) : { sana: editTarget.Sana, oy: editTarget.Oy, yil: editTarget.Yil };
     try {
+      // Bazaga yoziladigan qator — saqlansa ro'yxatda ham darhol aynan shu ko'rinadi (pastda)
+      const yangiRow: STolov = { ...editTarget, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Sotuv_ID: editSotuvId, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
+        Som: String(somVal), Dollar: String(usdVal),
+        Summa: summa, Summa_dollar: summaDollar,
+        Dollar_Kursi: editKurs, Izoh: editIzohV,
+        Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
+        Vaqt: editVaqt || editTarget.Vaqt,
+      };
       const putRes = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: editTarget.Tolov_ID,
-          row: { ...editTarget, Sana: _sp.sana, Yil: _sp.yil, Oy: _sp.oy, Sotuv_ID: editSotuvId, Valyuta: isSom ? "So'm" : "Dollar", Turi: editTuri,
-            Som: String(somVal), Dollar: String(usdVal),
-            Summa: summa, Summa_dollar: summaDollar,
-            Dollar_Kursi: editKurs, Izoh: editIzohV,
-            Gazna_ID: editGazna, Gazna_dollar_ID: editGaznaDollar,
-            Vaqt: editVaqt || editTarget.Vaqt,
-          } }) });
+        body: JSON.stringify({ sheet: "S_tolov", idColumn: "Tolov_ID", idValue: editTarget.Tolov_ID, row: yangiRow }) });
       localStorage.setItem("dollar_kurs", editKurs);
 
       // Telegram — sotuvga to'lov TAHRIRLANDI. Qoldiqlar saqlangandan keyin ledgerdan (yangi sana/vaqt
@@ -675,8 +683,12 @@ export default function SotuvTolovPage() {
       }
       afterWrite("S_tolov");
       afterWrite("MijozBalans");
+      // Jim yangilash kelguncha eski qator qolsa, shu oraliqda Akt sverka (butun qatorni yozadi) yoki
+      // qayta tahrir tahrirni bazada eskisiga qaytarib yuborardi — saqlangan qator darhol qo'yiladi
+      if (putRes.ok) setTolovlar(p => p.map(r => r.Tolov_ID === yangiRow.Tolov_ID ? yangiRow : r));
       setEditTarget(null);
-      setTimeout(() => loadData(), 800);
+      // Bazadan jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      setTimeout(() => loadData(true), 800);
     } finally { setEditSaving(false); }
   }
 

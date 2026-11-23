@@ -151,14 +151,20 @@ export default function XaridDetailPage() {
   const [deleting, setDeleting]       = useState(false);
   const [deleteSavat, setDeleteSavat] = useState<XaridSavat | null>(null);
 
-  function loadData() {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: sahifa ekranda QOLADI (spinner bilan almashtirilmaydi).
+  // Aks holda butun sahifa spinnerga almashib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi.
+  function loadData(jim = false) {
+    if (!jim) setLoading(true);
     Promise.all([
       fetchSheetWhere("Xarid", "Xarid_ID", id),
       fetchSheetWhere("Xarid_Savat", "Xarid_ID", id),
       fetchSheet("Taminotchi"),
       fetchSheet("Mahsulot"),
     ]).then(([xR, xsR, tR, mR]) => {
+      // Jim yangilashda xato javob kelsa (401/500/503 {error} yoki o'qish xatosi → headers bo'sh) — joriy ma'lumot
+      // ekranda qoladi (aks holda xom javob bilan sahifa buzilardi yoki bo'shab qolardi)
+      if (jim && [xR, xsR, tR, mR].some(r => (r as { error?: string }).error || !Array.isArray(r.data) || !r.headers?.length)) return;
       const x = (xR.data as Xarid[])[0] || null;
       setXarid(x);
       setSavat(xsR.data as XaridSavat[]);
@@ -173,7 +179,7 @@ export default function XaridDetailPage() {
       const mm: Record<string, Mahsulot> = {};
       mArr.forEach(m => { mm[m.Mahsulot_ID] = m; });
       setMMap(mm);
-    }).finally(() => setLoading(false));
+    }).finally(() => { if (!jim) setLoading(false); });
   }
 
   useEffect(() => { if (id) loadData(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -265,7 +271,7 @@ export default function XaridDetailPage() {
       afterWrite("Xarid_Savat");
       setEditOpen(false);
       setIsAddMode(false);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);
     } finally { setEditSaving(false); }
   }
 
@@ -305,7 +311,7 @@ export default function XaridDetailPage() {
         } }) });
       afterWrite("Xarid_Savat");
       setEditRowItem(null);
-      setTimeout(() => loadData(), 600);
+      setTimeout(() => loadData(true), 600);
     } finally { setEditRowSaving(false); }
   }
 
@@ -313,8 +319,10 @@ export default function XaridDetailPage() {
     await fetch("/api/sheets", { method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sheet: "Xarid_Savat", idColumn: "X_Savat", idValue: s.X_Savat }) });
     afterWrite("Xarid_Savat");
+    // Qator ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi — skroll joyi o'zgarmaydi
+    setSavat(p => p.filter(r => r !== s));
     setDeleteSavat(null);
-    setTimeout(() => loadData(), 600);
+    setTimeout(() => loadData(true), 600);
   }
 
   async function handleDeleteXarid() {
@@ -404,7 +412,7 @@ export default function XaridDetailPage() {
       }
       afterWrite("Xarid_Savat");
       setChegOpen(false);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);
     } finally { setChegSaving(false); }
   }
 
@@ -444,7 +452,7 @@ export default function XaridDetailPage() {
         } }) });
       afterWrite("Taminotchi");
       setQaytarOpen(false);
-      setTimeout(() => loadData(), 800);
+      setTimeout(() => loadData(true), 800);
     } finally { setQaytarSaving(false); }
   }
 

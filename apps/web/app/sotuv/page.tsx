@@ -281,12 +281,14 @@ function BlokDonaInput({s,onUpdate,style,gap=6}:{
 // Blok rejimidagi qator ostida: "Blok: 1 × 15 + 3 dona = 18 dona" — narx BIR DONA uchun, shuning uchun
 // sotuvchi Soni (jami dona) qanday chiqqanini ko'rib tursin. Grid ichida 2-ustundan oxirigacha yangi qatorda turadi.
 const blokSonStyle:React.CSSProperties={color:"var(--text)",fontWeight:700};
-function BlokIzoh({s,mMap}:{s:SavatItem; mMap:Record<string,Mahsulot>}) {
+// qatorda=true (kompyuter): izoh BIRINCHI qatorda — mahsulot katagining o'ng tomonida, MIQDOR kataklaridan oldin
+// (foydalanuvchi so'rovi: blok soni pastki qatorga tushmasin). Telefonda qator tor — izoh qator ostida qoladi.
+function BlokIzoh({s,mMap,qatorda}:{s:SavatItem; mMap:Record<string,Mahsulot>; qatorda?:boolean}) {
   const n=blokdagiDona(mMap[s.Mahsulot_ID]);
   if(s.Blok===undefined||!s.Mahsulot_ID||!n) return null;
   const d=num(s.Dona);
   return (
-    <div style={{gridColumn:"2 / -1",justifySelf:"start",fontSize:11.5,fontWeight:500,color:"var(--text-2)",background:"var(--bg)",borderRadius:8,padding:"5px 10px",lineHeight:1.4}}>
+    <div style={{...(qatorda?{flexShrink:0,whiteSpace:"nowrap"}:{gridColumn:"2 / -1",justifySelf:"start"}),fontSize:11.5,fontWeight:500,color:"var(--text-2)",background:"var(--bg)",borderRadius:8,padding:"5px 10px",lineHeight:1.4}}>
       Blok: <b style={blokSonStyle}>{s.Blok||0}</b> × <b style={blokSonStyle}>{fmtSon(n)}</b>
       {d!==0&&<> {d>0?"+":"−"} <b style={blokSonStyle}>{fmtSon(Math.abs(d))}</b> dona</>} = <b style={blokSonStyle}>{fmtSon(num(s.Soni))}</b> dona
     </div>
@@ -340,7 +342,12 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:savatGrid(somBlok),gap:8,alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
-              <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
+              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
+                </div>
+                <BlokIzoh s={s} mMap={mMap} qatorda/>
+              </div>
               {s.Blok!==undefined
                 ? <BlokDonaInput s={s} onUpdate={onUpdate} style={{padding:"10px 4px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600}}/>
                 : <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
@@ -351,7 +358,6 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jS?(num(s.Soni)<0?"↩ ":"")+jS.toLocaleString("ru-RU")+" so'm":"—"):"—")}
               </div>
               <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
-              <BlokIzoh s={s} mMap={mMap}/>
             </div>
           );
         })}
@@ -392,7 +398,12 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{display:"grid",gridTemplateColumns:savatGrid(dollarBlok),gap:8,alignItems:"center",marginBottom:8}}>
               <span style={{fontSize:13,fontWeight:700,color:"var(--text-3)",textAlign:"center"}}>{idx+1}</span>
-              <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
+              <div style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
+                <div style={{flex:1,minWidth:0}}>
+                  <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..." onAddNew={onAddNewProduct?((q:string)=>onAddNewProduct(q,(id:string)=>onUpdate(s.id,"Mahsulot_ID",id))):undefined} addLabel="Yangi mahsulot qo'shish"/>
+                </div>
+                <BlokIzoh s={s} mMap={mMap} qatorda/>
+              </div>
               {s.Blok!==undefined
                 ? <BlokDonaInput s={s} onUpdate={onUpdate} style={{padding:"10px 4px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600}}/>
                 : <input value={s.Soni} onChange={e=>onUpdate(s.id,"Soni",e.target.value)} placeholder={birlikOf(mMap[s.Mahsulot_ID])} title={"O'lchov birligi: "+birlikOf(mMap[s.Mahsulot_ID])} type="number"
@@ -403,7 +414,6 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                 {bc?"Tan narxidan past!":(num(s.Soni)!==0?(jU?(num(s.Soni)<0?"↩ ":"")+fmtUsd(jU):"—"):"—")}
               </div>
               <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
-              <BlokIzoh s={s} mMap={mMap}/>
             </div>
           );
         })}
@@ -541,8 +551,11 @@ export default function SotuvPage() {
     } finally { setTasdiqSaving(""); }
   }
 
-  const loadData = useCallback((delay=0)=>{
-    setLoading(true);
+  // jim=true — tahrirlab saqlashdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay=0, jim=false)=>{
+    if(!jim) setLoading(true);
     setBalansReady(false);
     setTimeout(()=>{
       // Faza 2 — og'ir savat/to'lov sheet'lari Faza 1 bilan PARALLEL boshlanadi (kutmaydi → JAMI ustunlari tezroq to'ladi).
@@ -596,8 +609,8 @@ export default function SotuvPage() {
         if(kursArr.length>0){
           setDefaultKurs(kursArr[kursArr.length-1].Kurs);
         }
-      }).catch(e=>setError(e instanceof Error?e.message:"Xatolik"))
-        .finally(()=>{ setLoading(false); });
+      }).catch(e=>{ if(!jim) setError(e instanceof Error?e.message:"Xatolik"); })
+        .finally(()=>{ if(!jim) setLoading(false); });
     }, delay);
   },[]);
 
@@ -800,7 +813,17 @@ export default function SotuvPage() {
     } finally { setNewMijozSaving(false); }
   }
 
+  // Savat (Faza 2) hali kelmagan: boshlang'ich yuklashda bo'sh, tahrirdan keyingi jim yangilashda ESKI
+  // (Savat_ID'lari bazada o'chirilgan). Shu payt tahrir/chek/belgi qilinsa savat ikki marta yozilishi,
+  // chekda eski tovar chiqishi yoki belgi yo'qolishi mumkin — Faza 2 kelguncha kuttiramiz.
+  function savatTayyor() {
+    if(balansReady) return true;
+    alert("Ma'lumot hali yuklanmoqda — bir lahza kuting (1-2 soniya) va qayta urinib ko'ring.");
+    return false;
+  }
+
   function openEdit(s:Sotuv) {
+    if(!savatTayyor()) return;
     setDetailSotuv(s);
     setEditSana(sanaToIso(s.Sana));
     setEditMijoz(s.Mijoz_ID);
@@ -853,9 +876,11 @@ export default function SotuvPage() {
       // (avval sana o'zgartirib bo'lmasdi — detailSotuv.Sana o'zgarmay qolardi).
       const sp = isoToSana(editSana);
       const sanaPatch = sp ? { Sana: sp.sana, Oy: sp.oy, Yil: sp.yil } : {};
-      await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
+      // Bazaga yoziladigan sotuv qatori — saqlansa ro'yxatda ham darhol aynan shu ko'rinadi (pastda)
+      const yangiSotuv:Sotuv={...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,...sanaPatch,...balPatch};
+      const putRes=await fetch("/api/sheets",{method:"PUT",headers:{"Content-Type":"application/json"},
         body:JSON.stringify({sheet:"Sotuv",idColumn:"Sotuv_ID",idValue:detailSotuv.Sotuv_ID,
-          row:{...detailSotuv,Agent:editAgent,Mijoz_ID:editMijoz,Izoh:editIzoh,...sanaPatch,...balPatch}})});
+          row:yangiSotuv})});
       // Delete old savat rows
       for(const r of (savatSomMap[detailSotuv.Sotuv_ID]||[])){
         await fetch("/api/sheets",{method:"DELETE",headers:{"Content-Type":"application/json"},
@@ -910,12 +935,16 @@ export default function SotuvPage() {
         }
       }
       afterWrite("Sotuv"); afterWrite("Sotuv_Savat"); afterWrite("Sotuv_savat_dollar");
+      // Jim yangilash kelguncha qator eski mijoz/agent/sana bilan qolmasin (Tasdiqlash xabari, chek shundan oladi)
+      if(putRes.ok) setSotuvlar(prev=>prev.map(x=>x.Sotuv_ID===yangiSotuv.Sotuv_ID?yangiSotuv:x));
       setDetailSotuv(null);
-      loadData(800);
+      // Bazadan jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi saqlashdan oldingidek qoladi
+      loadData(800, true);
     } finally { setEditSaving(false); }
   }
 
   async function handleToggleCheck(savatId: string, sotuvId: string, sheet: "Sotuv_Savat"|"Sotuv_savat_dollar", newCheck: "TRUE"|"FALSE") {
+    if(!savatTayyor()) return;
     setCheckSaving(savatId);
     try {
       if (sheet === "Sotuv_Savat") {
@@ -1409,6 +1438,7 @@ export default function SotuvPage() {
                           <span style={{fontSize:12,color:"var(--text-2)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{s.Izoh||"—"}</span>
                           <div style={{display:"flex",gap:4}} onClick={e=>e.stopPropagation()}>
                             <button onClick={()=>{
+                              if(!savatTayyor()) return;
                               const mj=mjMap[s.Mijoz_ID];
                               const ag=aMap[s.Agent]||"";
                               const isDollar=(v:string)=>String(v||"").toLowerCase().includes("dollar")||v.trim()==="$";

@@ -159,6 +159,8 @@ export default function MijozDetailPage() {
   const [error, setError]           = useState<string | null>(null);
   const [isMobile, setIsMobile]     = useState(false);
   const [tick, setTick]             = useState(0);
+  // true — keyingi yangilash jim (saqlash/to'lov/o'chirishdan keyin, jimYangila orqali)
+  const jimRef                      = useRef(false);
   const [aktOpen, setAktOpen]       = useState(false);
   const [tgOpen, setTgOpen]         = useState(false);
   const _y = new Date().getFullYear();
@@ -226,7 +228,12 @@ export default function MijozDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
+    // jim — saqlash/to'lov/o'chirishdan keyingi yangilash: sahifa ekranda QOLADI (spinner bilan almashtirilmaydi).
+    // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+    // Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+    const jim = jimRef.current;
+    jimRef.current = false;
+    if (!jim) setLoading(true);
     Promise.all([
       fetchSheetWhere("Mijozlar", "Mijoz_ID", id),
       fetchSheetWhere("Sotuv", "Mijoz_ID", id),
@@ -234,6 +241,9 @@ export default function MijozDetailPage() {
       fetchSheet("Foydalanuvchi").catch(() => ({ data: [] })),
       fetchSheetWhere("MijozBalans", "Mijoz_ID", id).catch(() => ({ data: [] })),
     ]).then(async ([mR, sR, tR, fR, bR]) => {
+      // Jim yangilashda javob kelmagan bo'lsa (tarmoq/server xatosi → headers bo'sh) — joriy ma'lumot ekranda qoladi
+      // (aks holda to'lovlar ro'yxati bo'shab, qarz noto'g'ri ko'rinib, sahifa qisqarardi)
+      if (jim && [mR, sR, tR].some(r => !(r as { headers?: unknown[] }).headers?.length)) return;
       // Mijoz
       const m = (mR.data as Mijoz[])[0] || null;
       setMijoz(m);
@@ -284,8 +294,8 @@ export default function MijozDetailPage() {
       agents.forEach(f => { aMap[f.Foydalanuvchi_ID] = f.Nomi; });
       setAgentMap(aMap);
     })
-    .catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-    .finally(() => setLoading(false));
+    .catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+    .finally(() => { if (!jim) setLoading(false); });
   }, [id, tick]);
 
   // Stats — qarzga tasdiqlangan sotuvlar (Chek bo'sh emas: TRUE yoki FALSE). Faqat bo'sh (Tasdiqlashga) hisobga olinmaydi.
@@ -496,14 +506,23 @@ export default function MijozDetailPage() {
     }
   }
 
+  // Saqlash/to'lov/o'chirishdan keyin — ma'lumot jim yangilanadi (sahifa joyida qoladi, tepaga sakramaydi)
+  function jimYangila(delay: number) {
+    setTimeout(() => { jimRef.current = true; setTick(t => t + 1); }, delay);
+  }
+
   async function handleSave() {
     if (!mijoz || !form.Ism?.trim()) return;
     setSaving(true);
     try {
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+      const res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sheet: "Mijozlar", idColumn: "Mijoz_ID", idValue: mijoz.Mijoz_ID, row: { ...mijoz, ...form } }) });
+      // Kesh tozalanadi — aks holda jim yangilash keshdagi ESKI qatorni qaytarib, o'zgarish ko'rinmasdi.
+      // Saqlangan bo'lsa — darhol ekranda yangilanadi
+      afterWrite("Mijozlar");
+      if (res.ok) setMijoz(p => (p ? { ...p, ...form } as Mijoz : p));
       setEditOpen(false);
-      setTimeout(() => setTick(t => t + 1), 800);
+      jimYangila(800);
     } finally { setSaving(false); }
   }
 
@@ -588,7 +607,7 @@ export default function MijozDetailPage() {
       afterWrite("S_tolov");
       afterWrite("MijozBalans");
       setAbOpen(false);
-      setTimeout(() => setTick(t => t + 1), 600);
+      jimYangila(600);
     } catch (e) {
       alert("Ayirboshlash saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setAbSaving(false); }
@@ -616,7 +635,7 @@ export default function MijozDetailPage() {
     setAbDeleting(false);
     setAbDelete(null);
     if (xato) alert("Ayirboshlash to'liq o'chmadi — sahifa yangilanadi, qolgan qismini qayta o'chiring.");
-    setTimeout(() => setTick(t => t + 1), 600);
+    jimYangila(600);
   }
 
   async function handleAddTolov() {
@@ -672,7 +691,7 @@ export default function MijozDetailPage() {
       afterWrite("S_tolov");
       afterWrite("MijozBalans");
       setTAddOpen(false);
-      setTimeout(() => setTick(t => t + 1), 800);
+      jimYangila(800);
     } catch (e) {
       alert("To'lov saqlanmadi: " + (e instanceof Error ? e.message : "noma'lum") + ".\nInternet aloqasini tekshirib, qayta urinib ko'ring.");
     } finally { setTSaving(false); }

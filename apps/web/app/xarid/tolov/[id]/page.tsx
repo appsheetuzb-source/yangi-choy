@@ -76,12 +76,16 @@ export default function XaridTolovDetailPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadData = useCallback(() => {
-    setLoading(true);
+  // jim=true — tahrirni saqlagandan keyingi yangilash: sahifa ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((jim = false) => {
+    if (!jim) setLoading(true);
     fetchSheetWhere("X_Tolov", "X_Tolov_ID", id)
     .then(async (tR) => {
       const found = (tR.data as XTolov[])[0];
-      if (!found) { setError("To'lov topilmadi"); return; }
+      // Jim yangilashda o'qish xatosi (headers: []) "topilmadi" emas — sahifa o'z holicha qoladi
+      if (!found) { if (!jim || tR.headers?.length) setError("To'lov topilmadi"); return; }
       const [tmR, xR, gzR] = await Promise.all([
         found.Taminotchi_ID ? fetchSheetWhere("Taminotchi", "Taminotchi_ID", found.Taminotchi_ID) : Promise.resolve({ headers: [], data: [] }),
         found.Xarid_ID ? fetchSheetWhere("Xarid", "Xarid_ID", found.Xarid_ID) : Promise.resolve({ headers: [], data: [] }),
@@ -100,8 +104,8 @@ export default function XaridTolovDetailPage() {
         setEditIzoh(found.Izoh || "");
         setEditing(true);
       }
-    }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-      .finally(() => setLoading(false));
+    }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+      .finally(() => { if (!jim) setLoading(false); });
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -152,7 +156,7 @@ export default function XaridTolovDetailPage() {
       });
       afterWrite("X_Tolov");
       setEditing(false);
-      setTimeout(() => loadData(), 600);
+      setTimeout(() => loadData(true), 600);  // jim — skroll joyi o'zgarmaydi
     } finally { setSaving(false); }
   }
 

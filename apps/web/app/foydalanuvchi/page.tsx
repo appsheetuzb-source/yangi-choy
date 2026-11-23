@@ -70,8 +70,11 @@ export default function FoydalanuvchiPage() {
   useScrollLock(drawerOpen || !!deleteTarget || !!detailTarget);
   const [deleting, setDeleting]         = useState(false);
 
-  const loadData = useCallback((delay = 0) => {
-    setLoading(true);
+  // jim=true — saqlash/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
+  // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
+  // Jim yangilash xato bersa — joriy ro'yxat o'z holicha qoladi (xato oynasi bilan almashtirilmaydi).
+  const loadData = useCallback((delay = 0, jim = false) => {
+    if (!jim) setLoading(true);
     setTimeout(() => {
       Promise.all([
         fetchSheet("Foydalanuvchi"),
@@ -82,8 +85,8 @@ export default function FoydalanuvchiPage() {
         setUsers(uRes.data as Foydalanuvchi[]);
         if (!oRes.error) setOmborlar(oRes.data as Ombor[]);
         if (!gRes.error) setGaznalar(gRes.data as Gazna[]);
-      }).catch(e => setError(e instanceof Error ? e.message : "Xatolik"))
-        .finally(() => setLoading(false));
+      }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+        .finally(() => { if (!jim) setLoading(false); });
     }, delay);
   }, []);
 
@@ -145,8 +148,13 @@ export default function FoydalanuvchiPage() {
       const xato = await javobXatosi(res, "Saqlanmadi. Qayta urinib ko'ring.");
       if (xato) { setSaveErr(xato); return; }
       afterWrite("Foydalanuvchi");
+      // Saqlangan foydalanuvchi ro'yxatda darhol yangilanadi (parolsiz; yangisi oxiriga qo'shiladi), keyin bazadan
+      // jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi va ochiladigan ma'lumot eskirmaydi
+      setUsers(p => editTarget
+        ? p.map(u => u.Foydalanuvchi_ID === editTarget.Foydalanuvchi_ID ? { ...u, ...qolgani } : u)
+        : [...p, { ...qolgani, Parol: "" }]);
       setDrawerOpen(false);
-      loadData(800);
+      loadData(800, true);
     } catch {
       setSaveErr("Tarmoq xatosi. Qayta urinib ko'ring.");
     } finally { setSaving(false); }
@@ -161,8 +169,11 @@ export default function FoydalanuvchiPage() {
       const xato = await javobXatosi(res, "O'chirilmadi. Qayta urinib ko'ring.");
       if (xato) { alert(xato); return; }
       afterWrite("Foydalanuvchi");
+      // Server tasdiqladi — ro'yxatdan darhol olib tashlanadi, bazadan jim yangilanadi (skroll joyi o'zgarmaydi)
+      const ochirildi = deleteTarget.Foydalanuvchi_ID;
+      setUsers(p => p.filter(u => u.Foydalanuvchi_ID !== ochirildi));
       setDeleteTarget(null);
-      loadData(800);
+      loadData(800, true);
     } catch {
       alert("Tarmoq xatosi. Qayta urinib ko'ring.");
     } finally { setDeleting(false); }

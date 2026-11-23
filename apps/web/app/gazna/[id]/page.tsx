@@ -88,9 +88,11 @@ export default function GaznaDetailPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  const loadData = useCallback(() => {
+  // jim=true — tahrirni saqlagandan keyingi yangilash: sahifa ekranda QOLADI (butun sahifa spinnerga
+  // almashtirilmaydi), skroll tepaga sakramaydi. Jim yangilash xato bersa — joriy ma'lumot o'z holicha qoladi.
+  const loadData = useCallback((jim = false) => {
     if (!id) return;
-    setLoading(true); setError(null);
+    if (!jim) { setLoading(true); setError(null); }
     Promise.all([
       fetchSheet("Gazna"),
       fetchSheet("S_tolov"),
@@ -105,8 +107,8 @@ export default function GaznaDetailPage() {
       setXtolov((xR.data as XTolov[]) || []);
       setXarajatlar((xrR.data as Xarajat[]) || []);
     })
-    .catch((e: unknown) => setError(e instanceof Error ? e.message : "Xatolik"))
-    .finally(() => setLoading(false));
+    .catch((e: unknown) => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
+    .finally(() => { if (!jim) setLoading(false); });
   }, [id]);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -217,13 +219,15 @@ export default function GaznaDetailPage() {
     setSaving(true);
     try {
       const sana = isoToDMY(form.Boshlanish_Sana);
-      await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sheet: "Gazna", idColumn: "Gazna_ID", idValue: gazna.Gazna_ID,
-          row: { Nomi: form.Nomi, Turi: form.Turi, Shakli: form.Shakli,
-                 Boshlangich_balans: form.Boshlangich_balans, Boshlanish_Sana: sana, Tugash_Sana: sana } }) });
+      const yangi = { Nomi: form.Nomi, Turi: form.Turi, Shakli: form.Shakli,
+                      Boshlangich_balans: form.Boshlangich_balans, Boshlanish_Sana: sana, Tugash_Sana: sana };
+      const res = await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheet: "Gazna", idColumn: "Gazna_ID", idValue: gazna.Gazna_ID, row: yangi }) });
       afterWrite("Gazna");
+      // Saqlangan bo'lsa darhol ko'rsatiladi (jim yangilash kelguncha eski qiymat bilan qayta tahrirlanmasin)
+      if (res.ok) setGazna(p => (p ? { ...p, ...yangi } : p));
       setShowEdit(false);
-      loadData();
+      loadData(true);
     } finally { setSaving(false); }
   }
 

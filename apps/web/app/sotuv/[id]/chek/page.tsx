@@ -4,21 +4,35 @@ import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni, opVaqti } fr
 import { useEffect, useState, useRef, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import jsPDF from "jspdf";
+import { blokMatn } from "@/lib/blok";
+import { fmtSon } from "@/lib/birlik";
 
 interface SotuvSavatRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
-  Soni: string; Som_Narx: string; Summa_som: string; Izoh?: string;
+  Soni: string; Som_Narx: string; Summa_som: string; Izoh?: string; Blok?: string;
 }
 interface SotuvSavatDollarRow {
   Savat_ID: string; Sotuv_ID: string; Mahsulot_ID: string;
-  Soni: string; Narx: string; Summa: string; Izoh?: string;
+  Soni: string; Narx: string; Summa: string; Izoh?: string; Blok?: string;
 }
-interface Mahsulot { Mahsulot_ID: string; Nomi: string; }
+interface Mahsulot { Mahsulot_ID: string; Nomi: string; Birlik?: string; Blokdagi_dona?: string; }
 
 function num(v: string|number|undefined) { return parseFloat(String(v||"0").replace(/\s/g,"").replace(",",".")) || 0; }
 // Chekdagi soni: avvalgi ko'rinish ("2.0", "12.5"), kasr esa 3 xonagacha ANIQ — blok o'lchami kasr bo'lsa
 // (3 × 12,25 = 36,75) "36.8" bo'lib yaxlitlanmasin
 function fmtChekSoni(v: number) { return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 3, useGrouping: false }); }
+// Chekdagi SONI katagi: blok bilan kiritilgan qatorda — "1 blok" / "2 blok + 3 dona" va ostida jami dona
+// (narx bir dona uchun — summa shu jami bilan tekshiriladi); oddiy qatorda — avvalgidek son ("40.0")
+function ChekSoni({ soni, blok, m }: { soni: string; blok?: string; m?: Mahsulot }) {
+  const bm = blokMatn(soni, blok, m);
+  if (!bm) return <>{fmtChekSoni(num(soni))}</>;
+  return (
+    <span className="chek-soni-blok">
+      <span>{bm}</span>
+      <span className="chek-soni-jami">{fmtSon(num(soni))} dona</span>
+    </span>
+  );
+}
 function fmtSom(v: number) { return v.toLocaleString("ru-RU") + " so'm"; }
 function fmtUsd(v: number) { return v.toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:4})+" $"; }
 // Balans xulosasi uchun — aniq 2 xona (jami summalar pul ko'rinishida)
@@ -311,6 +325,9 @@ function ChekContent() {
         .chek-table tbody td.left { text-align: left; }
         .chek-table tbody td.name { font-weight: 800; text-align: left; }
         .chek-table tbody td.amount { font-weight: 800; color: #1a2744; }
+        /* Blok bilan kiritilgan qator: "1 blok" va ostida kichik — jami dona */
+        .chek-soni-blok { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.2; white-space: nowrap; }
+        .chek-soni-jami { font-size: 10px; font-weight: 600; color: #7a80a0; }
         .chek-table tfoot td {
           padding: 10px 12px;
           font-size: 13px;
@@ -407,8 +424,9 @@ function ChekContent() {
           .chek-table th, .chek-table td { word-break: break-word; white-space: normal !important; }
           /* Mahsulot nomi keng (to'liq), qolganlari kichik */
           .chek-table th:nth-child(1), .chek-table td:nth-child(1) { width: 6% !important; }
-          .chek-table th:nth-child(2), .chek-table td:nth-child(2) { width: 42% !important; text-align: left !important; }
-          .chek-table th:nth-child(3), .chek-table td:nth-child(3) { width: 9% !important; }
+          .chek-table th:nth-child(2), .chek-table td:nth-child(2) { width: 39% !important; text-align: left !important; }
+          .chek-table th:nth-child(3), .chek-table td:nth-child(3) { width: 12% !important; }
+          .chek-soni-blok { white-space: normal; }
           .chek-table th:nth-child(4), .chek-table td:nth-child(4) { width: 15% !important; }
           .chek-table th:nth-child(5), .chek-table td:nth-child(5) { width: 18% !important; }
           .chek-table th:nth-child(6), .chek-table td:nth-child(6) { width: 10% !important; }
@@ -541,7 +559,7 @@ function ChekContent() {
                     <tr key={r.Savat_ID}>
                       <td style={{fontWeight:700}}>{i+1}</td>
                       <td className="name" style={{fontWeight:800}}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
-                      <td style={{fontWeight:700}}>{fmtChekSoni(num(r.Soni))}</td>
+                      <td style={{fontWeight:700}}><ChekSoni soni={r.Soni} blok={r.Blok} m={mMap[r.Mahsulot_ID]}/></td>
                       <td style={{fontWeight:700}}>{fmtSom(num(r.Som_Narx))}</td>
                       <td className="amount" style={{fontWeight:800}}>{fmtSom(num(r.Summa_som))}</td>
                       <td className="left" style={{color:"#7a80a0",fontWeight:700}}>{r.Izoh||""}</td>
@@ -582,7 +600,7 @@ function ChekContent() {
                     <tr key={r.Savat_ID}>
                       <td style={{fontWeight:700}}>{i+1}</td>
                       <td className="name" style={{fontWeight:800}}>{mMap[r.Mahsulot_ID]?.Nomi||r.Mahsulot_ID}</td>
-                      <td style={{fontWeight:700}}>{fmtChekSoni(num(r.Soni))}</td>
+                      <td style={{fontWeight:700}}><ChekSoni soni={r.Soni} blok={r.Blok} m={mMap[r.Mahsulot_ID]}/></td>
                       <td style={{fontWeight:700}}>{fmtUsd(num(r.Narx))}</td>
                       <td className="amount" style={{fontWeight:800}}>{fmtUsd(num(r.Summa))}</td>
                       <td className="left" style={{color:"#7a80a0",fontWeight:700}}>{r.Izoh||""}</td>
