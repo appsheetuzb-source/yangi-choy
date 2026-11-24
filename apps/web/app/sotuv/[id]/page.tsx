@@ -8,6 +8,7 @@ import { useEffect, useState, useRef, useMemo, type CSSProperties } from "react"
 import { birlikOf } from "@/lib/birlik";
 import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokTahrir, blokMatn, soniIzoh } from "@/lib/blok";
 import { somSumma, usdSumma } from "@/lib/summa";
+import { matnEni } from "@/lib/matn-eni";
 import { qidiruvMos } from "@/lib/qidiruv";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni } from "@/lib/mijoz-ledger";
@@ -169,7 +170,7 @@ function SoniKatak({soni,blok,m}:{soni:string;blok?:string;m?:Mahsulot}) {
   const iz:CSSProperties={fontSize:11,fontWeight:600,color:"var(--text-3)"};
   const son=<span style={{fontSize:14,fontWeight:700}}>{fmt(soni)}</span>;
   return (
-    <div style={{minWidth:0,display:"flex",flexWrap:"wrap",alignItems:"baseline",columnGap:4,lineHeight:1.3}}>
+    <div style={{minWidth:0,display:"flex",alignItems:"baseline",columnGap:4,lineHeight:1.3,whiteSpace:"nowrap"}}>
       {bm ? <><span style={iz}>{bm} =</span>{son}</> : <>{son}<span style={iz}>{soniIzoh(soni,blok,m)}</span></>}
     </div>
   );
@@ -1215,11 +1216,19 @@ export default function SotuvDetailPage() {
   // mahsulot nomi ustuni baribir tor, uni yana siqmaslik uchun.
   const somKeng = addSomRows.some(r=>r.Blok!==undefined);
   const dolKeng = addDollarRows.some(r=>r.Blok!==undefined);
-  // Saqlangan blok qatori bo'lsa SONI kengroq — "2 blok = 32" yonma-yon sig'sin
-  const somBlokBor = savatSom.some(r=>!!blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]));
-  const dolBlokBor = savatDollar.some(r=>!!blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]));
-  const somGrid = `36px 1fr ${somBlokBor||somKeng?84:56}px 76px 100px 60px 80px 52px`;
-  const dolGrid = `36px 1fr ${dolBlokBor||dolKeng?84:56}px 76px 100px 60px 80px 52px`;
+  // SONI ustuni: blok qatorlari bo'lsa eng uzun "1 blok + 1 dona = 25" BIR QATORGA sig'adigan kenglik
+  // (matn haqiqiy shrift bilan o'lchanadi — lib/matn-eni.ts); blok bo'lmasa avvalgidek 56px
+  const soniUstuni = (rows:{Soni:string;Blok?:string;Mahsulot_ID:string}[], keng:boolean) => {
+    let w = keng ? 84 : 56;
+    for (const r of rows) {
+      const bm = blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]);
+      const t = bm ? matnEni(bm+" =",11,600) + 4 + matnEni(fmt(r.Soni),14,700) : matnEni(fmt(r.Soni),14,700) + 4 + matnEni(soniIzoh(r.Soni,r.Blok,mMap[r.Mahsulot_ID]),11,600);
+      w = Math.max(w, Math.ceil(t) + 20);   // +20 — keyingi ustun (NARX) bilan oraliq
+    }
+    return Math.min(w, 220);
+  };
+  const somGrid = `36px 1fr ${soniUstuni(savatSom,somKeng)}px 76px 100px 60px 80px 52px`;
+  const dolGrid = `36px 1fr ${soniUstuni(savatDollar,dolKeng)}px 76px 100px 60px 80px 52px`;
 
   return (
     <>

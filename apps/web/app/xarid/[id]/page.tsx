@@ -9,7 +9,8 @@ import { taminotchiNomi, ochirilganmi, nomiYoqolgan } from "@/lib/taminotchi-nom
 import { useAuth } from "@/lib/AuthContext";
 import { xaridFoizi, foizMatn, qatorFoizi } from "@/lib/chegirma";
 import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokTahrir, blokMatn } from "@/lib/blok";
-import { birlikOf, fmtSon } from "@/lib/birlik";
+import { fmtSon } from "@/lib/birlik";
+import { matnEni } from "@/lib/matn-eni";
 
 interface Xarid {
   Xarid_ID: string; Sana: string; Sotuv_Raqami: string;
@@ -496,6 +497,12 @@ export default function XaridDetailPage() {
   const tNomiYoq = nomiYoqolgan(xarid.Taminotchi_ID, tMap[xarid.Taminotchi_ID]);
   const isHa  = xarid.Akt_sverka === "True" || xarid.Akt_sverka === "true";
   const raqam = xarid.Sotuv_Raqami || "—";
+  // SONI ustuni: blok qatori bo'lsa eng uzun "1 blok + 1 dona = 25" BIR QATORGA sig'adigan kenglik (lib/matn-eni.ts)
+  const xSoniW = Math.min(220, savat.reduce((w, r) => {
+    const bm = blokMatn(r.Soni, r.Blok, mMap[r.Mahsulot_ID]);
+    return bm ? Math.max(w, Math.ceil(matnEni(bm + " =", 11, 600) + 4 + matnEni(fmt(r.Soni), 14, 700)) + 20) : w;
+  }, 120));
+  const xGrid = `48px 1fr ${xSoniW}px 140px 160px 72px`;
 
   return (
     <>
@@ -590,7 +597,7 @@ export default function XaridDetailPage() {
             </button>
           </div>
           {!isMobile && (
-          <div style={{ display: "grid", gridTemplateColumns: "48px 1fr 120px 140px 160px 72px", padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: xGrid, padding: "10px 20px", background: "var(--bg)", borderBottom: "1px solid var(--border)" }}>
             {["#", "MAHSULOT", "SONI", "NARX", "JAMI", ""].map(h => (
               <span key={h} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-3)", letterSpacing: ".05em" }}>{h}</span>
             ))}
@@ -636,7 +643,7 @@ export default function XaridDetailPage() {
             );
             return (
               <div key={s.X_Savat || i} style={{
-                display: "grid", minWidth: isMobile ? 660 : undefined, gridTemplateColumns: "48px 1fr 120px 140px 160px 72px",
+                display: "grid", minWidth: isMobile ? 660 : undefined, gridTemplateColumns: xGrid,
                 padding: isEditing ? "8px 20px" : "13px 20px", alignItems: "center",
                 borderBottom: i < savat.length - 1 ? "1px solid var(--border)" : "none",
                 background: isEditing ? "#f0f9ff" : "transparent",
@@ -649,7 +656,7 @@ export default function XaridDetailPage() {
                     style={{ width: "100%", padding: "6px 10px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
                 ) : blokMatn(s.Soni, s.Blok, m) ? (
                   // Blok bilan kiritilgan — YONMA-YON, blok sondan oldin: "2 blok = 32"
-                  <span style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: 4 }}>
+                  <span style={{ display: "flex", alignItems: "baseline", columnGap: 4, whiteSpace: "nowrap" }}>
                     <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>{blokMatn(s.Soni, s.Blok, m)} =</span>
                     <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(s.Soni)}</span>
                   </span>
