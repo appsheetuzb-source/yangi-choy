@@ -4,6 +4,7 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { usePersistedState } from "@/lib/usePersistedState";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 interface Ombor {
   Ombor_ID: string; Nomi: string; Masul: string; Status: string;
@@ -76,8 +77,9 @@ export default function OmborPage() {
     ? mahsulotlar.filter(m => m.Ombor_ID === mainOmbor.Ombor_ID)
     : mahsulotlar, [mahsulotlar, mainOmbor]);
 
+  // Qidiruv: nomi yoki narx (sotuv/tan, so'm/$) — lib/qidiruv.ts
   const filtered = useMemo(()=> allMahsulotlar.filter(m =>
-    String(m.Nomi || "").toLowerCase().includes(search.toLowerCase())
+    qidiruvMos(search, [m.Nomi], [m.Sotuv_som, m.Sotuv_dollar, m.Tan_som, m.Tan_dollar])
   ), [allMahsulotlar, search]);
 
   const { totalTanSom, totalSotuvSom, totalTanUsd, totalSotuvUsd, marjaSom, marjaUsd } = useMemo(()=>{
@@ -169,7 +171,7 @@ export default function OmborPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </span>
-              <input className="search__input" placeholder="Mahsulot qidirish..." value={search}
+              <input className="search__input" placeholder="Mahsulot yoki narx..." value={search}
                 onChange={e => setSearch(e.target.value)}/>
               {search && (
                 <button className="search__clear" onClick={() => setSearch("")}>
@@ -243,7 +245,7 @@ export default function OmborPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                   </svg>
                 </span>
-                <input className="search__input" placeholder="Mahsulot qidirish..." value={search}
+                <input className="search__input" placeholder="Mahsulot yoki narx..." value={search}
                   onChange={e => setSearch(e.target.value)}/>
                 {search && (
                   <button className="search__clear" onClick={() => setSearch("")}>

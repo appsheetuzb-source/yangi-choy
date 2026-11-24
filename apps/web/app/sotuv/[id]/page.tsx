@@ -8,6 +8,7 @@ import { useEffect, useState, useRef, useMemo, type CSSProperties } from "react"
 import { birlikOf } from "@/lib/birlik";
 import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokTahrir, blokMatn, soniIzoh } from "@/lib/blok";
 import { somSumma, usdSumma } from "@/lib/summa";
+import { qidiruvMos } from "@/lib/qidiruv";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { mijozLedger, mijozLedgerMalumoti, ledgerNuqta, holatMatni } from "@/lib/mijoz-ledger";
 import { sotuvTasdiqXabari } from "@/lib/telegram-xabar";
@@ -160,13 +161,16 @@ function isBelowCost(s:SavatItem,kurs:string,mMap:Record<string,Mahsulot>):boole
 // Soni HAR DOIM jami dona (narx bir dona uchun) — summa/foyda/ombor hisoblari o'zgarmaydi.
 // Quyidagilar faqat ko'rsatish va kiritish uchun.
 
-/** Jadvaldagi SONI katagi: raqam + ostida izoh. Izoh HAR qatorda chiqadi: blok bilan kiritilgan bo'lsa
- *  "1 blok + 3 dona", oddiy sonda birligi ("dona"/"kg") — oddiy qatorda bo'sh turmasligi kerak. */
+/** Jadvaldagi SONI katagi — YONMA-YON (bitta qatorda; foydalanuvchi so'rovi): blok bilan kiritilgan bo'lsa
+ *  blok sondan OLDIN — "2 blok = 32", "1 blok + 3 dona = 27"; oddiy sonda — "6 dona" / "2,5 kg".
+ *  Ustun tor bo'lsa shu katak ichida o'raladi (tartib o'zgarmaydi). */
 function SoniKatak({soni,blok,m}:{soni:string;blok?:string;m?:Mahsulot}) {
+  const bm=blokMatn(soni,blok,m);
+  const iz:CSSProperties={fontSize:11,fontWeight:600,color:"var(--text-3)"};
+  const son=<span style={{fontSize:14,fontWeight:700}}>{fmt(soni)}</span>;
   return (
-    <div style={{minWidth:0}}>
-      <span style={{fontSize:14,fontWeight:700}}>{fmt(soni)}</span>
-      <span style={{display:"block",fontSize:11,fontWeight:600,color:"var(--text-3)",marginTop:1,lineHeight:1.3}}>{soniIzoh(soni,blok,m)}</span>
+    <div style={{minWidth:0,display:"flex",flexWrap:"wrap",alignItems:"baseline",columnGap:4,lineHeight:1.3}}>
+      {bm ? <><span style={iz}>{bm} =</span>{son}</> : <>{son}<span style={iz}>{soniIzoh(soni,blok,m)}</span></>}
     </div>
   );
 }
@@ -261,7 +265,13 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{marginBottom:8}}>
               <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 1fr 36px",gap:8,alignItems:"center"}}>
-                <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+                {/* Blok izohi o'sha qatorda — mahsulot yonida, SONI kataklaridan oldin */}
+                <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:6,minWidth:0}}>
+                  <div style={{flex:"1 1 160px",minWidth:0}}>
+                    <SearchSelect items={somItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+                  </div>
+                  {blokRejim&&<BlokInfo q={s} n={n} style={{flexShrink:0,whiteSpace:"nowrap"}}/>}
+                </div>
                 {blokRejim
                   ? <BlokDonaInput blok={s.Blok} dona={s.Dona} n={n} onBlok={v=>onUpdate(s.id,"Blok",v)} onDona={v=>onUpdate(s.id,"Dona",v)}
                       inputStyle={{padding:"10px 2px",border:"1px solid #bbf7d0",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -276,7 +286,6 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                   style={{padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,outline:"none",minWidth:0}}/>
                 <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
               </div>
-              {blokRejim&&<BlokInfo q={s} n={n} style={{display:"inline-block",marginTop:4}}/>}
             </div>
           );
         })}
@@ -328,7 +337,13 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
           return (
             <div key={s.id} style={{marginBottom:8}}>
               <div style={{display:"grid",gridTemplateColumns:"3fr 90px 130px 110px 1fr 36px",gap:8,alignItems:"center"}}>
-                <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+                {/* Blok izohi o'sha qatorda — mahsulot yonida, SONI kataklaridan oldin */}
+                <div style={{display:"flex",flexWrap:"wrap",alignItems:"center",gap:6,minWidth:0}}>
+                  <div style={{flex:"1 1 160px",minWidth:0}}>
+                    <SearchSelect items={dollarItems} value={s.Mahsulot_ID} onChange={v=>onUpdate(s.id,"Mahsulot_ID",v)} placeholder="Mahsulot..."/>
+                  </div>
+                  {blokRejim&&<BlokInfo q={s} n={n} style={{flexShrink:0,whiteSpace:"nowrap"}}/>}
+                </div>
                 {blokRejim
                   ? <BlokDonaInput blok={s.Blok} dona={s.Dona} n={n} onBlok={v=>onUpdate(s.id,"Blok",v)} onDona={v=>onUpdate(s.id,"Dona",v)}
                       inputStyle={{padding:"10px 2px",border:"1px solid #bfdbfe",borderRadius:"var(--radius)",fontSize:13,fontWeight:600,outline:"none",textAlign:"center"}}/>
@@ -343,7 +358,6 @@ function SavatEditor({items,onUpdate,onRemove,onAddSom,onAddDollar,jamiS,jamiD,k
                   style={{padding:"10px",border:"1px solid var(--border)",borderRadius:"var(--radius)",fontSize:13,outline:"none",minWidth:0}}/>
                 <button onClick={()=>onRemove(s.id)} style={{width:36,height:40,borderRadius:8,border:"none",background:"#fee2e2",color:"#ef4444",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontSize:20,fontWeight:700}}>−</button>
               </div>
-              {blokRejim&&<BlokInfo q={s} n={n} style={{display:"inline-block",marginTop:4}}/>}
             </div>
           );
         })}
@@ -1201,8 +1215,11 @@ export default function SotuvDetailPage() {
   // mahsulot nomi ustuni baribir tor, uni yana siqmaslik uchun.
   const somKeng = addSomRows.some(r=>r.Blok!==undefined);
   const dolKeng = addDollarRows.some(r=>r.Blok!==undefined);
-  const somGrid = `36px 1fr ${somKeng?84:56}px 76px 100px 60px 80px 52px`;
-  const dolGrid = `36px 1fr ${dolKeng?84:56}px 76px 100px 60px 80px 52px`;
+  // Saqlangan blok qatori bo'lsa SONI kengroq — "2 blok = 32" yonma-yon sig'sin
+  const somBlokBor = savatSom.some(r=>!!blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]));
+  const dolBlokBor = savatDollar.some(r=>!!blokMatn(r.Soni,r.Blok,mMap[r.Mahsulot_ID]));
+  const somGrid = `36px 1fr ${somBlokBor||somKeng?84:56}px 76px 100px 60px 80px 52px`;
+  const dolGrid = `36px 1fr ${dolBlokBor||dolKeng?84:56}px 76px 100px 60px 80px 52px`;
 
   return (
     <>
@@ -1338,7 +1355,7 @@ export default function SotuvDetailPage() {
           )}
         </div>
 
-        <div className="search" style={{marginBottom:16}}><span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span><input className="search__input" placeholder="Mahsulot qidirish..." value={savatSearch} onChange={e=>setSavatSearch(e.target.value)}/>{savatSearch&&<button className="search__clear" onClick={()=>setSavatSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}</div>
+        <div className="search" style={{marginBottom:16}}><span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span><input className="search__input" placeholder="Mahsulot, summa, narx, izoh..." value={savatSearch} onChange={e=>setSavatSearch(e.target.value)}/>{savatSearch&&<button className="search__clear" onClick={()=>setSavatSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}</div>
 
         <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr":(isAdmin?"1fr 1fr":"1fr"),gap:16,alignItems:"start"}}>
         {/* So'm mahsulotlar */}
@@ -1365,7 +1382,7 @@ export default function SotuvDetailPage() {
               <span style={{fontSize:12,fontWeight:700,color:"var(--text-2)"}}>Hammasini tanlash</span>
             </div>
             ) : null)}
-            {savatSom.filter(s=>!savatSearch||(mMap[s.Mahsulot_ID]?.Nomi||"").toLowerCase().includes(savatSearch.toLowerCase())).map((s,i)=>{
+            {savatSom.filter(s=>!savatSearch||qidiruvMos(savatSearch,[mMap[s.Mahsulot_ID]?.Nomi,s.Izoh],[s.Summa_som,s.Som_Narx,s.Soni])).map((s,i)=>{
               const m=mMap[s.Mahsulot_ID];
               const isEdit=editSomRow?.Savat_ID===s.Savat_ID;
               const delivered=s.Check!=="FALSE";
@@ -1532,8 +1549,12 @@ export default function SotuvDetailPage() {
               <div key={row.id} ref={ri===addSomRows.length-1?addSomRef:undefined} style={{borderTop:(savatSom.length>0||ri>0)?"1px solid var(--border)":"none",background:"#f0f9ff"}}>
                 <div style={{display:"grid",gridTemplateColumns:somGrid,padding:"8px 20px",alignItems:"center"}}>
                   <span style={{fontSize:13,color:"var(--text-3)"}}>{savatSom.length+ri+1}</span>
-                  <div style={{paddingRight:8}}>
-                    <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updSomRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot..."/>
+                  {/* Blok izohi o'sha qatorda — mahsulot yonida, SONI kataklaridan oldin (joy tor bo'lsa shu katak ichida nom ostida) */}
+                  <div style={{paddingRight:8,display:"flex",flexWrap:"wrap",alignItems:"center",gap:6,minWidth:0}}>
+                    <div style={{flex:"1 1 140px",minWidth:0}}>
+                      <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updSomRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot..."/>
+                    </div>
+                    {blokRejim&&<BlokInfo q={row} n={bn} style={{flexShrink:0,whiteSpace:"nowrap"}}/>}
                   </div>
                   {blokRejim
                     ? blokInput({padding:"6px 2px",border:"1.5px solid var(--primary)",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"})
@@ -1556,7 +1577,6 @@ export default function SotuvDetailPage() {
                     </button>
                   </div>
                 </div>
-                {blokRejim&&<div style={{padding:"0 20px 8px 56px"}}><BlokInfo q={row} n={bn} style={{display:"inline-block"}}/></div>}
               </div>
             );})}
             {!bulkMode && (
@@ -1593,7 +1613,7 @@ export default function SotuvDetailPage() {
             <span style={{fontSize:12,fontWeight:700,color:"var(--text-2)"}}>Hammasini tanlash</span>
           </div>
           ) : null)}
-          {savatDollar.filter(s=>!savatSearch||(mMap[s.Mahsulot_ID]?.Nomi||"").toLowerCase().includes(savatSearch.toLowerCase())).map((s,i)=>{
+          {savatDollar.filter(s=>!savatSearch||qidiruvMos(savatSearch,[mMap[s.Mahsulot_ID]?.Nomi,s.Izoh],[s.Summa,s.Narx,s.Soni])).map((s,i)=>{
             const m=mMap[s.Mahsulot_ID];
             const isEdit=editDollarRow?.Savat_ID===s.Savat_ID;
             const delivered=s.Check!=="FALSE";
@@ -1760,8 +1780,12 @@ export default function SotuvDetailPage() {
             <div key={row.id} ref={ri===addDollarRows.length-1?addDollarRef:undefined} style={{borderTop:(savatDollar.length>0||ri>0)?"1px solid var(--border)":"none",background:"#eff6ff"}}>
               <div style={{display:"grid",gridTemplateColumns:dolGrid,padding:"8px 20px",alignItems:"center"}}>
                 <span style={{fontSize:13,color:"var(--text-3)"}}>{savatDollar.length+ri+1}</span>
-                <div style={{paddingRight:8}}>
-                  <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updDollarRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot..."/>
+                {/* Blok izohi o'sha qatorda — mahsulot yonida, SONI kataklaridan oldin (joy tor bo'lsa shu katak ichida nom ostida) */}
+                <div style={{paddingRight:8,display:"flex",flexWrap:"wrap",alignItems:"center",gap:6,minWidth:0}}>
+                  <div style={{flex:"1 1 140px",minWidth:0}}>
+                    <SearchSelect items={mhItems} value={row.Mahsulot_ID} onChange={id=>updDollarRow(row.id,"Mahsulot_ID",id)} placeholder="Mahsulot..."/>
+                  </div>
+                  {blokRejim&&<BlokInfo q={row} n={bn} style={{flexShrink:0,whiteSpace:"nowrap"}}/>}
                 </div>
                 {blokRejim
                   ? blokInput({padding:"6px 2px",border:"1.5px solid #2563eb",borderRadius:"var(--radius)",fontSize:13,fontWeight:700,outline:"none",textAlign:"center"})
@@ -1784,7 +1808,7 @@ export default function SotuvDetailPage() {
                   </button>
                 </div>
               </div>
-              {blokRejim&&<div style={{padding:"0 20px 8px 56px"}}><BlokInfo q={row} n={bn} style={{display:"inline-block"}}/></div>}
+
             </div>
           );})}
           {!bulkMode && (

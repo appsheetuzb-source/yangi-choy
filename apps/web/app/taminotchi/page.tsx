@@ -9,6 +9,7 @@ import { ayirboshlashmi } from "@/lib/mijoz-ledger";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { taminotchiChegirmasi, chegirmaMatn, type ChegirmaManbasi, type ChegirmaQator } from "@/lib/chegirma";
 import { statusOchirilgan, OCHIRILGAN_STATUS } from "@/lib/taminotchi-nom";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 interface Taminotchi {
   Taminotchi_ID: string; Ism: string; Telefon: string; Valyuta: string;
@@ -181,10 +182,16 @@ export default function TaminotchiPage() {
   }
 
   const ochirilganlar = taminotchilar.filter(t => statusOchirilgan(t.Status));
-  const filtered = taminotchilar.filter(t => (ochirilganKorsat ? statusOchirilgan(t.Status) : !statusOchirilgan(t.Status))).filter(t =>
-    String(t.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
-    String(t.Telefon || "").includes(search)
-  );
+  // Qidiruv: ism, telefon VA summa (joriy qarz, xarid, to'lov — so'm/$) — lib/qidiruv.ts
+  const filtered = taminotchilar.filter(t => (ochirilganKorsat ? statusOchirilgan(t.Status) : !statusOchirilgan(t.Status))).filter(t => {
+    if (!search) return true;
+    const xarid = xaridSavatByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
+    const tolov = tolovByT[t.Taminotchi_ID]       || { som: 0, usd: 0 };
+    const ab = abByT[t.Taminotchi_ID] || { som: 0, usd: 0 };
+    const qS = num(t.Boshlangich_som) + xarid.som - tolov.som - ab.som;
+    const qU = num(t.Boshlangich_Balans) + xarid.usd - tolov.usd - ab.usd;
+    return qidiruvMos(search, [t.Ism, t.Telefon], [qS, qU, xarid.som, xarid.usd, tolov.som, tolov.usd, t.Telefon]);
+  });
 
   // Jami joriy qarz (so'm va dollar alohida) — izlash natijasiga mos (filtered).
   // Izlash bo'sh bo'lsa barcha ta'minotchilar; izlanganda faqat topilganlar yig'indisi.
@@ -267,7 +274,7 @@ export default function TaminotchiPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </span>
-              <input className="search__input" placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)}/>
+              <input className="search__input" placeholder="Ism, telefon, summa..." value={search} onChange={e => setSearch(e.target.value)}/>
               {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
             </div>
           )}
@@ -305,7 +312,7 @@ export default function TaminotchiPage() {
                 <span className="search__icon">
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </span>
-                <input className="search__input" placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)}/>
+                <input className="search__input" placeholder="Ism, telefon, summa..." value={search} onChange={e => setSearch(e.target.value)}/>
                 {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
               </div>
             )}

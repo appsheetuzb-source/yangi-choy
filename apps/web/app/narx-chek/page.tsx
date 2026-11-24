@@ -7,6 +7,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { birlikOf, fmtMiqdor } from "@/lib/birlik";
 import { useRouter } from "next/navigation";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 interface Mahsulot {
   Mahsulot_ID: string; Ombor_ID: string; Nomi: string;
@@ -65,7 +66,7 @@ export default function NarxChekPage() {
   }, []);
 
   const filtered = useMemo(() =>
-    mahsulotlar.filter(m => String(m.Nomi || "").toLowerCase().includes(search.toLowerCase())),
+    mahsulotlar.filter(m => qidiruvMos(search, [m.Nomi], [m.Sotuv_som, m.Sotuv_dollar])),   // nomi yoki narx bo'yicha (lib/qidiruv.ts)
     [mahsulotlar, search]);
 
   useEffect(() => { setShown(60); }, [search]);
@@ -204,7 +205,7 @@ export default function NarxChekPage() {
         {isMobile && selCount > 0 && <div style={{ marginBottom: 12 }}>{summaryPanel}</div>}
         <div className="search" style={{ marginBottom: 14 }}>
           <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></span>
-          <input className="search__input" placeholder="Mahsulot qidirish..." value={search} onChange={e => setSearch(e.target.value)} />
+          <input className="search__input" placeholder="Mahsulot yoki narx..." value={search} onChange={e => setSearch(e.target.value)} />
           {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>}
         </div>
 

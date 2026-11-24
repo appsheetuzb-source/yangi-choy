@@ -15,6 +15,7 @@ import { taminotchiNomi, ochirilganmi } from "@/lib/taminotchi-nom";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ayirboshlashmi } from "@/lib/mijoz-ledger";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 interface Gazna { Gazna_ID: string; Nomi: string; Turi: string; Shakli?: string; }
 
@@ -599,10 +600,8 @@ export default function XaridTolovPage() {
     const matchYil = !filterYil || t.Yil === filterYil;
     const matchT   = filterT.length === 0 || filterT.includes(t.Taminotchi_ID);
     const tNomi = taminotchiNomi(t.Taminotchi_ID, tMap[t.Taminotchi_ID], "", tStatus[t.Taminotchi_ID]);
-    const matchSearch = !search ||
-      tNomi.toLowerCase().includes(search.toLowerCase()) ||
-      (t.Sana || "").includes(search) ||
-      (t.Turi || "").toLowerCase().includes(search.toLowerCase());
+    // Qidiruv: ta'minotchi, sana, turi, izoh VA summa (so'm/$) — lib/qidiruv.ts
+    const matchSearch = !search || qidiruvMos(search, [tNomi, t.Sana, t.Turi, t.Izoh], [t.Som, t.Dollar, t.Summa, t.Summa_dollar]);
     return matchOy && matchYil && matchT && matchSearch;
   }), [tolovlar, filterOy, filterYil, filterT, tMap, search]);
 
@@ -733,7 +732,7 @@ export default function XaridTolovPage() {
                     <span className="search__icon">
                       <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                     </span>
-                    <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}/>
+                    <input className="search__input" placeholder="Ta'minotchi, summa, sana, izoh..." value={search} onChange={e => setSearch(e.target.value)}/>
                     {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                   </div>
                   {/* Ta'minotchi filter — to'liq kenglik */}
@@ -779,7 +778,7 @@ export default function XaridTolovPage() {
                       <span className="search__icon">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                       </span>
-                      <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}/>
+                      <input className="search__input" placeholder="Ta'minotchi, summa, sana, izoh..." value={search} onChange={e => setSearch(e.target.value)}/>
                       {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
                     <MultiSelect

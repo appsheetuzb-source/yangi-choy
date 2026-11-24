@@ -11,6 +11,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { birlikOf, fmtSon } from "@/lib/birlik";
 import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokMatn } from "@/lib/blok";
 import { somSumma } from "@/lib/summa";
+import { qidiruvMos } from "@/lib/qidiruv";
 import { mijozEskiQarz, balansSnapshot } from "@/lib/mijoz-balans";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useRouter } from "next/navigation";
@@ -998,13 +999,13 @@ export default function SotuvPage() {
     // Admin: agent tanlanmaguncha sotuv ko'rsatilmaydi (agent tanlansa — o'shaniki)
     if(isAdmin && filterAgent.length===0) return false;
     const matchAgent=filterAgent.length===0||filterAgent.includes(s.Agent);
-    const mJozIsi=(mjMap[s.Mijoz_ID]?.Ism||"");
-    const matchSearch=!search||
-      mJozIsi.toLowerCase().includes(search.toLowerCase())||
-      (s.Sotuv_Raqami||"").includes(search)||
-      (s.Izoh||"").toLowerCase().includes(search.toLowerCase());
+    const mj=mjMap[s.Mijoz_ID];
+    // Qidiruv: mijoz, telefon, sotuv raqami, sana, izoh VA summa (so'm/$ jami) — lib/qidiruv.ts
+    const matchSearch=!search||qidiruvMos(search,
+      [mj?.Ism,mj?.Telefon,s.Sotuv_Raqami,s.Sana,s.Izoh],
+      [(savatSomMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa_som),0),(savatDollarMap[s.Sotuv_ID]||[]).reduce((t,r)=>t+num(r.Summa),0)]);
     return matchAgent&&matchSearch;
-  }),[sotuvlar,filterAgent,search,mijozlar,isSotuvchi,isAdmin,user]);
+  }),[sotuvlar,filterAgent,search,mjMap,savatSomMap,savatDollarMap,isSotuvchi,isAdmin,user]);
 
   // Sana filtri qo'llangan baza (qolgan tablar uchun)
   const filtered = useMemo(()=>filteredNoDate.filter(s=>{
@@ -1190,7 +1191,7 @@ export default function SotuvPage() {
                 <div style={{padding:"12px 14px",borderBottom:"1px solid var(--border)",display:"flex",flexDirection:"column",gap:10}}>
                   <div className="search">
                     <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
-                    <input className="search__input" placeholder="Mijoz, raqam..." value={search} onChange={e=>setSearch(e.target.value)}/>
+                    <input className="search__input" placeholder="Mijoz, summa, sana, izoh..." value={search} onChange={e=>setSearch(e.target.value)}/>
                     {search&&<button className="search__clear" onClick={()=>setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                   </div>
                   {isAdmin && <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..." fullWidth/>}
@@ -1222,7 +1223,7 @@ export default function SotuvPage() {
                     </select>
                     <div className="search" style={{maxWidth:220}}>
                       <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
-                      <input className="search__input" placeholder="Mijoz, raqam..." value={search} onChange={e=>setSearch(e.target.value)}/>
+                      <input className="search__input" placeholder="Mijoz, summa, sana, izoh..." value={search} onChange={e=>setSearch(e.target.value)}/>
                       {search&&<button className="search__clear" onClick={()=>setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
                     {isAdmin && <MultiSelect items={aItems} value={filterAgent} onChange={setFilterAgent} placeholder="Agent..."/>}

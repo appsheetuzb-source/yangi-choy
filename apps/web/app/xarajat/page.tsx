@@ -10,6 +10,7 @@ import IzohSelect from "@/components/IzohSelect";
 import { useIzohOptions } from "@/lib/useIzohOptions";
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 interface Xarajat {
   Xarajat_ID: string; Yil: string; Oy: string; Sana: string;
@@ -187,7 +188,8 @@ export default function XarajatPage() {
     if (filterYil && x.Yil !== filterYil) return false;
     if (filterOy !== "0" && String(Number(x.Oy)) !== filterOy) return false;
     if (isAdmin && filterAgent && x.Agent !== filterAgent) return false;
-    if (search && !(`${x.Kategoriya} ${x.Nomi} ${x.Izoh}`).toLowerCase().includes(search.toLowerCase())) return false;
+    // Qidiruv: kategoriya, nomi, izoh, sana VA summa (so'm/$) — lib/qidiruv.ts
+    if (search && !qidiruvMos(search, [x.Kategoriya, x.Nomi, x.Izoh, x.Sana, x.Turi], [x.Som, x.Dollar, x.Summa])) return false;
     return true;
   });
 
@@ -237,7 +239,7 @@ export default function XarajatPage() {
           <h1 className="header__title">Xarajatlar</h1>
           <div className="search" style={{ maxWidth: 260 }}>
             <span className="search__icon"><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
-            <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)} />
+            <input className="search__input" placeholder="Nomi, summa, sana, izoh..." value={search} onChange={e => setSearch(e.target.value)} />
           </div>
           <select value={filterOy} onChange={e => setFilterOy(e.target.value)} style={{ padding: "7px 10px", borderRadius: 8, fontSize: 13, border: "1px solid var(--border-2)", background: "var(--white)", color: "var(--text)", width: "auto" }}>
             <option value="0">Barcha oylar</option>

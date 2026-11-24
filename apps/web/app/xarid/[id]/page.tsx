@@ -8,6 +8,8 @@ import { useIzohOptions } from "@/lib/useIzohOptions";
 import { taminotchiNomi, ochirilganmi, nomiYoqolgan } from "@/lib/taminotchi-nom";
 import { useAuth } from "@/lib/AuthContext";
 import { xaridFoizi, foizMatn, qatorFoizi } from "@/lib/chegirma";
+import { blokdagiDona, blokMosla, blokYukla, blokSaqla, blokTahrir, blokMatn } from "@/lib/blok";
+import { birlikOf, fmtSon } from "@/lib/birlik";
 
 interface Xarid {
   Xarid_ID: string; Sana: string; Sotuv_Raqami: string;
@@ -19,20 +21,50 @@ interface XaridSavat {
   Soni: string; Narxi: string; Narx_som: string;
   Summa_Som: string; Jami_Summa: string;
   Foiz?: string; Foizli_narx?: string; Foizli_narx_dollar?: string;
+  Blok?: string;   // nechta blok bilan kiritilgani ("" — oddiy dona); Soni baribir JAMI dona (lib/blok.ts)
 }
 interface Taminotchi { Taminotchi_ID: string; Ism: string; Status?: string; }
 interface Mahsulot {
   Mahsulot_ID: string; Nomi: string; Ombor_ID: string;
   Tan_dollar: string; Tan_som: string;
+  Birlik?: string; Blokdagi_dona?: string;
 }
 interface SavatItem {
   id: string; Mahsulot_ID: string; Soni: string; Narxi: string; Narx_som: string;
   // Chegirma FOIZI (13 = 13%). Tahrirlashda saqlanib qolishi uchun qator bilan birga olib yuriladi —
   // avval bu maydon yo'q edi va har tahrirda Foiz:"" yozilib chegirma o'chib ketardi.
   Foiz?: string;
+  // Blok rejimi (Blok !== undefined): Blok va Dona kiritiladi, Soni = Blok × n + Dona (blokMosla)
+  Blok?: string; Dona?: string;
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+
+// ── Blok bilan kiritish (lib/blok.ts) — Prixod formasidagidek ─────────────
+// MIQDOR blok rejimida: [blok][dona] yonma-yon (Soni'ni blokMosla hisoblaydi)
+function DBlokDona({ s, onUpdate, style }: {
+  s: SavatItem; onUpdate: (id: string, field: keyof SavatItem, val: string) => void; style: React.CSSProperties;
+}) {
+  const st: React.CSSProperties = { flex: 1, minWidth: 0, width: "100%", outline: "none", textAlign: "center", boxSizing: "border-box", ...style };
+  return (
+    <div style={{ display: "flex", gap: 4, minWidth: 0 }}>
+      <input value={s.Blok ?? ""} onChange={e => onUpdate(s.id, "Blok", e.target.value)} placeholder="blok" title="Blok soni" type="number" style={st}/>
+      <input value={s.Dona || ""} onChange={e => onUpdate(s.id, "Dona", e.target.value)} placeholder="dona" title="Blokdan tashqari ortiqcha dona" type="number" style={st}/>
+    </div>
+  );
+}
+/** "Blok: 1 × 24 = 24 dona" — qatorning o'zida, MIQDOR'dan oldin */
+function DBlokIzoh({ s, mMap, style }: { s: SavatItem; mMap: Record<string, Mahsulot>; style?: React.CSSProperties }) {
+  const n = blokdagiDona(mMap[s.Mahsulot_ID]);
+  if (s.Blok === undefined || !s.Mahsulot_ID || !n) return null;
+  const d = num(s.Dona);
+  const b = (v: string) => <b style={{ color: "var(--text)", fontWeight: 700 }}>{v}</b>;
+  return (
+    <div style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-2)", background: "var(--bg)", borderRadius: 8, padding: "5px 10px", lineHeight: 1.4, ...style }}>
+      Blok: {b(s.Blok || "0")} × {b(fmtSon(n))}{d !== 0 && <> {d > 0 ? "+" : "−"} {b(fmtSon(Math.abs(d)))} dona</>} = {b(fmtSon(num(s.Soni)))} dona
+    </div>
+  );
+}
 function sanaToIso(sana: string): string {
   const m = String(sana || "").trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   return m ? `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}` : "";
@@ -195,7 +227,7 @@ export default function XaridDetailPage() {
     setEditTaminotchi(xarid.Taminotchi_ID);
     setEditIzoh(xarid.Izoh || "");
     setEditSana(sanaToIso(xarid.Sana));
-    setEditSavat(savat.map(s => ({ id: uid(), Mahsulot_ID: s.Mahsulot_ID, Soni: s.Soni, Narxi: s.Narxi, Narx_som: s.Narx_som, Foiz: qatorFoizi(s) > 0 ? String(qatorFoizi(s)) : "" })));
+    setEditSavat(savat.map(s => ({ id: uid(), Mahsulot_ID: s.Mahsulot_ID, Soni: s.Soni, Narxi: s.Narxi, Narx_som: s.Narx_som, Foiz: qatorFoizi(s) > 0 ? String(qatorFoizi(s)) : "", ...blokYukla(s.Soni, s.Blok, mMap[s.Mahsulot_ID]) })));
     setEditOpen(true);
   }
 
@@ -204,7 +236,7 @@ export default function XaridDetailPage() {
       if (s.id !== itemId) return s;
       const u = { ...s, [field]: val };
       if (field === "Mahsulot_ID") { const m = mMap[val]; if (m) { u.Narxi = m.Tan_dollar || ""; u.Narx_som = m.Tan_som || ""; } }
-      return u;
+      return blokMosla(u, field, mMap);   // blokli mahsulot: [blok][dona] → Soni = blok × n + dona
     }));
   }
 
@@ -224,7 +256,7 @@ export default function XaridDetailPage() {
             body: JSON.stringify({ sheet: "Xarid_Savat", row: {
               X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: sana,
               Raqam: String(savat.length + i + 1), Xarid_ID: xarid.Xarid_ID, Ombor_ID: m?.Ombor_ID || "",
-              Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
+              Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Blok: blokSaqla(r), Narxi: r.Narxi, Narx_som: r.Narx_som,
               // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
               // summalar esa chegirmasiz hisoblanib xaridni oshirib ko'rsatardi)
               ...(() => { const f = editChegHa ? num(editChegFoiz) : 0, k = f > 0 ? 1 - f / 100 : 1; return {
@@ -253,7 +285,7 @@ export default function XaridDetailPage() {
             body: JSON.stringify({ sheet: "Xarid_Savat", row: {
               X_Savat: uid(), Yil: y, Oy: mo.replace(/^0/, ""), Sana: sana,
               Raqam: String(i + 1), Xarid_ID: xarid.Xarid_ID, Ombor_ID: m?.Ombor_ID || "",
-              Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Narxi: r.Narxi, Narx_som: r.Narx_som,
+              Mahsulot_ID: r.Mahsulot_ID, Soni: r.Soni, Blok: blokSaqla(r), Narxi: r.Narxi, Narx_som: r.Narx_som,
               // Chegirma saqlanadi va summalarga qo'llanadi (avval Foiz:"" yozilib yo'qolardi,
               // summalar esa chegirmasiz hisoblanib xaridni oshirib ko'rsatardi)
               ...(() => { const f = editChegHa ? num(editChegFoiz) : 0, k = f > 0 ? 1 - f / 100 : 1; return {
@@ -298,7 +330,8 @@ export default function XaridDetailPage() {
           Xarid_ID: xarid.Xarid_ID,
           Ombor_ID: editRowItem.Ombor_ID || mMap[editRowItem.Mahsulot_ID]?.Ombor_ID || "",
           Mahsulot_ID: editRowItem.Mahsulot_ID,
-          Soni: editRowSoni, Narxi: editRowNarxi, Narx_som: editRowNarxSom,
+          Soni: editRowSoni, Blok: blokTahrir(editRowItem, editRowSoni, editRowItem.Mahsulot_ID, mMap[editRowItem.Mahsulot_ID]),
+          Narxi: editRowNarxi, Narx_som: editRowNarxSom,
           // Qatorning o'z chegirmasi saqlanadi va summalarga qo'llanadi
           ...(() => { const f = qatorFoizi(editRowItem), k = f > 0 ? 1 - f / 100 : 1; return {
             Foiz: f > 0 ? String(f) : "",
@@ -596,7 +629,7 @@ export default function XaridDetailPage() {
                       <span style={{ fontSize: 13, fontWeight: 800, color: "var(--primary)" }}>= {fmt(jami)}</span>
                     </span>
                   ) : (
-                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>{fmt(s.Soni)} × {fmt(narx)} = <b style={{ color: "var(--text)", fontSize: 14 }}>{fmt(jami)} {num(s.Narx_som) > 0 ? "so'm" : "$"}</b></span>
+                    <span style={{ fontSize: 13, color: "var(--text-2)" }}>{fmt(s.Soni)}{blokMatn(s.Soni, s.Blok, m) ? <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-3)" }}> ({blokMatn(s.Soni, s.Blok, m)})</span> : null} × {fmt(narx)} = <b style={{ color: "var(--text)", fontSize: 14 }}>{fmt(jami)} {num(s.Narx_som) > 0 ? "so'm" : "$"}</b></span>
                   )}
                 </div>
               </div>
@@ -614,6 +647,12 @@ export default function XaridDetailPage() {
                 {isEditing ? (
                   <input type="number" autoFocus value={editRowSoni} onChange={e => setEditRowSoni(e.target.value)}
                     style={{ width: "100%", padding: "6px 10px", border: "1.5px solid var(--primary)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 700, outline: "none", textAlign: "center" }}/>
+                ) : blokMatn(s.Soni, s.Blok, m) ? (
+                  // Blok bilan kiritilgan — YONMA-YON, blok sondan oldin: "2 blok = 32"
+                  <span style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "var(--text-3)" }}>{blokMatn(s.Soni, s.Blok, m)} =</span>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(s.Soni)}</span>
+                  </span>
                 ) : (
                   <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(s.Soni)}</span>
                 )}
@@ -703,8 +742,11 @@ export default function XaridDetailPage() {
                       <button onClick={() => setEditSavat(p => p.filter(r => r.id !== s.id))} style={{ width: 38, height: 38, borderRadius: 8, border: "none", background: "#fee2e2", color: "#ef4444", cursor: "pointer", flexShrink: 0, fontSize: 20, fontWeight: 700, lineHeight: 1 }}>−</button>
                     </div>
                     <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                      <input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Soni" type="number"
-                        style={{ width: 56, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
+                      {s.Blok !== undefined
+                        ? <div style={{ width: 110 }}><DBlokDona s={s} onUpdate={updateEditItem} style={{ padding: "8px 4px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600 }}/></div>
+                        : <input value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Soni" type="number"
+                            style={{ width: 56, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>}
+                      <DBlokIzoh s={s} mMap={mMap} style={{ order: 9, flexBasis: "100%" }}/>
                       <input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="$" inputMode="decimal"
                         style={{ width: 74, padding: "8px 6px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", color: "#2563eb", textAlign: "center" }}/>
                       <input value={s.Narx_som} onChange={e => updateEditItem(s.id, "Narx_som", e.target.value)} placeholder="so'm" inputMode="decimal"
@@ -718,8 +760,11 @@ export default function XaridDetailPage() {
                   <div style={{ flex: 3, minWidth: 0 }}>
                     <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v => updateEditItem(s.id, "Mahsulot_ID", v)} placeholder="Mahsulot..."/>
                   </div>
-                  <input type="number" value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Miqdor"
-                    style={{ width: 90, padding: "10px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>
+                  <DBlokIzoh s={s} mMap={mMap} style={{ flexShrink: 0, whiteSpace: "nowrap" }}/>
+                  {s.Blok !== undefined
+                    ? <div style={{ width: 150, flexShrink: 0 }}><DBlokDona s={s} onUpdate={updateEditItem} style={{ padding: "10px 4px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600 }}/></div>
+                    : <input type="number" value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="Miqdor"
+                        style={{ width: 90, padding: "10px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", textAlign: "center" }}/>}
                   <input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="Narx ($)"
                     style={{ width: 100, padding: "10px 10px", border: "1px solid var(--border)", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 600, outline: "none", color: "#2563eb", textAlign: "center" }}/>
                   <input value={s.Narx_som} onChange={e => updateEditItem(s.id, "Narx_som", e.target.value)} placeholder="Narx (so'm)"
@@ -839,7 +884,11 @@ export default function XaridDetailPage() {
                       <SearchSelect items={mItems} value={s.Mahsulot_ID} onChange={v => updateEditItem(s.id, "Mahsulot_ID", v)} placeholder="Mahsulot tanlang..."/>
                     </div>
                     <div className="grid-2">
-                      <div className="field"><label>Miqdor (kg)</label><input type="number" value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="0"/></div>
+                      <div className="field"><label>{s.Blok !== undefined ? "Miqdor (blok / dona)" : "Miqdor (kg)"}</label>
+                        {s.Blok !== undefined
+                          ? <DBlokDona s={s} onUpdate={updateEditItem} style={{ padding: "10px 6px" }}/>
+                          : <input type="number" value={s.Soni} onChange={e => updateEditItem(s.id, "Soni", e.target.value)} placeholder="0"/>}
+                        <DBlokIzoh s={s} mMap={mMap} style={{ display: "inline-block", marginTop: 6 }}/></div>
                       <div className="field"><label>Narxi ($)</label><input value={s.Narxi} onChange={e => updateEditItem(s.id, "Narxi", e.target.value)} placeholder="0.00" style={{ color: "#2563eb", fontWeight: 700 }}/></div>
                       <div className="field"><label>Narxi (so&apos;m)</label><input value={s.Narx_som} onChange={e => updateEditItem(s.id, "Narx_som", e.target.value)} placeholder="0"/></div>
                       <div className="field"><label>Jami</label>

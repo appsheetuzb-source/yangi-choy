@@ -31,6 +31,8 @@ const REQUIRED: { table: string; column: string }[] = [
   { table: "mahsulot", column: "Blokdagi_dona" },
   { table: "sotuv_savat", column: "Blok" },
   { table: "sotuv_savat_dollar", column: "Blok" },
+  // Prixod (xarid) ham blok bilan kiritiladi — qanday kiritilganini ko'rsatish uchun
+  { table: "xarid_savat", column: "Blok" },
 ];
 
 function q(name: string) { return '"' + String(name).replace(/"/g, '""') + '"'; }

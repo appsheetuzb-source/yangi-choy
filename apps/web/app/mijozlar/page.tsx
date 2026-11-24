@@ -8,6 +8,7 @@ import { usePersistedState } from "@/lib/usePersistedState";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { ayirboshlashmi } from "@/lib/mijoz-ledger";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 interface Mijoz {
   Mijoz_ID: string; Ism: string; Telefon: string; Valyuta: string; Agent: string;
@@ -224,9 +225,14 @@ export default function MijozlarPage() {
   const baseList = useMemo(()=>mijozlar.filter(m => {
     // Sotuvchi faqat o'z mijozlarini ko'radi
     if (isSotuvchi && user?.id && (m.Agent || "").trim() !== user.id) return false;
-    return String(m.Ism || "").toLowerCase().includes(search.toLowerCase()) ||
-      String(m.Telefon || "").includes(search);
-  }),[mijozlar,isSotuvchi,user,search]);
+    if (!search) return true;
+    // Qidiruv: ism, telefon VA summa (joriy qarz, sotuv, to'lov — so'm/$) — lib/qidiruv.ts
+    const id = m.Mijoz_ID;
+    const stS = sotuvSomMap[id] || 0, stU = sotuvUsdMap[id] || 0, tlS = tolovSomMap[id] || 0, tlU = tolovUsdMap[id] || 0;
+    const qS = num(m.Boshlangich_Balans_som) + stS - tlS - (abSomMap[id] || 0);
+    const qU = num(m.Boshlangich_Balans_dollar) + stU - tlU - (abUsdMap[id] || 0);
+    return qidiruvMos(search, [m.Ism, m.Telefon], [qS, qU, stS, stU, tlS, tlU, m.Telefon]);
+  }),[mijozlar,isSotuvchi,user,search,sotuvSomMap,sotuvUsdMap,tolovSomMap,tolovUsdMap,abSomMap,abUsdMap]);
   const somCount    = useMemo(()=>baseList.filter(m => hasSomValyuta(m.Valyuta)).length,[baseList]);
   const dollarCount = useMemo(()=>baseList.filter(m => isDollarValyuta(m.Valyuta)).length,[baseList]);
   const filtered = useMemo(()=> curFilter === "all" ? baseList
@@ -323,7 +329,7 @@ export default function MijozlarPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                 </svg>
               </span>
-              <input className="search__input" placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)}/>
+              <input className="search__input" placeholder="Ism, telefon, summa..." value={search} onChange={e => setSearch(e.target.value)}/>
               {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
             </div>
           )}
@@ -460,7 +466,7 @@ export default function MijozlarPage() {
                 <span className="search__icon">
                   <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </span>
-                <input className="search__input" placeholder="Ism yoki telefon..." value={search} onChange={e => setSearch(e.target.value)}/>
+                <input className="search__input" placeholder="Ism, telefon, summa..." value={search} onChange={e => setSearch(e.target.value)}/>
                 {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
               </div>
             )}

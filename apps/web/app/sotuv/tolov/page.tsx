@@ -12,6 +12,7 @@ import { useEffect, useState, useCallback, useRef, useMemo, memo } from "react";
 import { useRouter } from "next/navigation";
 import { tolovXabari } from "@/lib/telegram-xabar";
 import { AYIRBOSHLASH, ayirboshlashmi } from "@/lib/mijoz-ledger";
+import { qidiruvMos } from "@/lib/qidiruv";
 
 // Bu sahifadagi (Pul ayirish) forma hisoblari HAR DOIM foydalanuvchining o'ziga
 // biriktirilgan kassalar bilan cheklanadi — Admin ham faqat o'z kassasini ko'radi
@@ -739,10 +740,8 @@ export default function SotuvTolovPage() {
     const matchTuri = !filterTuri || (t.Turi || "") === filterTuri;
     const matchSana = !filterSana || (t.Sana || "") === filterSana;
     const mNomi = mijozNameMap[t.Mijoz_ID] || "";
-    const matchSearch = !search ||
-      mNomi.toLowerCase().includes(search.toLowerCase()) ||
-      (t.Sana || "").includes(search) ||
-      (t.Turi || "").toLowerCase().includes(search.toLowerCase());
+    // Qidiruv: mijoz, sana, turi, izoh VA summa (so'm/$) — lib/qidiruv.ts
+    const matchSearch = !search || qidiruvMos(search, [mNomi, t.Sana, t.Turi, t.Izoh], [t.Som, t.Dollar, t.Summa, t.Summa_dollar]);
     return matchAgent && matchOy && matchYil && matchM && matchTuri && matchSana && matchSearch;
   }), [tolovlar, filterOy, filterYil, filterM, filterAgent, filterTuri, filterSana, mijozNameMap, search, isSotuvchi, isAdmin, user]);
 
@@ -835,7 +834,7 @@ export default function SotuvTolovPage() {
                 <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
                   <div className="search">
                     <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
-                    <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}/>
+                    <input className="search__input" placeholder="Mijoz, summa, sana, izoh..." value={search} onChange={e => setSearch(e.target.value)}/>
                     {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                   </div>
                   <MultiSelect items={mItems} value={filterM} onChange={setFilterM} placeholder="Mijoz..." fullWidth/>
@@ -881,7 +880,7 @@ export default function SotuvTolovPage() {
                     </select>
                     <div className="search" style={{ maxWidth: 220 }}>
                       <span className="search__icon"><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg></span>
-                      <input className="search__input" placeholder="Qidirish..." value={search} onChange={e => setSearch(e.target.value)}/>
+                      <input className="search__input" placeholder="Mijoz, summa, sana, izoh..." value={search} onChange={e => setSearch(e.target.value)}/>
                       {search && <button className="search__clear" onClick={() => setSearch("")}><svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg></button>}
                     </div>
                     <MultiSelect items={mItems} value={filterM} onChange={setFilterM} placeholder="Mijoz..."/>

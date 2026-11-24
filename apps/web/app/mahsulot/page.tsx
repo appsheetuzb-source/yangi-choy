@@ -4,6 +4,7 @@ import { exportPDF, exportExcel, type ExportOpts } from "@/lib/export";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import { useSkrollTiklash } from "@/lib/use-skroll-tiklash";
+import { qidiruvMos } from "@/lib/qidiruv";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
@@ -156,10 +157,11 @@ export default function MahsulotPage() {
     effOmbor === "all" ? mahsulotlar
       : mahsulotlar.filter(m => (invByOmbor[effOmbor]?.[m.Mahsulot_ID] !== undefined) || (m.Ombor_ID || "").trim() === effOmbor),
     [mahsulotlar,effOmbor,invByOmbor]);
+  // Qidiruv: nomi, qo'shilgan sana VA summa (sotuv/tan narxi so'm/$, qoldiq) — lib/qidiruv.ts
   const filtered = useMemo(()=>omborMahsulotlar.filter(m =>
-    String(m.Nomi || "").toLowerCase().includes(search.toLowerCase()) &&
+    qidiruvMos(search, [m.Nomi, m.Qoshilgan_sana], [m.Sotuv_som, m.Sotuv_dollar, m.Tan_som, m.Tan_dollar, balansMap[m.Mahsulot_ID]]) &&
     (!filterMijoz || (mijMahMap[filterMijoz]?.has(m.Mahsulot_ID) ?? false))
-  ),[omborMahsulotlar,search,filterMijoz,mijMahMap]);
+  ),[omborMahsulotlar,search,filterMijoz,mijMahMap,balansMap]);
 
   function toggleSort(col: string) {
     if (sortCol === col) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -262,7 +264,7 @@ export default function MahsulotPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
               </svg>
             </span>
-            <input className="search__input" placeholder="Qidirish..." value={search}
+            <input className="search__input" placeholder="Nomi, narx, qoldiq..." value={search}
               onChange={e => setSearch(e.target.value)} />
             {search && (
               <button className="search__clear" onClick={() => setSearch("")}>
