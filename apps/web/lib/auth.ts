@@ -3,7 +3,8 @@ export interface AuthUser {
   nomi: string;
   lavozim: string; // "Admin" | "Sotuvchi" | "Omborchi" | ...
   pochta: string;
-  omborId?: string; // foydalanuvchiga biriktirilgan ombor ID
+  omborId?: string; // asosiy (birinchi) biriktirilgan ombor ID
+  omborIds?: string[]; // foydalanuvchiga biriktirilgan BARCHA omborlar (birinchisi — asosiy)
   gaznaIds?: string[]; // foydalanuvchiga biriktirilgan gazna ID'lari
 }
 
@@ -44,6 +45,22 @@ export function gaznaForUser<T extends { Gazna_ID: string }>(user: AuthUser | nu
   if (user.lavozim === "Admin") return gaznalar;
   const ids = user.gaznaIds || [];
   return gaznalar.filter(g => ids.includes(g.Gazna_ID));
+}
+
+// Foydalanuvchiga biriktirilgan omborlar (birinchisi — asosiy). Eski saqlangan sessiyada omborIds bo'lmasa —
+// omborId dan olinadi (server /api/auth/me javobi kelguncha).
+export function userOmborIds(user: AuthUser | null): string[] {
+  if (!user) return [];
+  if (Array.isArray(user.omborIds)) return user.omborIds.map(s => String(s).trim()).filter(Boolean);
+  return (user.omborId || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+
+// Foydalanuvchiga ko'rinadigan omborlar: Admin → barchasi, boshqalar → faqat o'ziga biriktirilganlar
+export function omborForUser<T extends { Ombor_ID: string }>(user: AuthUser | null, omborlar: T[]): T[] {
+  if (!user) return [];
+  if (user.lavozim === "Admin") return omborlar;
+  const ids = userOmborIds(user);
+  return omborlar.filter(o => ids.includes(String(o.Ombor_ID || "").trim()));
 }
 
 // Sotuvchi ko'ra oladigan sahifalar

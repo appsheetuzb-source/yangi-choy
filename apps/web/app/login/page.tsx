@@ -2,13 +2,27 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/AuthContext";
+import { useAuth, CHIQISH_SABABI_KEY } from "@/lib/AuthContext";
+
+const SABAB_MATNI: Record<string, string> = {
+  parol: "Parolingiz o'zgartirildi — barcha qurilmalardan chiqarildingiz. Yangi parol bilan qaytadan kiring.",
+  nofaol: "Hisobingiz nofaol qilingan. Administrator bilan bog'laning.",
+  sessiya: "Sessiya tugadi. Qaytadan kiring.",
+};
 
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
 
-  const [pochta, setPochta] = useState("");
+  // Nima uchun tizimdan chiqarilgani (AuthContext yozadi). Sahifa auth yuklanguncha hech narsa chizmaydi,
+  // shuning uchun bu yerda sessionStorage'dan o'qish gidratsiya farqini keltirmaydi.
+  const [chiqish] = useState<{ sabab?: string; pochta?: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(sessionStorage.getItem(CHIQISH_SABABI_KEY) || "null"); } catch { return null; }
+  });
+  const xabar = chiqish ? (SABAB_MATNI[chiqish.sabab || ""] || SABAB_MATNI.sessiya) : "";
+
+  const [pochta, setPochta] = useState(() => (chiqish?.pochta && chiqish.pochta.includes("@") ? chiqish.pochta : ""));
   const [parol, setParol]   = useState("");
   const [showP, setShowP]   = useState(false);
   const [error, setError]   = useState("");
@@ -17,6 +31,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (!loading && user) router.replace("/");
   }, [user, loading, router]);
+
+  // Xabar bir marta ko'rsatiladi — sahifa yangilansa qayta chiqmaydi
+  useEffect(() => { try { sessionStorage.removeItem(CHIQISH_SABABI_KEY); } catch { /* */ } }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,6 +109,17 @@ export default function LoginPage() {
           boxShadow: "0 12px 36px rgba(30,64,124,.16)",
         }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+
+            {/* Tizimdan chiqarilish sababi (masalan, parol boshqa qurilmada o'zgartirilgan) */}
+            {xabar && !error && (
+              <div style={{
+                padding: "10px 14px", borderRadius: 10,
+                background: "#fffbeb", border: "1px solid #fcd34d",
+                fontSize: 13, color: "#92400e", fontWeight: 600, lineHeight: 1.45,
+              }}>
+                {xabar}
+              </div>
+            )}
 
             {/* Login */}
             <div>

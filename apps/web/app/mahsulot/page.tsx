@@ -8,6 +8,7 @@ import { qidiruvMos } from "@/lib/qidiruv";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
+import { userOmborIds } from "@/lib/auth";
 import OmborBiriktirilmagan from "@/components/OmborBiriktirilmagan";
 import { computeInvByOmbor, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
@@ -39,8 +40,11 @@ export default function MahsulotPage() {
   const { user } = useAuth();
   const router = useRouter();
   const isAdmin = user?.lavozim === "Admin";
-  // Non-admin (Sotuvchi/Omborchi) faqat o'ziga biriktirilgan ombor mahsulotlarini ko'radi
-  const myOmbor = (user?.omborId || "").trim();
+  // Non-admin (Sotuvchi/Omborchi) faqat o'ziga biriktirilgan ombor(lar) mahsulotlarini ko'radi.
+  // myOmbors — barcha biriktirilganlar (birinchisi asosiy); bo'sh bo'lsa — hech narsa ko'rsatilmaydi
+  const myOmborsKey = userOmborIds(user).join(",");
+  const myOmbors = useMemo(() => myOmborsKey ? myOmborsKey.split(",") : [], [myOmborsKey]);
+  const myOmbor = myOmbors[0] || "";
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
   const [omborlar, setOmborlar]       = useState<Ombor[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -146,17 +150,36 @@ export default function MahsulotPage() {
     });
   }, [loadData]);
 
-  // Ko'riladigan ombor: Admin → tanlangan filtr ("all"=jami); Sotuvchi → FAQAT o'z ombori (qulflangan)
-  const effOmbor = (isAdmin || !myOmbor) ? filterOmbor : myOmbor;
-  // Ko'rsatiladigan qoldiq: "all" → global (barcha omborlar jami), aks holda tanlangan ombor qoldig'i
-  const balansMap = useMemo<Record<string, number>>(
-    () => effOmbor === "all" ? globalBalans : (invByOmbor[effOmbor] || {}),
-    [effOmbor, globalBalans, invByOmbor]);
-  // Mahsulotlar: "all" → barchasi; ombor tanlansa — o'sha omborda harakati bo'lgan mahsulotlar
-  const omborMahsulotlar = useMemo(()=>
-    effOmbor === "all" ? mahsulotlar
-      : mahsulotlar.filter(m => (invByOmbor[effOmbor]?.[m.Mahsulot_ID] !== undefined) || (m.Ombor_ID || "").trim() === effOmbor),
-    [mahsulotlar,effOmbor,invByOmbor]);
+  // Foydalanuvchi ko'ra oladigan omborlar: Admin → barchasi; boshqalar → faqat biriktirilganlar
+  const korinadiganOmborlar = useMemo(
+    () => isAdmin ? omborlar : omborlar.filter(o => myOmbors.includes(o.Ombor_ID)),
+    [isAdmin, omborlar, myOmbors]);
+  // Ombor tanlash filtri: Admin'ga va bir nechta ombori bor foydalanuvchiga ko'rinadi
+  const filtrKorinadi = isAdmin ? omborlar.length > 0 : myOmbors.length > 1;
+  // Ko'riladigan ombor: Admin → tanlangan filtr ("all"=jami); bitta omborli → FAQAT o'sha (qulflangan);
+  // bir nechta omborli → o'z omborlaridan biri yoki "all" (= faqat O'Z omborlari jami). Saqlangan filtr
+  // boshqa foydalanuvchiniki bo'lsa (bitta qurilma) — "all" ga tushadi.
+  const effOmbor = isAdmin ? filterOmbor
+    : myOmbors.length === 1 ? myOmbor
+    : (myOmbors.includes(filterOmbor) ? filterOmbor : "all");
+  // "all" ichidagi omborlar: Admin → hammasi (null), boshqalar → faqat o'zlariniki
+  const jamiOmborlar = isAdmin ? null : myOmbors;
+  // Ko'rsatiladigan qoldiq: "all" → jami (Admin: global; boshqalar: o'z omborlari yig'indisi), aks holda tanlangan ombor
+  const balansMap = useMemo<Record<string, number>>(() => {
+    if (effOmbor !== "all") return invByOmbor[effOmbor] || {};
+    if (!jamiOmborlar) return globalBalans;
+    const sum: Record<string, number> = {};
+    for (const o of jamiOmborlar) for (const [mid, q] of Object.entries(invByOmbor[o] || {})) sum[mid] = Math.round(((sum[mid] || 0) + q) * 1e6) / 1e6 || 0;
+    return sum;
+  }, [effOmbor, jamiOmborlar, globalBalans, invByOmbor]);
+  // Mahsulotlar: "all" → barchasi (boshqalar uchun — o'z omborlarida harakati bor yoki uy-ombori o'ziniki);
+  // ombor tanlansa — o'sha omborda harakati bo'lgan mahsulotlar
+  const omborMahsulotlar = useMemo(()=> {
+    const omborda = (m: Mahsulot, o: string) => (invByOmbor[o]?.[m.Mahsulot_ID] !== undefined) || (m.Ombor_ID || "").trim() === o;
+    if (effOmbor !== "all") return mahsulotlar.filter(m => omborda(m, effOmbor));
+    if (!jamiOmborlar) return mahsulotlar;
+    return mahsulotlar.filter(m => jamiOmborlar.some(o => omborda(m, o)));
+  }, [mahsulotlar,effOmbor,jamiOmborlar,invByOmbor]);
   // Qidiruv: nomi, qo'shilgan sana VA summa (sotuv/tan narxi so'm/$, qoldiq) — lib/qidiruv.ts
   const filtered = useMemo(()=>omborMahsulotlar.filter(m =>
     qidiruvMos(search, [m.Nomi, m.Qoshilgan_sana], [m.Sotuv_som, m.Sotuv_dollar, m.Tan_som, m.Tan_dollar, balansMap[m.Mahsulot_ID]]) &&
@@ -242,9 +265,10 @@ export default function MahsulotPage() {
 
   const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
   // "Barchasi" ko'rinishida mahsulotning ombor bo'yicha taqsimoti (qaysi omborda qancha qoldiq bor)
+  // (Admin bo'lmasa — faqat o'ziga biriktirilgan omborlar)
   const omborBreakdown = (mid: string) => Object.keys(invByOmbor)
     // kasr qoldiq ham ko'rinadi (0,5 dona) — faqat 3 xonada nolga teng bo'lganlar yashiriladi
-    .filter(o => o !== "__none__" && Math.abs(invByOmbor[o]?.[mid] || 0) >= 0.0005)
+    .filter(o => o !== "__none__" && (!jamiOmborlar || jamiOmborlar.includes(o)) && Math.abs(invByOmbor[o]?.[mid] || 0) >= 0.0005)
     .map(o => ({ nomi: omborNomi(o) || o, qty: invByOmbor[o][mid] }))
     .sort((a, b) => b.qty - a.qty);
 
@@ -289,12 +313,13 @@ export default function MahsulotPage() {
                 }}>{label}</button>
               ))}
             </div>
-            {/* Ombor filtri — Admin uchun (jami + har ombor); Sotuvchi o'z omboriga qulflangan */}
-            {isAdmin && omborlar.length > 0 && (
-              <select value={filterOmbor} onChange={e => setFilterOmbor(e.target.value)} title="Ombor bo'yicha qoldiq"
-                style={{ padding: "7px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12, fontWeight: 700, color: filterOmbor === "all" ? "var(--text-2)" : "var(--primary)", outline: "none", cursor: "pointer", maxWidth: 190 }}>
-                <option value="all">Barcha omborlar (jami)</option>
-                {omborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
+            {/* Ombor filtri — Admin: jami + har ombor; bir nechta omborli foydalanuvchi: faqat o'z omborlari;
+                bitta omborli o'z omboriga qulflangan */}
+            {filtrKorinadi && (
+              <select value={effOmbor} onChange={e => setFilterOmbor(e.target.value)} title="Ombor bo'yicha qoldiq"
+                style={{ padding: "7px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 12, fontWeight: 700, color: effOmbor === "all" ? "var(--text-2)" : "var(--primary)", outline: "none", cursor: "pointer", maxWidth: 190 }}>
+                <option value="all">{isAdmin ? "Barcha omborlar (jami)" : "Mening omborlarim (jami)"}</option>
+                {korinadiganOmborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
               </select>
             )}
             <button className="btn btn--outline" onClick={() => exportExcel(buildMahsulotExport())} title="Excel yuklash">
@@ -373,11 +398,11 @@ export default function MahsulotPage() {
                 }}>{label}</button>
               ))}
             </div>
-            {isAdmin && omborlar.length > 0 && (
-              <select value={filterOmbor} onChange={e => setFilterOmbor(e.target.value)}
-                style={{ width: "100%", marginTop: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 13, fontWeight: 700, color: filterOmbor === "all" ? "var(--text-2)" : "var(--primary)", outline: "none" }}>
-                <option value="all">Barcha omborlar (jami)</option>
-                {omborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
+            {filtrKorinadi && (
+              <select value={effOmbor} onChange={e => setFilterOmbor(e.target.value)}
+                style={{ width: "100%", marginTop: 8, padding: "9px 12px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--bg)", fontSize: 13, fontWeight: 700, color: effOmbor === "all" ? "var(--text-2)" : "var(--primary)", outline: "none" }}>
+                <option value="all">{isAdmin ? "Barcha omborlar (jami)" : "Mening omborlarim (jami)"}</option>
+                {korinadiganOmborlar.map(o => <option key={o.Ombor_ID} value={o.Ombor_ID}>{o.Nomi}</option>)}
               </select>
             )}
           </div>
@@ -520,8 +545,8 @@ export default function MahsulotPage() {
       <ProductDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        omborlar={isAdmin || !myOmbor ? omborlar : omborlar.filter(o => o.Ombor_ID === myOmbor)}
-        defaultOmborId={myOmbor || undefined}
+        omborlar={korinadiganOmborlar}
+        defaultOmborId={(!isAdmin && effOmbor !== "all" ? effOmbor : myOmbor) || undefined}
         editTarget={editTarget}
         onSaved={saved => {
           // Saqlangan mahsulot ro'yxatda darhol yangilanadi (yangisi oxiriga qo'shiladi), keyin bazadan

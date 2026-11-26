@@ -6,6 +6,7 @@ import { useIzohOptions } from "@/lib/useIzohOptions";
 import FabAdd from "@/components/FabAdd";
 import ProductDrawer, { type ProductRow } from "@/components/ProductDrawer";
 import { useAuth } from "@/lib/AuthContext";
+import { userOmborIds, omborForUser } from "@/lib/auth";
 import { dokonOmbor, manbaOmbor, omborByAgent, shopWarehouseSet } from "@/lib/ombor-transfer";
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { birlikOf, fmtSon } from "@/lib/birlik";
@@ -1606,8 +1607,10 @@ export default function SotuvPage() {
         <ProductDrawer
           open={newProdOpen}
           onClose={()=>{ setNewProdOpen(false); newProdSelectRef.current=null; }}
-          omborlar={(isSotuvchi && (user?.omborId||"").trim()) ? omborlar.filter(o=>o.Ombor_ID===(user?.omborId||"").trim()) : omborlar}
-          defaultOmborId={(user?.omborId||"").trim() || undefined}
+          // Admin emas → faqat o'ziga biriktirilgan omborlar (bir nechta bo'lishi mumkin). Ombori yo'q bo'lsa — avvalgidek
+          // barcha omborlar: aks holda yangi mahsulot omborsiz saqlanib, qoldiq hisobidan tushib qolardi
+          omborlar={(isSotuvchi && userOmborIds(user).length>0) ? omborForUser(user, omborlar) : omborlar}
+          defaultOmborId={userOmborIds(user)[0] || undefined}
           initialNomi={newProdNomi}
           onSaved={onProdSaved}
         />

@@ -23,25 +23,45 @@ export function dokonOmbor(mijoz: MijozLike | undefined | null): string {
   return t(mijoz?.Dokon_Ombor_ID);
 }
 
-/** Foydalanuvchi_ID → Ombor_ID xaritasi (agentning biriktirilgan ombori). */
+/**
+ * Foydalanuvchi.Ombor_ID — vergul bilan ajratilgan ro'yxat ("a, b, c"; Gazna_ID kabi). Bo'sh = ombor biriktirilmagan.
+ * Tartib saqlanadi (takrorlar olib tashlanadi): BIRINCHISI — foydalanuvchining ASOSIY ombori.
+ */
+export function parseOmborIds(raw: unknown): string[] {
+  const out: string[] = [];
+  for (const s of String(raw ?? "").split(",")) { const v = s.trim(); if (v && !out.includes(v)) out.push(v); }
+  return out;
+}
+
+/**
+ * Asosiy (birinchi) ombor. Inventar hisobi va sotuvda ayirish FAQAT shu bo'yicha — qo'shimcha omborlar
+ * faqat KO'RISH huquqini beradi. Shu sabab bitta omborli foydalanuvchilar uchun hisob avvalgidek qoladi.
+ */
+export function asosiyOmbor(raw: unknown): string {
+  return parseOmborIds(raw)[0] || "";
+}
+
+/** Foydalanuvchi_ID → asosiy Ombor_ID xaritasi (agentning biriktirilgan ombori). */
 export function omborByAgent(users: FoydalanuvchiLike[]): Record<string, string> {
   const m: Record<string, string> = {};
-  for (const u of users) { const id = t(u.Foydalanuvchi_ID); if (id) m[id] = t(u.Ombor_ID); }
+  for (const u of users) { const id = t(u.Foydalanuvchi_ID); if (id) m[id] = asosiyOmbor(u.Ombor_ID); }
   return m;
 }
 
 /**
- * Do'kon (shop) omborlari to'plami — Sotuvchi (non-Admin) foydalanuvchilarga biriktirilgan omborlar,
+ * Do'kon (shop) omborlari to'plami — Sotuvchi (non-Admin) foydalanuvchilarning ASOSIY omborlari,
  * Admin omborlaridan (asosiy) TASHQARI. FOYDALANUVCHI ma'lumotidan quriladi (Ombor_ID + Lavozim):
  *  - BARQAROR — mijoz Dokon_Ombor_ID keshiga bog'liq emas (do'kon o'z omboridan sotishi kafolatlanadi)
  *  - Legacy " Ombor_2"=Asosiy ni transferdan ajratish uchun ham ishlatiladi (Asosiy do'kon ombori emas)
+ *  - Qo'shimcha (2-, 3-...) omborlar hisobga OLINMAYDI: sotuvchiga faqat ko'rish uchun "Asosiy ombor"
+ *    berilsa, u do'kon omboriga aylanib, eski Ombor_2=Asosiy qatorlari transferga o'tib ketmasin.
  */
 export function shopWarehouseSet(foydalanuvchilar: FoydalanuvchiLike[]): Set<string> {
   const adminOmbor = new Set<string>();
-  for (const u of foydalanuvchilar) if (t(u.Lavozim) === "Admin" && t(u.Ombor_ID)) adminOmbor.add(t(u.Ombor_ID));
+  for (const u of foydalanuvchilar) { const o = asosiyOmbor(u.Ombor_ID); if (t(u.Lavozim) === "Admin" && o) adminOmbor.add(o); }
   const s = new Set<string>();
   for (const u of foydalanuvchilar) {
-    const o = t(u.Ombor_ID);
+    const o = asosiyOmbor(u.Ombor_ID);
     if (o && t(u.Lavozim) && t(u.Lavozim) !== "Admin" && !adminOmbor.has(o)) s.add(o);
   }
   return s;

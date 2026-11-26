@@ -8,6 +8,8 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { birlikOf, fmtMiqdor } from "@/lib/birlik";
 import { useRouter } from "next/navigation";
 import { qidiruvMos } from "@/lib/qidiruv";
+import { useAuth } from "@/lib/AuthContext";
+import { userOmborIds } from "@/lib/auth";
 
 interface Mahsulot {
   Mahsulot_ID: string; Ombor_ID: string; Nomi: string;
@@ -28,8 +30,19 @@ function sanaStr() {
 
 export default function NarxChekPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [mahsulotlar, setMahsulotlar] = useState<Mahsulot[]>([]);
-  const [balans, setBalans]           = useState<Record<string, number>>({});
+  const [globalBalans, setGlobalBalans] = useState<Record<string, number>>({});
+  const [invByOmbor, setInvByOmbor]   = useState<Record<string, Record<string, number>>>({});
+  // "Omborda bor": Admin → barcha omborlar jami; boshqalar → FAQAT o'ziga biriktirilgan omborlar yig'indisi
+  const myOmborsKey = user?.lavozim === "Admin" ? null : userOmborIds(user).join(",");
+  const balans = useMemo<Record<string, number>>(() => {
+    if (myOmborsKey === null) return globalBalans;
+    const sum: Record<string, number> = {};
+    for (const o of myOmborsKey ? myOmborsKey.split(",") : [])
+      for (const [mid, q] of Object.entries(invByOmbor[o] || {})) sum[mid] = Math.round(((sum[mid] || 0) + q) * 1e6) / 1e6 || 0;
+    return sum;
+  }, [myOmborsKey, globalBalans, invByOmbor]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = usePersistedState("flt:narxchek:search", "");
   // Tanlangan mahsulotlar + (tahrirlangan) narxlar — localStorage'da saqlanadi
@@ -55,13 +68,14 @@ export default function NarxChekPage() {
     ]).then(([mRes, ssRes, ssdRes, xsRes, fRes]) => {
       setMahsulotlar(((mRes.data as Mahsulot[]) || []).filter(m => m.Mahsulot_ID));
       const shopWH = shopWarehouseSet((fRes.data as FoydalanuvchiLike[]) || []);
-      const { global } = computeInvByOmbor(
+      const { inv, global } = computeInvByOmbor(
         xsRes.data as Record<string, string>[],
         ssRes.data as Record<string, string>[],
         ssdRes.data as Record<string, string>[],
         shopWH,
       );
-      setBalans(global);
+      setInvByOmbor(inv);
+      setGlobalBalans(global);
     }).finally(() => setLoading(false));
   }, []);
 

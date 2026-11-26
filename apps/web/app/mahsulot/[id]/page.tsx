@@ -5,6 +5,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { birlikOf, miqdor3 } from "@/lib/birlik";
 import { useAuth } from "@/lib/AuthContext";
+import { userOmborIds } from "@/lib/auth";
 import OmborBiriktirilmagan from "@/components/OmborBiriktirilmagan";
 import { readOmbor2, shopWarehouseSet, type FoydalanuvchiLike } from "@/lib/ombor-transfer";
 
@@ -99,7 +100,8 @@ export default function MahsulotDetailPage() {
   const router = useRouter();
   const { user } = useAuth();
   const isAdmin = user?.lavozim === "Admin";
-  const myOmbor = (user?.omborId || "").trim();
+  // Biriktirilgan BARCHA omborlar (bir nechta bo'lishi mumkin)
+  const myOmborsKey = userOmborIds(user).join(",");
 
   const [mahsulot, setMahsulot]       = useState<Mahsulot | null>(null);
   const [txAll, setTxAll]             = useState<TxRow[]>([]);
@@ -301,20 +303,23 @@ export default function MahsulotDetailPage() {
   }
 
   // View-ga moslash: Admin → GLOBAL (transferlar net-zero, balansga ta'sir qilmaydi);
-  // do'kon (non-admin) → O'Z OMBORI (unga o'tkazma = kirim, undan sotuv = chiqim).
-  const viewOmbor = isAdmin ? "" : myOmbor;
+  // non-admin → O'Z OMBORLARI (ularga o'tkazma = kirim, ulardan sotuv = chiqim; o'z omborlari orasidagi
+  // ko'chirish — chiqim + qabul, jami qoldiqqa ta'sir qilmaydi). null = GLOBAL; ombori yo'q non-admin pastda to'xtatiladi.
+  const viewOmborlar = useMemo(() => isAdmin || !myOmborsKey ? null : new Set(myOmborsKey.split(",")), [isAdmin, myOmborsKey]);
   const viewTxAll = useMemo<TxRow[]>(() => {
     return txAll.flatMap(t => {
       const src = t.srcOmbor, qty = t.qty || 0;
       // Ombor_2 ni FAQAT do'kon ombori bo'lsa transfer deb hisoblaymiz (legacy " Ombor_2"=Asosiy e'tiborsiz)
       const dest = (t.destOmbor && shopWH.has(t.destOmbor)) ? t.destOmbor : "";
       if (t.linkType === "xarid") {
-        if (viewOmbor && src !== viewOmbor) return [];                   // do'kon: faqat o'z ombori xaridi
+        if (viewOmborlar && !viewOmborlar.has(src)) return [];           // do'kon: faqat o'z omborlari xaridi
         return [{ ...t, kirim: qty, chiqim: 0 }];
       }
       // sotuv
-      if (viewOmbor === "") {                                            // GLOBAL (admin)
-        if (dest) {
+      const srcMeniki = !viewOmborlar || viewOmborlar.has(src);
+      const destMeniki = !!dest && (!viewOmborlar || viewOmborlar.has(dest));
+      if (!viewOmborlar || (srcMeniki && destMeniki)) {                  // GLOBAL (admin) yoki o'z omborlari orasida
+        if (dest && destMeniki) {
           // Do'kon omboriga sotuv = ICHKI KO'CHIRISH. Avval bu qator BUTUNLAY yashirilardi
           // (return null) — shuning uchun haqiqiy sotuv mahsulot tarixida ko'rinmasdi.
           // Endi ikkita qator chiqariladi: manbadan CHIQIM va qabul qiluvchi omborga KIRIM.
@@ -331,15 +336,15 @@ export default function MahsulotDetailPage() {
         return [{ ...t, kirim: 0, chiqim: qty }];
       }
       // DO'KON view
-      if (src === viewOmbor) return [{ ...t, kirim: 0, chiqim: qty }];                                 // do'kon sotdi
-      if (dest === viewOmbor) return [{ ...t, kirim: qty, chiqim: 0, izoh: t.izoh + " · qabul" }];      // do'konga o'tkazma
-      return [];                                                         // bu omborga aloqasiz
+      if (srcMeniki) return [{ ...t, kirim: 0, chiqim: qty }];                                         // do'kon sotdi
+      if (destMeniki) return [{ ...t, kirim: qty, chiqim: 0, izoh: t.izoh + " · qabul" }];             // do'konga o'tkazma
+      return [];                                                         // bu omborlarga aloqasiz
     });
-  }, [txAll, viewOmbor, shopWH, omborNomi]);
+  }, [txAll, viewOmborlar, shopWH, omborNomi]);
 
   // Admin bo'lmasa va ombor biriktirilmagan bo'lsa — barcha omborlarning harakati ochilib qolmasin
-  // (viewOmbor "" = GLOBAL ko'rinish faqat admin uchun)
-  if (user && !isAdmin && !myOmbor) return <OmborBiriktirilmagan sarlavha="Mahsulot"/>;
+  // (viewOmborlar null = GLOBAL ko'rinish faqat admin uchun)
+  if (user && !isAdmin && !myOmborsKey) return <OmborBiriktirilmagan sarlavha="Mahsulot"/>;
 
   if (loading) return (
     <div className="page-content" style={{ display: "flex", justifyContent: "center", paddingTop: 80 }}>

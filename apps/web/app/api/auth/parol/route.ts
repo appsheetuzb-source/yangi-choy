@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateRow, invalidateCache } from "@/lib/sheets";
 import { sessiyaYarat, sessiyaCookie, parolIzi, tengmi } from "@/lib/sessiya";
-import { sessiyaFoydalanuvchisi, FOYDALANUVCHI, parolKalitlari, loginBloklanganmi, loginXato, loginMuvaffaq } from "@/lib/sessiya-server";
+import { sessiyaFoydalanuvchisi, chiqishMatni, FOYDALANUVCHI, parolKalitlari, loginBloklanganmi, loginXato, loginMuvaffaq } from "@/lib/sessiya-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ const json = (data: unknown, status = 200) => NextResponse.json(data, { status, 
 export async function POST(req: NextRequest) {
   const s = await sessiyaFoydalanuvchisi(req);
   if (s.holat === "xato") return json({ error: "Server bilan bog'lanib bo'lmadi" }, 503);
-  if (s.holat === "yoq") return json({ error: "Avtorizatsiya kerak" }, 401);
+  if (s.holat === "yoq") return json({ error: chiqishMatni(s.sabab), sabab: s.sabab }, 401);
 
   let body: { eski?: unknown; yangi?: unknown };
   try { body = await req.json(); } catch { return json({ error: "Noto'g'ri so'rov" }, 400); }

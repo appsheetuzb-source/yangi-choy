@@ -3,6 +3,7 @@ import { fetchSheet, afterWrite } from "@/lib/sheet-cache";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
+import { parseOmborIds } from "@/lib/ombor-transfer";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -98,7 +99,9 @@ export default function FoydalanuvchiPage() {
     String(u.Pochta || "").toLowerCase().includes(search.toLowerCase())
   );
 
-  const omborNomi = (id: string) => omborlar.find(o => o.Ombor_ID === id)?.Nomi || "";
+  // Ombor_ID — vergul bilan ajratilgan ro'yxat (bir nechta ombor)
+  const omborNomi = (ids: string) => parseOmborIds(ids)
+    .map(id => omborlar.find(o => o.Ombor_ID === id)?.Nomi || id).join(", ");
   const gaznaNomlar = (ids: string) => (ids || "").split(",").map(s => s.trim()).filter(Boolean)
     .map(id => { const g = gaznalar.find(x => x.Gazna_ID === id); return g ? g.Nomi + (g.Turi === "Dollar" ? " ($)" : "") : id; }).join(", ");
 
@@ -306,21 +309,50 @@ export default function FoydalanuvchiPage() {
                 </div>
               </div>
 
-              {/* Ombor */}
-              {omborlar.length > 0 && (
-                <div className="drawer__section">
-                  <p className="drawer__section-label">Ombor</p>
-                  <div className="pill-group">
-                    {omborlar.map(o => (
-                      <button key={o.Ombor_ID} type="button"
-                        className={`pill ${form.Ombor_ID === o.Ombor_ID ? "pill--active" : ""}`}
-                        onClick={() => setForm(p => ({ ...p, Ombor_ID: o.Ombor_ID }))}>
-                        {o.Nomi}
-                      </button>
-                    ))}
+              {/* Ombor — ixtiyoriy. Admin barcha omborlarni ko'radi (bitta standart ombor tanlanadi, bekor qilish mumkin);
+                  boshqalarga bir nechta ombor biriktiriladi (vergul bilan saqlanadi) — ular FAQAT shu omborlarni ko'radi.
+                  Birinchi tanlangan — asosiy ombor: inventar va sotuvda ayirish shu bo'yicha (lib/ombor-transfer.ts) */}
+              {omborlar.length > 0 && (() => {
+                const adminRol = form.Lavozim === "Admin";
+                const tanlangan = parseOmborIds(form.Ombor_ID);
+                return (
+                  <div className="drawer__section">
+                    <p className="drawer__section-label">Ombor</p>
+                    <div className="pill-group">
+                      {omborlar.map(o => {
+                        const tartib = tanlangan.indexOf(o.Ombor_ID);
+                        const active = adminRol ? tartib === 0 : tartib >= 0;
+                        return (
+                          <button key={o.Ombor_ID} type="button"
+                            className={`pill ${active ? "pill--active" : ""}`}
+                            onClick={() => setForm(p => {
+                              const cur = parseOmborIds(p.Ombor_ID);
+                              if (adminRol) return { ...p, Ombor_ID: cur[0] === o.Ombor_ID ? "" : o.Ombor_ID };
+                              const next = cur.includes(o.Ombor_ID) ? cur.filter(x => x !== o.Ombor_ID) : [...cur, o.Ombor_ID];
+                              return { ...p, Ombor_ID: next.join(", ") };
+                            })}>
+                            {!adminRol && active && tanlangan.length > 1 && (
+                              <span style={{ fontSize: 10, fontWeight: 800, marginRight: 6, padding: "1px 6px", borderRadius: 10, background: "rgba(255,255,255,.28)" }}>
+                                {tartib + 1}
+                              </span>
+                            )}
+                            {o.Nomi}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 8, lineHeight: 1.45 }}>
+                      {adminRol
+                        ? "Admin barcha omborlarni ko'radi. Tanlangan ombor — yangi mahsulot uchun standart (shart emas)."
+                        : tanlangan.length === 0
+                          ? "Ombor biriktirilmagan — foydalanuvchi hech qaysi omborni ko'rmaydi."
+                          : tanlangan.length === 1
+                            ? "Foydalanuvchi faqat shu omborni ko'radi. Yana ombor qo'shish mumkin."
+                            : "Foydalanuvchi faqat tanlangan omborlarni ko'radi. 1-ombor — asosiy: sotuvlar shu ombordan hisoblanadi."}
+                    </p>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Gazna — ko'p tanlovli (vergul bilan saqlanadi) */}
               {gaznalar.length > 0 && (
@@ -561,7 +593,7 @@ function UserRow({ user: u, isMobile, omborNomi, onView, onEdit, onDelete }: {
             {omborNomi && (
               <span style={{
                 fontSize: 11, fontWeight: 600, padding: "3px 10px", borderRadius: 20,
-                background: "var(--bg)", color: "var(--text-2)", maxWidth: 130,
+                background: "var(--bg)", color: "var(--text-2)", maxWidth: 160,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
               }}>{omborNomi}</span>
             )}
@@ -603,7 +635,7 @@ function UserRow({ user: u, isMobile, omborNomi, onView, onEdit, onDelete }: {
 
       {/* Ombor */}
       <div className="list-card__col">
-        <p style={{ fontSize: 13, color: "var(--text-2)", whiteSpace: "nowrap" }}>
+        <p title={omborNomi || undefined} style={{ fontSize: 13, color: "var(--text-2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
           {omborNomi || "—"}
         </p>
       </div>

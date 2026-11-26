@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSheetData } from "./sheets";
 import { parseGaznaIds } from "./auth";
+import { parseOmborIds } from "./ombor-transfer";
 import { SESSIYA_COOKIE, sessiyaOqi, parolIzi } from "./sessiya";
 
 type Qator = Record<string, string>;
@@ -35,15 +36,18 @@ export function foydalanuvchiJadvalimi(sheet: unknown): boolean {
 
 /** Brauzerga beriladigan foydalanuvchi ko'rinishi (parolsiz) — lib/auth.ts AuthUser bilan bir xil */
 export interface OchiqFoydalanuvchi {
-  id: string; nomi: string; lavozim: string; pochta: string; omborId: string; gaznaIds: string[];
+  id: string; nomi: string; lavozim: string; pochta: string; omborId: string; omborIds: string[]; gaznaIds: string[];
 }
 export function ochiqKorinish(u: Qator, kiritilganLogin = ""): OchiqFoydalanuvchi {
+  // Ombor_ID — vergul bilan ajratilgan ro'yxat (bir nechta ombor); omborId — asosiy (birinchi) ombor
+  const omborIds = parseOmborIds(u.Ombor_ID);
   return {
     id: tr(u.Foydalanuvchi_ID),
     nomi: tr(u.Nomi),
     lavozim: tr(u.Lavozim) || "Sotuvchi",
     pochta: tr(u.Pochta) || tr(u.Telefon) || kiritilganLogin,
-    omborId: tr(u.Ombor_ID),
+    omborId: omborIds[0] || "",
+    omborIds,
     gaznaIds: parseGaznaIds(u.Gazna_ID),
   };
 }
@@ -57,21 +61,33 @@ export async function foydalanuvchilar(): Promise<Qator[] | null> {
   } catch { return null; }
 }
 
+/** 401 sababi — brauzer login sahifasida tushunarli xabar ko'rsatadi */
+export type ChiqishSababi = "parol" | "nofaol" | "sessiya";
+
 export type SessiyaNatija =
   | { holat: "ok"; u: Qator }
-  | { holat: "yoq" }       // sessiya yo'q / yaroqsiz / foydalanuvchi nofaol / parol almashgan → 401
+  | { holat: "yoq"; sabab: ChiqishSababi }   // sessiya yo'q / yaroqsiz / foydalanuvchi nofaol / parol almashgan → 401
   | { holat: "xato" };     // foydalanuvchilarni o'qib bo'lmadi → 503 (tizimdan CHIQARILMAYDI)
 
 /** So'rovdagi sessiya cookie → faol foydalanuvchi */
 export async function sessiyaFoydalanuvchisi(req: NextRequest): Promise<SessiyaNatija> {
   const s = sessiyaOqi(req.cookies.get(SESSIYA_COOKIE)?.value);
-  if (!s) return { holat: "yoq" };
+  if (!s) return { holat: "yoq", sabab: "sessiya" };
   const royxat = await foydalanuvchilar();
   if (!royxat) return { holat: "xato" };
   const u = royxat.find(x => tr(x.Foydalanuvchi_ID) === s.id);
-  if (!u || tr(u.Status) === "Nofaol") return { holat: "yoq" };
-  if (parolIzi(u.Foydalanuvchi_ID, u.Parol) !== s.p) return { holat: "yoq" };   // parol almashtirilgan — eski sessiya bekor
+  if (!u || tr(u.Status) === "Nofaol") return { holat: "yoq", sabab: "nofaol" };
+  // Parol almashtirilgan (o'zi yoki admin) — shu foydalanuvchining BARCHA qurilmalaridagi eski sessiyalar bekor.
+  // Parolni almashtirgan qurilma yangi izli cookie oladi (/api/auth/parol, /api/sheets PUT) va tizimda qoladi.
+  if (parolIzi(u.Foydalanuvchi_ID, u.Parol) !== s.p) return { holat: "yoq", sabab: "parol" };
   return { holat: "ok", u };
+}
+
+/** 401 javob matni sababga qarab */
+export function chiqishMatni(sabab: ChiqishSababi): string {
+  return sabab === "parol" ? "Parolingiz o'zgartirilgan. Yangi parol bilan qaytadan kiring."
+    : sabab === "nofaol" ? "Hisobingiz o'chirilgan yoki nofaol qilingan."
+    : "Avtorizatsiya kerak. Qaytadan kiring.";
 }
 
 export function adminmi(u: Qator): boolean { return tr(u.Lavozim) === "Admin"; }
@@ -83,10 +99,10 @@ export function adminmi(u: Qator): boolean { return tr(u.Lavozim) === "Admin"; }
 export async function sessiyaTalab(req: NextRequest): Promise<{ u: Qator } | { javob: NextResponse }> {
   const s = await sessiyaFoydalanuvchisi(req);
   if (s.holat === "ok") return { u: s.u };
-  const xato = s.holat === "xato"
-    ? { matn: "Server bilan bog'lanib bo'lmadi. Qayta urinib ko'ring.", status: 503 }
-    : { matn: "Avtorizatsiya kerak. Qaytadan kiring.", status: 401 };
-  return { javob: NextResponse.json({ error: xato.matn }, { status: xato.status, headers: { "Cache-Control": "no-store" } }) };
+  if (s.holat === "xato") {
+    return { javob: NextResponse.json({ error: "Server bilan bog'lanib bo'lmadi. Qayta urinib ko'ring." }, { status: 503, headers: { "Cache-Control": "no-store" } }) };
+  }
+  return { javob: NextResponse.json({ error: chiqishMatni(s.sabab), sabab: s.sabab }, { status: 401, headers: { "Cache-Control": "no-store" } }) };
 }
 
 /**
