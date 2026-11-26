@@ -4,6 +4,7 @@ import { useScrollLock } from "@/lib/use-scroll-lock";
 import { usePersistedState } from "@/lib/usePersistedState";
 import FabAdd from "@/components/FabAdd";
 import { parseOmborIds } from "@/lib/ombor-transfer";
+import { TOKEN_RE, CHAT_RE } from "@/lib/telegram-format";
 
 import { useEffect, useState, useCallback } from "react";
 
@@ -18,6 +19,10 @@ interface Foydalanuvchi {
   Status: string;
   // Server parolni HECH QACHON qaytarmaydi — bu maydon faqat formada (yangi parol kiritish uchun)
   Parol: string;
+  // Telegram: shu foydalanuvchi mijozlarining xabarlari boradigan chat (lib/telegram-server.ts)
+  Telegram_Chat: string;
+  // Shaxsiy bot token — server HECH QACHON qaytarmaydi; faqat formada (yangi token kiritish uchun)
+  Telegram_Token: string;
 }
 
 interface Ombor { Ombor_ID: string; Nomi: string; }
@@ -29,7 +34,10 @@ const STATUSLAR  = ["Faol", "Nofaol"];
 const EMPTY: Foydalanuvchi = {
   Foydalanuvchi_ID: "", Nomi: "", Lavozim: "", Telefon: "",
   Pochta: "", Ombor_ID: "", Gazna_ID: "", Status: "Faol", Parol: "",
+  Telegram_Chat: "", Telegram_Token: "",
 };
+
+type TgHolat = { holat: Record<string, { token: boolean }>; asosiyBot: boolean };
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
 
@@ -70,6 +78,9 @@ export default function FoydalanuvchiPage() {
   useEffect(() => { const c = () => setIsMobile(window.innerWidth < 768); c(); window.addEventListener("resize", c); return () => window.removeEventListener("resize", c); }, []);
   useScrollLock(drawerOpen || !!deleteTarget || !!detailTarget);
   const [deleting, setDeleting]         = useState(false);
+  // Kimda shaxsiy bot token saqlangan (tokenning o'zi kelmaydi) — /api/telegram/sozlama
+  const [tg, setTg]                     = useState<TgHolat>({ holat: {}, asosiyBot: false });
+  const tokenSaqlangan = (id: string) => !!tg.holat[id]?.token;
 
   // jim=true — saqlash/o'chirishdan keyingi yangilash: ro'yxat ekranda QOLADI (spinner ko'rsatilmaydi).
   // Aks holda sahifa qisqarib, skroll tepaga tushib ketardi — foydalanuvchi qayerda bo'lsa, o'sha joyda qolsin.
@@ -88,6 +99,10 @@ export default function FoydalanuvchiPage() {
         if (!gRes.error) setGaznalar(gRes.data as Gazna[]);
       }).catch(e => { if (!jim) setError(e instanceof Error ? e.message : "Xatolik"); })
         .finally(() => { if (!jim) setLoading(false); });
+      fetch("/api/telegram/sozlama", { cache: "no-store" })
+        .then(r => r.ok ? r.json() : null)
+        .then((j: TgHolat | null) => { if (j?.holat) setTg({ holat: j.holat, asosiyBot: !!j.asosiyBot }); })
+        .catch(() => {});
     }, delay);
   }, []);
 
@@ -115,8 +130,8 @@ export default function FoydalanuvchiPage() {
 
   function openEdit(u: Foydalanuvchi) {
     setEditTarget(u);
-    // Joriy parol ko'rsatilmaydi (server bermaydi): bo'sh qoldirilsa — o'zgarmaydi
-    setForm({ ...EMPTY, ...u, Parol: "" });
+    // Joriy parol/bot token ko'rsatilmaydi (server bermaydi): bo'sh qoldirilsa — o'zgarmaydi
+    setForm({ ...EMPTY, ...u, Parol: "", Telegram_Token: "" });
     setShowParol(false);
     setSaveErr("");
     setDrawerOpen(true);
@@ -124,9 +139,11 @@ export default function FoydalanuvchiPage() {
 
   // Yangi foydalanuvchiga parol majburiy; tahrirlashda — ixtiyoriy (bo'sh = o'zgarmaydi)
   const parolKiritilgan = String(form.Parol || "").trim();
+  const tgXato = telegramXatosi(form);
   function isValid() {
     if (String(form.Nomi || "").trim() === "" || form.Lavozim === "") return false;
     if (parolKiritilgan && parolKiritilgan.length < 4) return false;
+    if (tgXato) return false;
     return editTarget ? true : parolKiritilgan !== "";
   }
 
@@ -141,8 +158,13 @@ export default function FoydalanuvchiPage() {
     if (!isValid()) return;
     setSaving(true); setSaveErr("");
     try {
-      const { Parol, ...qolgani } = form;
-      const row = String(Parol || "").trim() ? { ...qolgani, Parol: String(Parol).trim() } : qolgani;
+      // Parol va bot token faqat kiritilgan bo'lsa yuboriladi (bo'sh = o'zgarmaydi); ro'yxatga hech qachon tushmaydi
+      const { Parol, Telegram_Token, ...qolgani } = form;
+      qolgani.Telegram_Chat = String(qolgani.Telegram_Chat || "").trim();
+      const yangiToken = String(Telegram_Token || "").trim();
+      const row: Record<string, string> = { ...qolgani };
+      if (String(Parol || "").trim()) row.Parol = String(Parol).trim();
+      if (yangiToken) row.Telegram_Token = yangiToken;
       const res = editTarget
         ? await fetch("/api/sheets", { method: "PUT", headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sheet: "Foydalanuvchi", idColumn: "Foydalanuvchi_ID", idValue: editTarget.Foydalanuvchi_ID, row }) })
@@ -155,7 +177,10 @@ export default function FoydalanuvchiPage() {
       // jim yangilanadi — ro'yxat ekrandan olinmaydi, skroll joyi va ochiladigan ma'lumot eskirmaydi
       setUsers(p => editTarget
         ? p.map(u => u.Foydalanuvchi_ID === editTarget.Foydalanuvchi_ID ? { ...u, ...qolgani } : u)
-        : [...p, { ...qolgani, Parol: "" }]);
+        : [...p, { ...qolgani, Parol: "", Telegram_Token: "" }]);
+      // Bot holati darhol: chat bo'shatilsa — bot uzildi (server tokenni ham o'chiradi)
+      const sid = form.Foydalanuvchi_ID;
+      setTg(p => ({ ...p, holat: { ...p.holat, [sid]: { token: qolgani.Telegram_Chat ? (yangiToken !== "" || !!p.holat[sid]?.token) : false } } }));
       setDrawerOpen(false);
       loadData(800, true);
     } catch {
@@ -392,6 +417,10 @@ export default function FoydalanuvchiPage() {
                 </div>
               </div>
 
+              {/* Telegram bot — shu foydalanuvchi mijozlarining xabarlari (to'lov, sotuv tasdig'i, ayirboshlash) qayerga boradi */}
+              <TelegramBolimi form={form} setForm={setForm} xato={tgXato}
+                tokenSaqlangan={!!editTarget && tokenSaqlangan(editTarget.Foydalanuvchi_ID)} asosiyBot={tg.asosiyBot} />
+
               {/* Parol */}
               <div className="drawer__section">
                 <p className="drawer__section-label">{editTarget ? "Kirish paroli" : "Kirish paroli *"}</p>
@@ -465,6 +494,9 @@ export default function FoydalanuvchiPage() {
           { label: "Telefon", value: u.Telefon },
           { label: "Ombor", value: omborNomi(u.Ombor_ID) },
           { label: "Gazna", value: gaznaNomlar(u.Gazna_ID) },
+          { label: "Telegram", value: String(u.Telegram_Chat || "").trim()
+              ? `${tokenSaqlangan(u.Foydalanuvchi_ID) ? "Shaxsiy bot" : "Asosiy bot"} · ${String(u.Telegram_Chat).trim()}`
+              : "Ulanmagan (asosiy guruhga)" },
         ];
         return (
           <>
@@ -544,6 +576,139 @@ export default function FoydalanuvchiPage() {
         </div>
       )}
     </>
+  );
+}
+
+/* ── Telegram bot ──────────────────────── */
+// Forma xatosi (saqlash tugmasi o'chadi). Server ham xuddi shunday tekshiradi (/api/sheets).
+function telegramXatosi(f: Foydalanuvchi): string {
+  const token = String(f.Telegram_Token || "").trim(), chat = String(f.Telegram_Chat || "").trim();
+  if (token && !TOKEN_RE.test(token)) return "Bot token formati noto'g'ri (masalan: 123456789:AAH...)";
+  if (chat && !CHAT_RE.test(chat)) return "Chat ID noto'g'ri (masalan: 123456789 yoki -1001234567890)";
+  if (token && !chat) return "Bot token kiritildi — Chat ID ham kerak («Chat ID'ni topish» tugmasi)";
+  return "";
+}
+
+type TgChat = { id: string; nomi: string; turi: string };
+
+function TelegramBolimi({ form, setForm, tokenSaqlangan, asosiyBot, xato }: {
+  form: Foydalanuvchi;
+  setForm: React.Dispatch<React.SetStateAction<Foydalanuvchi>>;
+  tokenSaqlangan: boolean;
+  asosiyBot: boolean;
+  xato: string;
+}) {
+  const [busy, setBusy]       = useState<"" | "chatlar" | "sinov">("");
+  const [chatlar, setChatlar] = useState<TgChat[] | null>(null);
+  const [natija, setNatija]   = useState<{ ok: boolean; matn: string } | null>(null);
+  const [tokenKor, setTokenKor] = useState(false);
+
+  const chat = String(form.Telegram_Chat || "").trim();
+  const yangiToken = String(form.Telegram_Token || "").trim();
+  const shaxsiyBot = yangiToken !== "" || tokenSaqlangan;
+  const holat = !chat
+    ? { rang: "var(--text-3)", matn: "Ulanmagan — bu foydalanuvchi mijozlarining xabarlari asosiy guruhga boradi." }
+    : shaxsiyBot
+      ? { rang: "#16a34a", matn: "Xabarlar foydalanuvchining shaxsiy boti orqali shu chatga boradi." }
+      : { rang: "#16a34a", matn: "Xabarlar asosiy bot orqali shu chatga boradi (shaxsiy bot token kiritilmagan)." };
+
+  async function sorov(amal: "chatlar" | "sinov") {
+    setBusy(amal); setNatija(null);
+    if (amal === "chatlar") setChatlar(null);
+    try {
+      const r = await fetch("/api/telegram/sozlama", {
+        method: "POST", headers: { "Content-Type": "application/json" }, cache: "no-store",
+        body: JSON.stringify({ amal, foydalanuvchiId: form.Foydalanuvchi_ID, token: yangiToken, chat, nomi: form.Nomi }),
+      });
+      const j = await r.json().catch(() => null) as { ok?: boolean; error?: string; bot?: string; chatlar?: TgChat[] } | null;
+      if (!r.ok || !j?.ok) { setNatija({ ok: false, matn: j?.error || "Xatolik. Qayta urinib ko'ring." }); return; }
+      if (amal === "chatlar") {
+        const list = j.chatlar || [];
+        setChatlar(list);
+        if (list.length === 0) setNatija({ ok: false, matn: `${j.bot || "Bot"}ga hali hech kim yozmagan. Foydalanuvchi botga /start yozsin (guruh bo'lsa — botni guruhga qo'shib, guruhga /start yozing), keyin qayta bosing.` });
+      } else {
+        setNatija({ ok: true, matn: `Sinov xabari yuborildi (${j.bot || "bot"}). Telegram'ni tekshiring, keyin «Saqlash» ni bosing.` });
+      }
+    } catch {
+      setNatija({ ok: false, matn: "Tarmoq xatosi. Qayta urinib ko'ring." });
+    } finally { setBusy(""); }
+  }
+
+  return (
+    <div className="drawer__section">
+      <p className="drawer__section-label">Telegram bot</p>
+      <p style={{ fontSize: 12.5, fontWeight: 600, color: holat.rang, marginBottom: 10, lineHeight: 1.45 }}>
+        {chat ? "🟢 " : "⚪ "}{holat.matn}
+      </p>
+
+      <div className="field">
+        <label>Bot token (ixtiyoriy)</label>
+        <div style={{ position: "relative" }}>
+          <input type={tokenKor ? "text" : "password"} value={form.Telegram_Token} autoComplete="off" spellCheck={false}
+            onChange={e => { const v = e.target.value; setForm(p => ({ ...p, Telegram_Token: v })); setChatlar(null); setNatija(null); }}
+            placeholder={tokenSaqlangan ? "Saqlangan — o'zgartirmaslik uchun bo'sh qoldiring" : (asosiyBot ? "Bo'sh bo'lsa — asosiy bot ishlatiladi" : "123456789:AAH... (@BotFather'dan)")}
+            style={{ paddingRight: 40 }} />
+          <button type="button" onClick={() => setTokenKor(v => !v)} title={tokenKor ? "Yashirish" : "Ko'rsatish"}
+            style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-3)", padding: 2, fontSize: 15 }}>
+            {tokenKor ? "🙈" : "👁"}
+          </button>
+        </div>
+      </div>
+
+      <div className="field">
+        <label>Chat ID</label>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={form.Telegram_Chat} inputMode="numeric" spellCheck={false} style={{ flex: 1, minWidth: 0 }}
+            onChange={e => { const v = e.target.value; setForm(p => ({ ...p, Telegram_Chat: v })); setNatija(null); }}
+            placeholder="123456789 yoki -1001234567890" />
+          <button type="button" className="btn btn--outline" style={{ flexShrink: 0, whiteSpace: "nowrap" }}
+            disabled={busy !== "" || (!!yangiToken && !TOKEN_RE.test(yangiToken))} onClick={() => sorov("chatlar")}>
+            {busy === "chatlar" && <span className="spinner" />} Chat ID&apos;ni topish
+          </button>
+        </div>
+      </div>
+
+      {chatlar && chatlar.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+          <p style={{ fontSize: 12, color: "var(--text-3)" }}>Botga yozgan chatlar — kerakligini tanlang:</p>
+          {chatlar.map(c => (
+            <button key={c.id} type="button" onClick={() => { setForm(p => ({ ...p, Telegram_Chat: c.id })); setChatlar(null); setNatija(null); }}
+              style={{
+                display: "flex", justifyContent: "space-between", gap: 10, padding: "9px 12px", borderRadius: 10, textAlign: "left",
+                border: `1px solid ${chat === c.id ? "var(--primary)" : "var(--border)"}`, background: "var(--white)", cursor: "pointer",
+              }}>
+              <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.nomi}</span>
+              <span style={{ fontSize: 11.5, color: "var(--text-3)", flexShrink: 0 }}>{c.turi} · {c.id}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="btn btn--outline" disabled={busy !== "" || !!xato || !CHAT_RE.test(chat)} onClick={() => sorov("sinov")}>
+          {busy === "sinov" && <span className="spinner" />} Sinab ko&apos;rish
+        </button>
+        {(chat || shaxsiyBot) && (
+          <button type="button" className="btn btn--outline" style={{ color: "var(--red, #dc2626)" }} disabled={busy !== ""}
+            onClick={() => { setForm(p => ({ ...p, Telegram_Chat: "", Telegram_Token: "" })); setChatlar(null);
+              setNatija({ ok: true, matn: "Bot uziladi — «Saqlash» ni bosing." }); }}>
+            Botni uzish
+          </button>
+        )}
+      </div>
+
+      {(xato || natija) && (
+        <p style={{ fontSize: 12.5, fontWeight: 600, marginTop: 8, lineHeight: 1.45, color: xato || !natija?.ok ? "var(--red, #dc2626)" : "#16a34a" }}>
+          {xato || natija?.matn}
+        </p>
+      )}
+
+      <p style={{ fontSize: 12, color: "var(--text-3)", marginTop: 10, lineHeight: 1.5 }}>
+        1) @BotFather&apos;da bot yarating va tokenini kiriting (kiritilmasa — asosiy bot ishlatiladi).<br />
+        2) Foydalanuvchi botga /start yozsin yoki botni guruhga qo&apos;shib, guruhga /start yozing.<br />
+        3) «Chat ID&apos;ni topish» → chatni tanlang → «Sinab ko&apos;rish» → «Saqlash».
+      </p>
+    </div>
   );
 }
 

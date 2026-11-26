@@ -4,6 +4,7 @@ import { sessiyaYarat, sessiyaCookie, parolIzi } from "@/lib/sessiya";
 import {
   sessiyaTalab, adminmi, foydalanuvchiJadvalimi, foydalanuvchilar, maxfiyniOlibTashla, maxfiyUstunmi, jadvalNomiTogrimi,
 } from "@/lib/sessiya-server";
+import { TOKEN_RE, CHAT_RE } from "@/lib/telegram-server";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -34,6 +35,16 @@ function boshMaxfiyniOlibTashla(row: Record<string, unknown>): Record<string, un
     nusxa[k] = row[k];
   }
   return nusxa;
+}
+
+// Foydalanuvchi Telegram boti (lib/telegram-server.ts): format tekshiruvi; Chat ID bo'shatilsa — bot uziladi
+// (saqlangan token ham o'chiriladi, eskirgan maxfiy qiymat bazada qolmasin). Xato bo'lsa — matni.
+function telegramMaydonlari(row: Record<string, unknown>): string | null {
+  const token = tr(row.Telegram_Token), chat = tr(row.Telegram_Chat);
+  if (token && !TOKEN_RE.test(token)) return "Bot token formati noto'g'ri (masalan: 123456789:AAH...)";
+  if (chat && !CHAT_RE.test(chat)) return "Telegram Chat ID noto'g'ri (masalan: 123456789 yoki -1001234567890)";
+  if ("Telegram_Chat" in row && chat === "") row.Telegram_Token = "";
+  return null;
 }
 
 export async function GET(request: NextRequest) {
@@ -94,6 +105,7 @@ export async function POST(request: NextRequest) {
       if (!adminmi(s.u)) return json({ error: ADMIN_KERAK }, { status: 403 });
       const yangilar: Record<string, unknown>[] = Array.isArray(rows) ? rows : [row];
       if (yangilar.some(r => !r || tr(r.Parol) === "")) return json({ error: "Yangi foydalanuvchiga parol kiriting" }, { status: 400 });
+      for (const r of yangilar) { const xato = telegramMaydonlari(r); if (xato) return json({ error: xato }, { status: 400 }); }
     }
     if (Array.isArray(rows)) await appendRows(sheet, rows);
     else await appendRow(sheet, row);
@@ -121,6 +133,8 @@ export async function PUT(request: NextRequest) {
     if (foydalanuvchiJadvalimi(sheet)) {
       if (!adminmi(s.u)) return json({ error: ADMIN_KERAK }, { status: 403 });
       payload = boshMaxfiyniOlibTashla(payload);
+      const tgXato = telegramMaydonlari(payload);
+      if (tgXato) return json({ error: tgXato }, { status: 400 });
       const yangiParol = tr(payload.Parol);
       if (yangiParol) {
         const royxat = await foydalanuvchilar();

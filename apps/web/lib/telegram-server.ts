@@ -1,9 +1,13 @@
 // Telegram'ga SERVER tomonidan xabar yuborish — /api/telegram va cron (muhlat eslatmasi) uchun umumiy.
 // Yo'naltirish:
 // - Default: .env.local dagi TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID (asosiy guruh).
-// - Agar `agent` (Foydalanuvchi_ID) berilsa va o'sha foydalanuvchida Telegram_Token + Telegram_Chat
-//   bo'lsa — xabar o'sha agentning boti/guruhiga boradi (masalan 27/41 DOKON o'z guruhiga).
+// - Agar `agent` (Foydalanuvchi_ID) berilsa va o'sha foydalanuvchiga Telegram_Chat belgilangan bo'lsa —
+//   xabar o'sha chatga boradi: Telegram_Token ham bo'lsa — foydalanuvchining O'Z boti orqali,
+//   bo'lmasa — asosiy bot orqali. Bot Foydalanuvchilar oynasida ulanadi (/api/telegram/sozlama).
+//   Chat belgilanmagan foydalanuvchining xabarlari asosiy guruhga boradi.
 import { getSheetData } from "./sheets";
+import { TOKEN_RE, CHAT_RE } from "./telegram-format";
+export { TOKEN_RE, CHAT_RE };
 
 // Telegram bitta xabar chegarasi 4096 belgi — zaxira bilan
 export const MAX_UZUNLIK = 3800;
@@ -22,10 +26,40 @@ async function manzil(agentId?: string): Promise<Manzil | null> {
       );
       const t = String(u?.Telegram_Token || "").trim();
       const c = String(u?.Telegram_Chat || "").trim();
-      if (t && c) { token = t; chatId = c; } // agent boti/guruhi
+      if (c && CHAT_RE.test(c)) {                  // agentning o'z chati/guruhi
+        chatId = c;
+        if (t && TOKEN_RE.test(t)) token = t;      // o'z boti; bo'lmasa — asosiy bot
+      }
     } catch { /* sozlanmagan bo'lsa default'ga tushamiz */ }
   }
   return token && chatId ? { token, chatId } : null;
+}
+
+type TgApiJavob = { ok?: boolean; result?: unknown; error_code?: number; description?: string } | null;
+
+/** Telegram Bot API chaqiruvi (token TOKEN_RE dan o'tgan bo'lishi SHART). Tarmoq xatosida null. */
+export async function tgApi(token: string, metod: string, body?: Record<string, unknown>): Promise<TgApiJavob> {
+  if (!TOKEN_RE.test(token)) return { ok: false, error_code: 401, description: "Unauthorized" };
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/${metod}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {}),
+      signal: AbortSignal.timeout(15_000),
+    });
+    return (await r.json().catch(() => null)) as TgApiJavob;
+  } catch { return null; }
+}
+
+/** Telegram xatosini foydalanuvchiga tushunarli matnga aylantirish */
+export function tgXatoMatni(j: TgApiJavob): string {
+  if (!j) return "Telegram bilan bog'lanib bo'lmadi. Qayta urinib ko'ring.";
+  const d = String(j.description || "");
+  if (j.error_code === 401 || j.error_code === 404) return "Bot token noto'g'ri (BotFather bergan tokenni to'liq nusxalang).";
+  if (/chat not found/i.test(d)) return "Chat topilmadi: foydalanuvchi botga /start yozmagan yoki bot guruhga qo'shilmagan.";
+  if (/blocked|kicked|not a member|deactivated/i.test(d)) return "Bot bloklangan yoki guruhdan chiqarilgan — botni qayta qo'shing / /start yozing.";
+  if (/conflict|webhook/i.test(d)) return "Bu botga webhook o'rnatilgan — chatlar ro'yxatini olib bo'lmaydi. Chat ID'ni qo'lda kiriting.";
+  return "Telegram rad etdi: " + (d || "noma'lum xato");
 }
 
 /** Uzun matnni qator chegarasidan bo'laklarga ajratadi (har biri `max` dan oshmaydi) */
